@@ -428,6 +428,33 @@ github.com/link-foundation`;
     console.log('✅ Initial vacancy_response page handled. Script will continue monitoring...');
   }
 
+  // Issue #68: Setup periodic Q&A saving
+  // This ensures Q&A pairs are saved even if user navigates away manually
+  let lastSaveTime = Date.now();
+  const SAVE_INTERVAL_MS = 5000; // Save every 5 seconds if on vacancy_response page
+
+  // Periodic save interval
+  const saveInterval = setInterval(async () => {
+    try {
+      const currentUrl = page.url();
+      const now = Date.now();
+
+      // Only save if we're on a vacancy_response page and enough time has passed
+      if (vacancyResponsePattern.test(currentUrl) && (now - lastSaveTime) >= SAVE_INTERVAL_MS) {
+        const savedCount = await saveQAPairs();
+        if (savedCount > 0) {
+          console.log(`💾 Auto-saved ${savedCount} Q&A pair(s)`);
+          lastSaveTime = now;
+        }
+      }
+    } catch {
+      // Ignore errors during periodic save
+    }
+  }, SAVE_INTERVAL_MS);
+
+  // Cleanup interval on process exit
+  process.on('exit', () => clearInterval(saveInterval));
+
   // Main loop to process all "Откликнуться" buttons
   while (true) {
     // Get all "Откликнуться" buttons on the current page
