@@ -469,14 +469,25 @@ github.com/link-foundation`;
     // Only process main frame navigations
     if (frame !== page.mainFrame()) return;
 
-    const newUrl = page.url();
+    try {
+      const currentUrl = frame.url();
+      const wasOnVacancyResponse = vacancyResponsePattern.test(lastUrl);
+      const isOnVacancyResponse = vacancyResponsePattern.test(currentUrl);
 
-    // Check if we're navigating away from a vacancy_response page
-    if (vacancyResponsePattern.test(lastUrl) && !vacancyResponsePattern.test(newUrl)) {
-      console.log('🔄 Navigating away from vacancy_response page, attempting final save...');
+      // If we were on vacancy_response page and are navigating away, save Q&A pairs
+      if (wasOnVacancyResponse && !isOnVacancyResponse) {
+        console.log('🔄 Navigation detected from vacancy_response page, saving Q&A pairs...');
+        const savedCount = await saveQAPairs();
+        if (savedCount > 0) {
+          console.log(`💾 Saved ${savedCount} Q&A pair(s) before navigation`);
+        }
+      }
+
+      lastUrl = currentUrl;
+    } catch (error) {
+      // Ignore errors during navigation save
+      console.log('⚠️  Error saving Q&A during navigation:', error.message);
     }
-
-    lastUrl = newUrl;
   });
 
   // Main loop to process all "Откликнуться" buttons
@@ -531,6 +542,14 @@ github.com/link-foundation`;
         } else if (vacancyResponsePattern.test(newUrl)) {
           // Still on vacancy_response page (manual submission required)
           console.log('💡 Waiting for you to complete and navigate back to:', START_URL);
+
+          // Issue #68: Save Q&A pairs before waiting for navigation
+          // This ensures answers are saved even if user navigates away quickly
+          const savedCount = await saveQAPairs();
+          if (savedCount > 0) {
+            console.log(`💾 Saved ${savedCount} Q&A pair(s) before waiting for navigation`);
+          }
+
           await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
           if (pageClosedByUser) {
             return;
