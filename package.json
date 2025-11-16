@@ -26,6 +26,7 @@
     "yargs": "^18.0.0"
   },
   "dependencies": {
-    "links-notation": "^0.11.2"
+    "links-notation": "^0.11.2",
+    "test-anywhere": "^0.7.0"
   }
 }
