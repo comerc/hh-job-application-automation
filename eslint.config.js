@@ -1,11 +1,11 @@
 // ESLint flat configuration (v9+)
 export default [
-  // CommonJS files (experiments/)
+  // ES modules files in experiments/ - some experiments use ES modules
   {
     files: ['experiments/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'commonjs',
+      sourceType: 'module',
       globals: {
         console: 'readonly',
         process: 'readonly',
