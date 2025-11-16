@@ -6,6 +6,7 @@ import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
+import { readQADatabase, addOrUpdateQA } from './qa-database.mjs';
 
 let browser = null;
 
@@ -220,6 +221,125 @@ github.com/link-foundation`;
   const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000; // Convert seconds to milliseconds
 
   /**
+   * Setup Q&A auto-fill and auto-save for all textareas on the page
+   * Issue #68: Automatically remember and prefill answers to repetitive questions
+   */
+  async function setupQAHandling() {
+    try {
+      // Read the Q&A database
+      const qaMap = await readQADatabase();
+
+      // Inject client-side script to handle Q&A functionality
+      await page.evaluate((qaData) => {
+        // Convert Map entries to object for serialization
+        const qaObj = Object.fromEntries(qaData);
+
+        // Find all textareas on the page
+        const textareas = document.querySelectorAll('textarea');
+
+        textareas.forEach((textarea) => {
+          // Look for the question label
+          const taskBody = textarea.closest('[data-qa="task-body"]');
+          if (!taskBody) return;
+
+          const questionEl = taskBody.querySelector('[data-qa="task-question"]');
+          if (!questionEl) return;
+
+          const question = questionEl.textContent.trim();
+          if (!question) return;
+
+          // Check if we have a known answer for this question
+          const knownAnswer = qaObj[question];
+          if (knownAnswer && (!textarea.value || textarea.value.trim() === '')) {
+            // Prefill the textarea with the known answer
+            textarea.value = knownAnswer;
+            console.log('[QA] Prefilled answer for:', question);
+
+            // Trigger input event to notify any listeners
+            const inputEvent = document.createEvent('Event');
+            inputEvent.initEvent('input', true, true);
+            textarea.dispatchEvent(inputEvent);
+          }
+
+          // Add blur event listener to save Q&A when user finishes editing
+          textarea.addEventListener('blur', async () => {
+            const answer = textarea.value.trim();
+            if (answer && answer !== knownAnswer) {
+              // Mark this Q&A pair for saving
+              textarea.dataset.qaQuestion = question;
+              textarea.dataset.qaAnswer = answer;
+              console.log('[QA] Marked for saving:', question, '->', answer);
+            }
+          });
+        });
+      }, Array.from(qaMap.entries()));
+
+      // Collect and save any Q&A pairs that were marked for saving
+      const qaPairsToSave = await page.evaluate(() => {
+        const pairs = [];
+        const textareas = document.querySelectorAll('textarea[data-qa-question][data-qa-answer]');
+        textareas.forEach((textarea) => {
+          pairs.push({
+            question: textarea.dataset.qaQuestion,
+            answer: textarea.dataset.qaAnswer,
+          });
+        });
+        return pairs;
+      });
+
+      // Save any new Q&A pairs to the database
+      for (const { question, answer } of qaPairsToSave) {
+        await addOrUpdateQA(question, answer);
+        console.log('💾 Saved Q&A:', question);
+      }
+
+      return qaPairsToSave.length;
+    } catch (error) {
+      console.error('⚠️  Error setting up Q&A handling:', error.message);
+      return 0;
+    }
+  }
+
+  /**
+   * Save Q&A pairs from textareas after user interaction
+   */
+  async function saveQAPairs() {
+    try {
+      const qaPairs = await page.evaluate(() => {
+        const pairs = [];
+        const textareas = document.querySelectorAll('textarea');
+
+        textareas.forEach((textarea) => {
+          const taskBody = textarea.closest('[data-qa="task-body"]');
+          if (!taskBody) return;
+
+          const questionEl = taskBody.querySelector('[data-qa="task-question"]');
+          if (!questionEl) return;
+
+          const question = questionEl.textContent.trim();
+          const answer = textarea.value.trim();
+
+          if (question && answer) {
+            pairs.push({ question, answer });
+          }
+        });
+
+        return pairs;
+      });
+
+      for (const { question, answer } of qaPairs) {
+        await addOrUpdateQA(question, answer);
+        console.log('💾 Saved Q&A:', question);
+      }
+
+      return qaPairs.length;
+    } catch (error) {
+      console.error('⚠️  Error saving Q&A pairs:', error.message);
+      return 0;
+    }
+  }
+
+  /**
    * Handle the vacancy_response page by prefilling the message and optionally clicking submit
    * Issue #65: Prefill message on vacancy_response page and only auto-click if no other text fields exist
    */
@@ -269,6 +389,10 @@ github.com/link-foundation`;
 
     console.log(`📊 Found ${textareaCount} textarea(s) on the page`);
 
+    // Issue #68: Setup Q&A handling for all textareas with questions
+    // This will prefill known answers and prepare to save new ones
+    await setupQAHandling();
+
     // Only auto-click submit if there is exactly 1 textarea (the cover letter one)
     if (textareaCount === 1) {
       console.log('✅ Only one textarea found, safe to auto-submit');
@@ -296,6 +420,13 @@ github.com/link-foundation`;
     } else {
       console.log('⚠️  Multiple textareas found, manual submission required to avoid errors');
       console.log('💡 Please review and submit the form manually when ready');
+
+      // Issue #68: Save Q&A pairs before waiting for manual submission
+      // This ensures answers are saved even if user doesn't submit immediately
+      const savedCount = await saveQAPairs();
+      if (savedCount > 0) {
+        console.log(`💾 Saved ${savedCount} Q&A pair(s) to database`);
+      }
     }
   }
 
