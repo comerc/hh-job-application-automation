@@ -1,7 +1,7 @@
 /**
  * Experiment to test QA database module
  */
-import { readQADatabase, addOrUpdateQA, getAnswer } from '../qa-database.mjs';
+import { readQADatabase, addOrUpdateQA, getAnswer } from '../src/qa-database.mjs';
 
 async function test() {
   console.log('Testing QA Database Module\n');

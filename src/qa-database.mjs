@@ -8,6 +8,42 @@ import path from 'path';
 
 const QA_FILE_PATH = path.join(process.cwd(), 'data', 'qa.lino');
 
+// Lock management for preventing concurrent file access
+const locks = new Map();
+
+/**
+ * Acquires a lock for a given key
+ * @param {string} key - The lock key
+ * @returns {Promise<void>}
+ */
+async function acquireLock(key) {
+  while (locks.has(key)) {
+    // Wait for the current lock to be released
+    await locks.get(key);
+  }
+
+  // Create a new lock
+  let releaseLock;
+  const lockPromise = new Promise((resolve) => {
+    releaseLock = resolve;
+  });
+
+  locks.set(key, lockPromise);
+
+  // Return the release function
+  return releaseLock;
+}
+
+/**
+ * Releases a lock for a given key
+ * @param {string} key - The lock key
+ * @param {Function} releaseFn - The release function returned by acquireLock
+ */
+function releaseLock(key, releaseFn) {
+  locks.delete(key);
+  releaseFn();
+}
+
 /**
  * Reads Q&A pairs from qa.lino file
  * @returns {Promise<Map<string, string>>} Map of questions to answers
@@ -82,13 +118,21 @@ export async function writeQADatabase(qaMap) {
 
 /**
  * Adds or updates a Q&A pair in the database
+ * Uses file locking to prevent race conditions and data loss
  * @param {string} question - The question
  * @param {string} answer - The answer
  */
 export async function addOrUpdateQA(question, answer) {
-  const qaMap = await readQADatabase();
-  qaMap.set(question, answer);
-  await writeQADatabase(qaMap);
+  const lockKey = 'qa-database';
+  const release = await acquireLock(lockKey);
+
+  try {
+    const qaMap = await readQADatabase();
+    qaMap.set(question, answer);
+    await writeQADatabase(qaMap);
+  } finally {
+    releaseLock(lockKey, release);
+  }
 }
 
 /**

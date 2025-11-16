@@ -2,19 +2,19 @@
   "name": "hhru-automation",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.js",
   "type": "module",
   "bin": {
-    "playwright-apply": "./playwright-apply.mjs",
-    "puppeteer-apply": "./puppeteer-apply.mjs"
+    "playwright-apply": "./src/playwright-apply.mjs",
+    "puppeteer-apply": "./src/puppeteer-apply.mjs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "playwright": "node playwright-apply.mjs",
-    "puppeteer": "node puppeteer-apply.mjs",
+    "test": "node --test tests/",
+    "playwright": "node src/playwright-apply.mjs",
+    "puppeteer": "node src/puppeteer-apply.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "check": "node playwright-apply.mjs --help > /dev/null && node puppeteer-apply.mjs --help > /dev/null && node -c inbrowser-clicks.js"
+    "check": "npm run lint && npm test && node src/playwright-apply.mjs --help > /dev/null && node src/puppeteer-apply.mjs --help > /dev/null && node -c src/inbrowser-clicks.js"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +26,7 @@
     "yargs": "^18.0.0"
   },
   "dependencies": {
-    "links-notation": "^0.11.2"
+    "links-notation": "^0.11.2",
+    "test-anywhere": "^0.7.0"
   }
 }
