@@ -128,6 +128,10 @@ github.com/link-foundation`;
   });
   const [page] = await browser.pages();
 
+  // Define URL patterns early so they can be used in event listeners
+  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy/;
+  const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
+
   // Track if page was closed by user to handle graceful shutdown
   let pageClosedByUser = false;
 
@@ -143,6 +147,34 @@ github.com/link-foundation`;
       console.error('❌ Error closing browser:', error.message);
     }
     process.exit(0);
+  });
+
+  // Issue #68: Save Q&A pairs before navigation away from vacancy_response page
+  // This ensures answers are saved even if user navigates away quickly
+  let lastUrl = page.url();
+  page.on('framenavigated', async (frame) => {
+    // Only handle main frame navigation
+    if (frame !== page.mainFrame()) return;
+
+    try {
+      const currentUrl = frame.url();
+      const wasOnVacancyResponse = vacancyResponsePattern.test(lastUrl);
+      const isOnVacancyResponse = vacancyResponsePattern.test(currentUrl);
+
+      // If we were on vacancy_response page and are navigating away, save Q&A pairs
+      if (wasOnVacancyResponse && !isOnVacancyResponse) {
+        console.log('🔄 Navigation detected from vacancy_response page, saving Q&A pairs...');
+        const savedCount = await saveQAPairs();
+        if (savedCount > 0) {
+          console.log(`💾 Saved ${savedCount} Q&A pair(s) before navigation`);
+        }
+      }
+
+      lastUrl = currentUrl;
+    } catch (error) {
+      // Ignore errors during navigation save
+      console.log('⚠️  Error saving Q&A during navigation:', error.message);
+    }
   });
 
   /**
@@ -207,8 +239,6 @@ github.com/link-foundation`;
     await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
   }
 
-  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy/;
-  const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
   const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000; // Convert seconds to milliseconds
 
   /**
@@ -514,6 +544,14 @@ github.com/link-foundation`;
         } else if (vacancyResponsePattern.test(newUrl)) {
           // Still on vacancy_response page (manual submission required)
           console.log('💡 Waiting for you to complete and navigate back to:', START_URL);
+
+          // Issue #68: Save Q&A pairs before waiting for navigation
+          // This ensures answers are saved even if user navigates away quickly
+          const savedCount = await saveQAPairs();
+          if (savedCount > 0) {
+            console.log(`💾 Saved ${savedCount} Q&A pair(s) before waiting for navigation`);
+          }
+
           await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
           if (pageClosedByUser) {
             return;
