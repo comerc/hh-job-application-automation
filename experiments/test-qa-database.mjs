@@ -5,7 +5,7 @@
  * Tests reading, writing, and parsing with links-notation
  */
 
-import { readQADatabase, writeQADatabase, addOrUpdateQA } from '../qa-database.mjs';
+import { readQADatabase, writeQADatabase, addOrUpdateQA } from '../src/qa-database.mjs';
 import { Parser } from 'links-notation';
 import fs from 'fs/promises';
 import path from 'path';

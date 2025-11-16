@@ -4,7 +4,7 @@
  * This simulates concurrent writes to qa.lino file
  */
 
-import { addOrUpdateQA, readQADatabase } from '../qa-database.mjs';
+import { addOrUpdateQA, readQADatabase } from '../src/qa-database.mjs';
 import fs from 'fs/promises';
 import path from 'path';
 

@@ -6,7 +6,7 @@
  * Run with: node experiments/test-qa-database-race-conditions.mjs
  */
 
-import { readQADatabase, writeQADatabase, addOrUpdateQA, getAnswer } from '../qa-database.mjs';
+import { readQADatabase, writeQADatabase, addOrUpdateQA, getAnswer } from '../src/qa-database.mjs';
 import fs from 'fs/promises';
 import path from 'path';
 
