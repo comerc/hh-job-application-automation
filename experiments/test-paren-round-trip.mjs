@@ -6,11 +6,11 @@ import { Parser } from 'links-notation';
 const testCases = [
   {
     name: 'Paired parens unquoted',
-    input: `Question (with paired parens)\n  Answer (also paired)`,
+    input: 'Question (with paired parens)\n  Answer (also paired)',
   },
   {
     name: 'Paired parens quoted',
-    input: `"Question (with paired parens)"\n  "Answer (also paired)"`,
+    input: '"Question (with paired parens)"\n  "Answer (also paired)"',
   },
 ];
 

@@ -30,7 +30,7 @@ async function test() {
     try {
       await fs.copyFile(QA_FILE, BACKUP_FILE);
       console.log('💾 Backed up current qa.lino\n');
-    } catch (error) {
+    } catch {
       console.log('ℹ️  No existing qa.lino to backup\n');
     }
 
@@ -80,7 +80,7 @@ async function test() {
       await fs.copyFile(BACKUP_FILE, QA_FILE);
       await fs.unlink(BACKUP_FILE);
       console.log('\n♻️  Restored original qa.lino');
-    } catch (error) {
+    } catch {
       console.log('\nℹ️  No backup to restore');
     }
   }
