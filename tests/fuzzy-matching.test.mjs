@@ -5,10 +5,6 @@
 import { describe, test, assert } from 'test-anywhere';
 import { findBestMatch } from '../src/qa-database.mjs';
 
-// Import internal functions for unit testing
-// These are not exported, so we'll test them via dynamic import
-const qaModule = await import('../src/qa-database.mjs');
-
 // Test data simulating real Q&A database
 const qaDatabase = new Map([
   ['Укажите ваши ожидания по заработной плате', 'От 450000 рублей в месяц на руки.'],
