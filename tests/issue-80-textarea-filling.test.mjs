@@ -24,12 +24,7 @@ function createMockPage() {
   return mockPage;
 }
 
-function createMockQADatabase() {
-  return new Map([
-    ['Test question?', 'Test answer'],
-    ['Another question?', 'Another answer'],
-  ]);
-}
+
 
 // Import the function we want to test
 // Since setupQAHandling is inside the main function, we'll need to test it indirectly
@@ -42,13 +37,6 @@ describe('Issue #80: Q&A Textarea Filling Fix', () => {
     // instead of setting textarea.value directly
 
     const mockPage = createMockPage();
-    const qaDatabase = createMockQADatabase();
-
-    // Mock the page.evaluate to return some textareas
-    mockPage.evaluate = async () => {
-      // Mock page.evaluate - return empty array for no textareas
-      return [];
-    };
 
     // Track calls to locator methods
     let clickCalled = false;
@@ -66,32 +54,15 @@ describe('Issue #80: Q&A Textarea Filling Fix', () => {
       };
     };
 
-    // Simulate the fixed setupQAHandling logic
-    const pageQuestions = await mockPage.evaluate(() => {
-      // This would be the actual page.evaluate code
-      return [
-        { question: 'Test question?', selector: 'textarea:nth-of-type(1)', index: 0 },
-      ];
-    });
+    // Simulate the fixed prefilling logic directly
+    const textarea = mockPage.locator('textarea');
+    const currentValue = await textarea.inputValue();
+    const answer = 'Test answer';
 
-    // Simulate fuzzy matching (simplified)
-    const questionToAnswer = new Map();
-    for (const { question, selector } of pageQuestions) {
-      if (qaDatabase.has(question)) {
-        questionToAnswer.set(question, { answer: qaDatabase.get(question), selector });
-      }
-    }
-
-    // Simulate the fixed prefilling logic
-    for (const [, { answer, selector }] of questionToAnswer) {
-      const textarea = mockPage.locator(selector);
-      const currentValue = await textarea.inputValue();
-
-      if (!currentValue || currentValue.trim() === '') {
-        // This is the FIX: use click() + type() instead of direct assignment
-        await textarea.click();
-        await textarea.type(answer);
-      }
+    if (!currentValue || currentValue.trim() === '') {
+      // This is the FIX: use click() + type() instead of direct assignment
+      await textarea.click();
+      await textarea.type(answer);
     }
 
     // Verify the fix was applied

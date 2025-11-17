@@ -245,7 +245,8 @@ github.com/link-foundation`;
           const question = questionEl.textContent.trim();
           if (question) {
             // Create a unique selector for this textarea
-            const selector = `textarea:nth-of-type(${index + 1})`;
+            // Prefer name attribute for more reliable selection, fallback to nth-of-type
+            const selector = textarea.name ? `textarea[name="${textarea.name}"]` : `textarea:nth-of-type(${index + 1})`;
             questions.push({ question, selector, index });
           }
         });
