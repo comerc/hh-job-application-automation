@@ -132,8 +132,15 @@ export async function readQADatabase() {
 /**
  * Escapes a string for safe use in links-notation format
  * Issue #78: Quote strings with `:` to preserve literal text
- * Issue #78: Quote strings with `()` to preserve them as literal characters
- * (Without quotes, parentheses create sub-structures and are removed from text)
+ *   - Without quotes: `Question: text` → treated as key-value structure (parse error)
+ *   - With quotes: `"Question: text"` → preserved as literal text
+ *
+ * Issue #78: Quote ALL strings with `()` to preserve them as literal characters
+ *   - Without quotes: `Question (with parens)` → `Question with parens` (parens REMOVED!)
+ *   - With quotes: `"Question (with parens)"` → `Question (with parens)` (preserved!)
+ *   - This applies to BOTH paired and unpaired parentheses
+ *   - See experiments/demonstrate-paired-paren-issue.mjs for proof
+ *
  * @param {string} str - String to escape
  * @returns {string} Escaped and quoted string if needed
  */
@@ -144,6 +151,8 @@ function escapeForLinksNotation(str) {
   const hasParens = str.includes('(') || str.includes(')');
 
   // Issue #78: Quote if has colon or parentheses (to preserve literal text)
+  // Note: We quote ALL parentheses, not just unpaired ones, because even
+  // paired parentheses get removed by links-notation when unquoted
   const needsQuoting = hasColon || hasQuotes || hasParens;
 
   if (needsQuoting) {
