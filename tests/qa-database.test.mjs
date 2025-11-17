@@ -689,5 +689,59 @@ What about paths?
       // The important thing is no crash and no data loss of other entries
       assert.ok(result.size >= 0, 'Should not crash');
     });
+
+    test('should quote and preserve parentheses as literal text (user feedback)', async () => {
+      await cleanup();
+
+      // User feedback: Parentheses should be quoted to preserve them as literal characters
+      // Without quotes, links-notation treats () as sub-structures and removes them
+      const testData = new Map([
+        ['Question (with paired parens)', 'Answer (also paired)'],
+        ['Question (first) and (second)', 'Multiple pairs'],
+        ['Question (outer (nested))', 'Nested parens'],
+      ]);
+
+      await writeQADatabase(testData);
+      const result = await readQADatabase();
+
+      assert.equal(result.size, testData.size, 'All paren entries preserved');
+      for (const [question, answer] of testData) {
+        assert.equal(
+          result.get(question),
+          answer,
+          `Parens in "${question}" should be preserved as literal text`,
+        );
+      }
+    });
+
+    test('should handle unpaired parentheses without crashing', async () => {
+      await cleanup();
+
+      // Unpaired parentheses need quoting to prevent parse errors
+      const testData = new Map([
+        ['Question (without closing', 'Answer'],
+        ['Question without opening)', 'Answer'],
+      ]);
+
+      await writeQADatabase(testData);
+      const result = await readQADatabase();
+
+      // Should not crash and should preserve data
+      assert.equal(result.size, testData.size, 'Unpaired paren entries should be quoted and preserved');
+    });
+
+    test('should quote colons to preserve literal text (user feedback)', async () => {
+      await cleanup();
+
+      // User feedback: Colons should be escaped with quotes to preserve literal text
+      const question = 'Question: with colon';
+      const answer = 'Answer: also with colon';
+
+      await addOrUpdateQA(question, answer);
+      const result = await readQADatabase();
+
+      // The key requirement is that the EXACT text is preserved
+      assert.equal(result.get(question), answer, 'Colon should be preserved as literal text');
+    });
   });
 });
