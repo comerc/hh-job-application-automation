@@ -178,7 +178,7 @@ function extractText(link) {
  * @param {string} b - Second string
  * @returns {number} Edit distance
  */
-function levenshteinDistance(a, b) {
+export function levenshteinDistance(a, b) {
   const matrix = [];
 
   // Initialize first column
@@ -215,7 +215,7 @@ function levenshteinDistance(a, b) {
  * @param {string} b - Second string
  * @returns {number} Similarity score
  */
-function stringSimilarity(a, b) {
+export function stringSimilarity(a, b) {
   const maxLength = Math.max(a.length, b.length);
   if (maxLength === 0) return 1.0;
 
@@ -228,7 +228,7 @@ function stringSimilarity(a, b) {
  * @param {string} question - Question to normalize
  * @returns {string} Normalized question
  */
-function normalizeQuestion(question) {
+export function normalizeQuestion(question) {
   return question
     .toLowerCase()
     .replace(/[.,!?;:]/g, '') // Remove punctuation
@@ -241,7 +241,7 @@ function normalizeQuestion(question) {
  * @param {string} question - Question string
  * @returns {Set<string>} Set of key words
  */
-function extractKeywords(question) {
+export function extractKeywords(question) {
   // Common stopwords in Russian that don't carry much meaning
   const stopwords = new Set([
     'пожалуйста', 'свои', 'ваши', 'от', 'до', 'в', 'на', 'с', 'по',
@@ -276,7 +276,7 @@ function extractKeywords(question) {
  * @param {string} b - Second question
  * @returns {number} Similarity score (0-1)
  */
-function keywordSimilarity(a, b) {
+export function keywordSimilarity(a, b) {
   const keywordsA = extractKeywords(a);
   const keywordsB = extractKeywords(b);
 

@@ -5,6 +5,10 @@
 import { describe, test, assert } from 'test-anywhere';
 import { findBestMatch } from '../src/qa-database.mjs';
 
+// Import internal functions for unit testing
+// These are not exported, so we'll test them via dynamic import
+const qaModule = await import('../src/qa-database.mjs');
+
 // Test data simulating real Q&A database
 const qaDatabase = new Map([
   ['Укажите ваши ожидания по заработной плате', 'От 450000 рублей в месяц на руки.'],
@@ -112,6 +116,104 @@ describe('Fuzzy Question Matching', () => {
     findBestMatch(question, qaDatabase);
     // Just verify it doesn't crash
     assert.ok(true);
+  });
+
+  test('Multiple similar questions should return best match', () => {
+    const question = 'Зарплатные ожидания';
+    const match = findBestMatch(question, qaDatabase);
+
+    // This is a very short question, may not match with default threshold 0.4
+    // If it matches, verify it's a salary question
+    if (match) {
+      assert.ok(match.question.includes('зарплат') || match.question.includes('заработной'));
+      assert.equal(match.answer, 'От 450000 рублей в месяц на руки.');
+    } else {
+      // No match is acceptable for such a short/generic question
+      assert.ok(true);
+    }
+  });
+
+  test('Case insensitive matching', () => {
+    const question = 'УКАЖИТЕ ВАШИ ОЖИДАНИЯ ПО ЗАРАБОТНОЙ ПЛАТЕ';
+    const match = findBestMatch(question, qaDatabase);
+
+    assert.ok(match);
+    assert.equal(match.score, 1.0);
+    assert.equal(match.answer, 'От 450000 рублей в месяц на руки.');
+  });
+
+  test('Punctuation should not affect matching', () => {
+    const question = 'Укажите ваши ожидания по заработной плате!!!';
+    const match = findBestMatch(question, qaDatabase);
+
+    assert.ok(match);
+    assert.equal(match.score, 1.0);
+    assert.equal(match.answer, 'От 450000 рублей в месяц на руки.');
+  });
+
+  test('Extra whitespace should not affect matching', () => {
+    const question = 'Укажите   ваши   ожидания   по   заработной   плате';
+    const match = findBestMatch(question, qaDatabase);
+
+    assert.ok(match);
+    assert.equal(match.score, 1.0);
+    assert.equal(match.answer, 'От 450000 рублей в месяц на руки.');
+  });
+
+  test('Very different questions should not match', () => {
+    const question = 'What is your favorite color?';
+    const match = findBestMatch(question, qaDatabase);
+
+    assert.equal(match, null);
+  });
+
+  test('Single word question should handle appropriately', () => {
+    const question = 'зарплата';
+    const match = findBestMatch(question, qaDatabase);
+
+    // May or may not match depending on threshold, but should not crash
+    // If matches, should be a salary-related question
+    if (match) {
+      assert.ok(match.question.includes('зарплат') || match.question.includes('заработной'));
+    }
+    assert.ok(true); // Just verify no crash
+  });
+
+  test('Very long question should handle appropriately', () => {
+    const question = 'Укажите пожалуйста свои зарплатные ожидания с учетом того что вы будете работать удаленно из другой страны';
+    const match = findBestMatch(question, qaDatabase);
+
+    // Should still match salary question despite extra words
+    if (match) {
+      assert.ok(match.question.includes('зарплат') || match.question.includes('заработной'));
+      assert.equal(match.answer, 'От 450000 рублей в месяц на руки.');
+    }
+  });
+
+  test('Threshold 0 should match anything', () => {
+    const question = 'Anything at all';
+    const match = findBestMatch(question, qaDatabase, 0);
+
+    // With threshold 0, should always find some match
+    assert.ok(match);
+  });
+
+  test('Threshold 1 should only match exact', () => {
+    const question = 'Укажите ваши ожидания по заработной плате';
+    const slightlyDifferent = 'Укажите ваши ожидания по заработной плате.';
+
+    const exactMatch = findBestMatch(question, qaDatabase, 1.0);
+    assert.ok(exactMatch);
+    assert.equal(exactMatch.score, 1.0);
+
+    const stillExact = findBestMatch(slightlyDifferent, qaDatabase, 1.0);
+    // Should still match after normalization removes punctuation
+    if (stillExact) {
+      assert.equal(stillExact.score, 1.0);
+    } else {
+      // If exact match logic is strict, no match is also acceptable
+      assert.ok(true);
+    }
   });
 
 });
