@@ -6,7 +6,7 @@ import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
-import { readQADatabase, addOrUpdateQA } from './qa-database.mjs';
+import { readQADatabase, addOrUpdateQA, findBestMatch } from './qa-database.mjs';
 
 let browser = null;
 
@@ -250,6 +250,40 @@ github.com/link-foundation`;
       // Read the Q&A database
       const qaMap = await readQADatabase();
 
+      // Extract all questions from the page
+      const pageQuestions = await page.evaluate(() => {
+        const questions = [];
+        const textareas = document.querySelectorAll('textarea');
+
+        textareas.forEach((textarea) => {
+          const taskBody = textarea.closest('[data-qa="task-body"]');
+          if (!taskBody) return;
+
+          const questionEl = taskBody.querySelector('[data-qa="task-question"]');
+          if (!questionEl) return;
+
+          const question = questionEl.textContent.trim();
+          if (question) {
+            questions.push(question);
+          }
+        });
+
+        return questions;
+      });
+
+      // Use fuzzy matching to find answers for each question
+      // Issue #74: Questions on forms may be phrased differently than in database
+      const questionToAnswer = new Map();
+      for (const pageQuestion of pageQuestions) {
+        const match = findBestMatch(pageQuestion, qaMap);
+        if (match) {
+          questionToAnswer.set(pageQuestion, match.answer);
+          console.log(`[QA] Fuzzy match for "${pageQuestion}" (score: ${match.score.toFixed(3)})`);
+          console.log(`[QA] Matched to: "${match.question}"`);
+          console.log(`[QA] Answer: "${match.answer}"`);
+        }
+      }
+
       // Inject client-side script to handle Q&A functionality
       await page.evaluate((qaData) => {
         // Convert Map entries to object for serialization
@@ -293,7 +327,7 @@ github.com/link-foundation`;
             }
           });
         });
-      }, Array.from(qaMap.entries()));
+      }, Array.from(questionToAnswer.entries()));
 
       // Collect and save any Q&A pairs that were marked for saving
       const qaPairsToSave = await page.evaluate(() => {
