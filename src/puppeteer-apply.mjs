@@ -294,9 +294,9 @@ github.com/link-foundation`;
           const currentValue = await page.$eval(selector, el => el.value);
 
           if (!currentValue || currentValue.trim() === '') {
-            // Use type() method to simulate real user input
+            // Use click() + type() method to simulate real user input like cover letter filling
             // This triggers all necessary events that hh.ru framework expects
-            await page.focus(selector);
+            await page.click(selector);
             await page.type(selector, answer);
             console.log(`[QA] Prefilled answer for: ${question}`);
           } else {

@@ -274,9 +274,9 @@ github.com/link-foundation`;
           const currentValue = await textarea.inputValue();
 
           if (!currentValue || currentValue.trim() === '') {
-            // Use type() method to simulate real user input
+            // Use click() + type() method to simulate real user input like cover letter filling
             // This triggers all necessary events that hh.ru framework expects
-            await textarea.focus();
+            await textarea.click();
             await textarea.type(answer);
             console.log(`[QA] Prefilled answer for: ${question}`);
           } else {
