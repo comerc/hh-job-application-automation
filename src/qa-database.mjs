@@ -131,14 +131,20 @@ export async function readQADatabase() {
 
 /**
  * Escapes a string for safe use in links-notation format
- * Issue #78: Use single quotes for strings with double quotes, double quotes for others
+ * Issue #78: Quote strings with `:` to preserve literal text
+ * Issue #78: Quote strings with `()` to preserve them as literal characters
+ * (Without quotes, parentheses create sub-structures and are removed from text)
  * @param {string} str - String to escape
  * @returns {string} Escaped and quoted string if needed
  */
 function escapeForLinksNotation(str) {
-  // Check if string needs quoting (contains special characters like : ( ) " ')
-  // Issue #78: Colons and other special chars cause parse errors
-  const needsQuoting = /[:()\"']/.test(str);
+  // Check if string needs quoting
+  const hasColon = str.includes(':');
+  const hasQuotes = str.includes('"') || str.includes("'");
+  const hasParens = str.includes('(') || str.includes(')');
+
+  // Issue #78: Quote if has colon or parentheses (to preserve literal text)
+  const needsQuoting = hasColon || hasQuotes || hasParens;
 
   if (needsQuoting) {
     // If string contains double quotes, use single quotes to wrap it
@@ -158,7 +164,7 @@ function escapeForLinksNotation(str) {
       // Has single quotes - use double quotes to wrap
       return `"${str}"`;
     } else {
-      // Has other special chars (: ( )) - use double quotes
+      // Has colon or parens - use double quotes
       return `"${str}"`;
     }
   }
