@@ -5,10 +5,10 @@ import { writeQADatabase, readQADatabase } from '../src/qa-database.mjs';
 import path from 'path';
 import fs from 'fs/promises';
 
-// Note: writeQADatabase uses hardcoded path data/qa.lino
-// So we'll save current qa.lino, run test, then restore it
-const QA_FILE = path.join(process.cwd(), 'data', 'qa.lino');
-const BACKUP_FILE = path.join(process.cwd(), 'data', 'qa.lino.test-backup');
+// Note: writeQADatabase uses hardcoded path data/qa.test.lino
+// So we'll save current qa.test.lino, run test, then restore it
+const QA_FILE = path.join(process.cwd(), 'data', 'qa.test.lino');
+const BACKUP_FILE = path.join(process.cwd(), 'data', 'qa.test.lino.test-backup');
 
 // Exact problematic data from the issue
 const realWorldData = new Map([
@@ -26,12 +26,12 @@ console.log('🧪 Testing with real-world data from issue #78\n');
 
 async function test() {
   try {
-    // Backup current qa.lino
+    // Backup current qa.test.lino
     try {
       await fs.copyFile(QA_FILE, BACKUP_FILE);
-      console.log('💾 Backed up current qa.lino\n');
+      console.log('💾 Backed up current qa.test.lino\n');
     } catch {
-      console.log('ℹ️  No existing qa.lino to backup\n');
+      console.log('ℹ️  No existing qa.test.lino to backup\n');
     }
 
     console.log('📝 Writing real-world Q&A data...');
@@ -75,11 +75,11 @@ async function test() {
       process.exit(1);
     }
   } finally {
-    // Restore original qa.lino
+    // Restore original qa.test.lino
     try {
       await fs.copyFile(BACKUP_FILE, QA_FILE);
       await fs.unlink(BACKUP_FILE);
-      console.log('\n♻️  Restored original qa.lino');
+      console.log('\n♻️  Restored original qa.test.lino');
     } catch {
       console.log('\nℹ️  No backup to restore');
     }

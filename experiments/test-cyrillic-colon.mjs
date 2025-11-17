@@ -43,8 +43,8 @@ for (const test of tests) {
   }
 }
 
-// Now test the actual problematic content from data/qa.lino
-console.log('\n=== Testing actual content from qa.lino ===\n');
+// Now test the actual problematic content from data/qa.test.lino
+console.log('\n=== Testing actual content from qa.test.lino ===\n');
 
 const actualContent = `Вопрос с двоеточием: как дела?
   Хорошо!

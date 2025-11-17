@@ -5,7 +5,7 @@ import { addOrUpdateQA, readQADatabase } from '../src/qa-database.mjs';
 import fs from 'fs/promises';
 
 const TEST_DATA_DIR = 'data';
-const TEST_QA_FILE = 'data/qa.lino';
+const TEST_QA_FILE = 'data/qa.test.lino';
 
 // Clean up
 try {
