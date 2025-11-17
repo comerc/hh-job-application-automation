@@ -46,6 +46,7 @@ function releaseLock(key, releaseFn) {
 
 /**
  * Reads Q&A pairs from qa.lino file
+ * Issue #78: Add better error handling and backup recovery to prevent data loss
  * @returns {Promise<Map<string, string>>} Map of questions to answers
  */
 export async function readQADatabase() {
@@ -87,13 +88,103 @@ export async function readQADatabase() {
       // File doesn't exist yet, return empty map
       return new Map();
     }
+
+    // Issue #78: If parse error occurs, try to recover from backup
+    if (error.message && error.message.includes('Parse error')) {
+      console.error('Error reading Q&A database:', error);
+      console.error('⚠️  Parse error detected! Attempting to recover from backup...');
+
+      try {
+        const backupPath = `${QA_FILE_PATH}.backup`;
+        const backupContent = await fs.readFile(backupPath, 'utf8');
+        const parser = new Parser();
+        const links = parser.parse(backupContent);
+
+        const qaMap = new Map();
+        for (const link of links) {
+          if (link._isFromPathCombination && link.values && link.values.length === 2) {
+            const question = extractText(link.values[0]);
+            const answer = extractText(link.values[1]);
+            if (question && answer) {
+              qaMap.set(question, answer);
+            }
+          }
+        }
+
+        console.error('✅ Successfully recovered data from backup!');
+        // Restore the corrupted file with the backup
+        await fs.copyFile(backupPath, QA_FILE_PATH);
+        return qaMap;
+      } catch (backupError) {
+        console.error('❌ Could not recover from backup:', backupError.message);
+        console.error('⚠️  WARNING: Q&A database is corrupted and could not be recovered!');
+        console.error(`⚠️  Please manually fix ${QA_FILE_PATH} or restore from backup.`);
+        // Return empty map to prevent crashes, but log the issue clearly
+        return new Map();
+      }
+    }
+
     console.error('Error reading Q&A database:', error);
     return new Map();
   }
 }
 
 /**
+ * Escapes a string for safe use in links-notation format
+ * Issue #78: Quote strings with `:` to preserve literal text
+ *   - Without quotes: `Question: text` → treated as key-value structure (parse error)
+ *   - With quotes: `"Question: text"` → preserved as literal text
+ *
+ * Issue #78: Quote ALL strings with `()` to preserve them as literal characters
+ *   - Without quotes: `Question (with parens)` → `Question with parens` (parens REMOVED!)
+ *   - With quotes: `"Question (with parens)"` → `Question (with parens)` (preserved!)
+ *   - This applies to BOTH paired and unpaired parentheses
+ *   - See experiments/demonstrate-paired-paren-issue.mjs for proof
+ *
+ * @param {string} str - String to escape
+ * @returns {string} Escaped and quoted string if needed
+ */
+function escapeForLinksNotation(str) {
+  // Check if string needs quoting
+  const hasColon = str.includes(':');
+  const hasQuotes = str.includes('"') || str.includes("'");
+  const hasParens = str.includes('(') || str.includes(')');
+
+  // Issue #78: Quote if has colon or parentheses (to preserve literal text)
+  // Note: We quote ALL parentheses, not just unpaired ones, because even
+  // paired parentheses get removed by links-notation when unquoted
+  const needsQuoting = hasColon || hasQuotes || hasParens;
+
+  if (needsQuoting) {
+    // If string contains double quotes, use single quotes to wrap it
+    // If string contains single quotes, use double quotes to wrap it
+    // If string contains both, use double quotes and escape the inner double quotes
+    const hasDoubleQuotes = str.includes('"');
+    const hasSingleQuotes = str.includes("'");
+
+    if (hasDoubleQuotes && hasSingleQuotes) {
+      // Has both - use double quotes and escape inner double quotes
+      const escaped = str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      return `"${escaped}"`;
+    } else if (hasDoubleQuotes) {
+      // Has double quotes - use single quotes to wrap
+      return `'${str}'`;
+    } else if (hasSingleQuotes) {
+      // Has single quotes - use double quotes to wrap
+      return `"${str}"`;
+    } else {
+      // Has colon or parens - use double quotes
+      return `"${str}"`;
+    }
+  }
+
+  return str;
+}
+
+/**
  * Writes Q&A pairs to qa.lino file
+ * Issue #78: Properly escape special characters to prevent parse errors and data loss
+ * Creates a backup before writing to enable recovery from corruption
  * @param {Map<string, string>} qaMap - Map of questions to answers
  */
 export async function writeQADatabase(qaMap) {
@@ -101,11 +192,20 @@ export async function writeQADatabase(qaMap) {
     // Ensure data directory exists
     await fs.mkdir(path.dirname(QA_FILE_PATH), { recursive: true });
 
-    // Format as indented Q&A pairs
+    // Create backup of existing file before writing
+    try {
+      await fs.access(QA_FILE_PATH);
+      const backupPath = `${QA_FILE_PATH}.backup`;
+      await fs.copyFile(QA_FILE_PATH, backupPath);
+    } catch {
+      // File doesn't exist yet, no backup needed
+    }
+
+    // Format as indented Q&A pairs with proper escaping
     const lines = [];
     for (const [question, answer] of qaMap.entries()) {
-      lines.push(question);
-      lines.push(`  ${answer}`);
+      lines.push(escapeForLinksNotation(question));
+      lines.push(`  ${escapeForLinksNotation(answer)}`);
     }
 
     const content = lines.join('\n') + '\n';
