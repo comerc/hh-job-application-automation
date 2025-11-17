@@ -244,18 +244,19 @@ github.com/link-foundation`;
   /**
    * Setup Q&A auto-fill and auto-save for all textareas on the page
    * Issue #68: Automatically remember and prefill answers to repetitive questions
+   * Issue #80: Use proper typing simulation instead of direct value assignment
    */
   async function setupQAHandling() {
     try {
       // Read the Q&A database
       const qaMap = await readQADatabase();
 
-      // Extract all questions from the page
+      // Extract all questions and their corresponding textarea selectors
       const pageQuestions = await page.evaluate(() => {
         const questions = [];
         const textareas = document.querySelectorAll('textarea');
 
-        textareas.forEach((textarea) => {
+        textareas.forEach((textarea, index) => {
           const taskBody = textarea.closest('[data-qa="task-body"]');
           if (!taskBody) return;
 
@@ -264,7 +265,9 @@ github.com/link-foundation`;
 
           const question = questionEl.textContent.trim();
           if (question) {
-            questions.push(question);
+            // Create a unique selector for this textarea
+            const selector = `textarea:nth-of-type(${index + 1})`;
+            questions.push({ question, selector, index });
           }
         });
 
@@ -274,17 +277,37 @@ github.com/link-foundation`;
       // Use fuzzy matching to find answers for each question
       // Issue #74: Questions on forms may be phrased differently than in database
       const questionToAnswer = new Map();
-      for (const pageQuestion of pageQuestions) {
-        const match = findBestMatch(pageQuestion, qaMap);
+      for (const { question, selector, index } of pageQuestions) {
+        const match = findBestMatch(question, qaMap);
         if (match) {
-          questionToAnswer.set(pageQuestion, match.answer);
-          console.log(`[QA] Fuzzy match for "${pageQuestion}" (score: ${match.score.toFixed(3)})`);
+          questionToAnswer.set(question, { answer: match.answer, selector, index });
+          console.log(`[QA] Fuzzy match for "${question}" (score: ${match.score.toFixed(3)})`);
           console.log(`[QA] Matched to: "${match.question}"`);
           console.log(`[QA] Answer: "${match.answer}"`);
         }
       }
 
-      // Inject client-side script to handle Q&A functionality
+      // Prefill textareas using Puppeteer's type() method for proper event triggering
+      // Issue #80: Direct value assignment doesn't work with hh.ru's framework
+      for (const [question, { answer, selector }] of questionToAnswer) {
+        try {
+          const currentValue = await page.$eval(selector, el => el.value);
+
+          if (!currentValue || currentValue.trim() === '') {
+            // Use type() method to simulate real user input
+            // This triggers all necessary events that hh.ru framework expects
+            await page.focus(selector);
+            await page.type(selector, answer);
+            console.log(`[QA] Prefilled answer for: ${question}`);
+          } else {
+            console.log(`[QA] Textarea already has content for: ${question}`);
+          }
+        } catch (error) {
+          console.error(`[QA] Error prefilling textarea for "${question}":`, error.message);
+        }
+      }
+
+      // Inject client-side script to handle Q&A saving functionality
       await page.evaluate((qaData) => {
         // Convert Map entries to object for serialization
         const qaObj = Object.fromEntries(qaData);
@@ -303,18 +326,8 @@ github.com/link-foundation`;
           const question = questionEl.textContent.trim();
           if (!question) return;
 
-          // Check if we have a known answer for this question
-          const knownAnswer = qaObj[question];
-          if (knownAnswer && (!textarea.value || textarea.value.trim() === '')) {
-            // Prefill the textarea with the known answer
-            textarea.value = knownAnswer;
-            console.log('[QA] Prefilled answer for:', question);
-
-            // Trigger input event to notify any listeners
-            const inputEvent = document.createEvent('Event');
-            inputEvent.initEvent('input', true, true);
-            textarea.dispatchEvent(inputEvent);
-          }
+          // Get the known answer for this question
+          const knownAnswer = qaObj[question]?.answer;
 
           // Add blur event listener to save Q&A when user finishes editing
           textarea.addEventListener('blur', async () => {
