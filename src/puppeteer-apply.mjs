@@ -420,50 +420,73 @@ github.com/link-foundation`;
   async function handleVacancyResponsePage() {
     console.log('📝 Detected vacancy_response page, handling application form...');
 
-    // First, try to click the toggle button to expand the cover letter section if it's collapsed
-    // Use the same comprehensive selector as the main loop to ensure consistency
-    try {
-      const nodes = await page.$$('button, a, span, div');
-      let toggleClicked = false;
-      for (const el of nodes) {
-        const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
-        const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-        if (txt === 'Добавить сопроводительное' || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
-          if (argv.verbose) {
-            console.log(`🔍 [VERBOSE] Found toggle element: text="${txt}", data-qa="${dataQa}"`);
-            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
-            const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
-            console.log(`🔍 [VERBOSE] Element visible: ${isVisible}, enabled: ${isEnabled}`);
-          }
-          console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
-          await page.evaluate(el => el.scrollIntoView(), el);
-          await el.click();
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Toggle click completed');
-          }
-          // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 500));
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Waited 500ms after click');
-          }
-          console.log('✅ Cover letter section expanded');
-          toggleClicked = true;
+    // Check if textarea is already visible
+    let textareaAlreadyVisible = false;
+    let textareaSelector = '';
+    const possibleSelectors = ['textarea[data-qa="vacancy-response-popup-form-letter-input"]', 'textarea[data-qa="vacancy-response-form-letter-input"]'];
+
+    for (const sel of possibleSelectors) {
+      try {
+        const el = await page.$(sel);
+        if (el && await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el)) {
+          textareaAlreadyVisible = true;
+          textareaSelector = sel;
+          console.log('💡 Cover letter section already expanded, textarea visible');
           break;
         }
+      } catch {
+        // Continue to next selector
       }
-      if (!toggleClicked) {
+    }
+
+    // If textarea not visible, try to click the toggle button to expand the cover letter section
+    // Use the same comprehensive selector as the main loop to ensure consistency
+    if (!textareaAlreadyVisible) {
+      try {
+        const nodes = await page.$$('button, a, span, div');
+        let toggleClicked = false;
+        for (const el of nodes) {
+          const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
+          const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
+          if (txt === 'Добавить сопроводительное' || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+            if (argv.verbose) {
+              console.log(`🔍 [VERBOSE] Found toggle element: text="${txt}", data-qa="${dataQa}"`);
+              const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
+              const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
+              console.log(`🔍 [VERBOSE] Element visible: ${isVisible}, enabled: ${isEnabled}`);
+            }
+            console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
+            await page.evaluate(el => el.scrollIntoView(), el);
+            await el.click();
+            if (argv.verbose) {
+              console.log('🔍 [VERBOSE] Toggle click completed');
+            }
+            // Wait a moment for the expand animation to complete
+            await new Promise(r => setTimeout(r, 500));
+            if (argv.verbose) {
+              console.log('🔍 [VERBOSE] Waited 500ms after click');
+            }
+            console.log('✅ Cover letter section expanded');
+            toggleClicked = true;
+            break;
+          }
+        }
+        if (!toggleClicked) {
+          console.log('💡 Toggle button not found, cover letter section may already be expanded');
+        }
+      } catch (error) {
+        // Toggle button might not exist if the section is already expanded
         console.log('💡 Toggle button not found, cover letter section may already be expanded');
-      }
-    } catch (error) {
-      // Toggle button might not exist if the section is already expanded
-      console.log('💡 Toggle button not found, cover letter section may already be expanded');
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Error during toggle: ${error.message}`);
+        if (argv.verbose) {
+          console.log(`🔍 [VERBOSE] Error during toggle: ${error.message}`);
+        }
       }
     }
 
     // Wait for the textarea to be visible
-    let textareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
+    if (!textareaAlreadyVisible) {
+      textareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
+    }
     try {
       if (argv.verbose) {
         console.log(`🔍 [VERBOSE] Waiting for textarea selector: ${textareaSelector}`);
