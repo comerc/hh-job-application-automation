@@ -1,4 +1,4 @@
-# hh-job-application-automation
+# hh-apply
 Automation of job application in hh.ru
 
 ## Video demonstration
@@ -22,7 +22,37 @@ github.com/link-foundation
 
 **Note:** It's recommended to use `--verbose` flag for debugging to see detailed logs about which buttons are being clicked and which textareas are being detected.
 
-### Puppeteer
+The application now supports both Playwright and Puppeteer through a single unified command. Use the `--engine` flag to choose between them (default: playwright).
+
+### Using Playwright (default)
+
+Using npm script (with verbose logging for debugging):
+```bash
+npm run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+```
+
+Or explicitly specify Playwright:
+```bash
+npm run playwright -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+```
+
+With custom message:
+
+```bash
+npm run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --message "Your custom application message here" --verbose
+```
+
+Direct execution:
+```bash
+./src/apply.mjs --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+```
+
+Using globally installed CLI (after `npm install -g`):
+```bash
+hh-apply --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+```
+
+### Using Puppeteer
 
 Using npm script (with verbose logging for debugging):
 ```bash
@@ -32,38 +62,15 @@ npm run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bf
 With custom message:
 
 ```bash
-npm run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --message "Your custom application message here" --verbose
+npm run apply -- --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --message "Your custom application message here" --verbose
 ```
 
 Direct execution:
 ```bash
-./puppeteer-apply.mjs --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+./src/apply.mjs --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
 ```
 
 Using globally installed CLI (after `npm install -g`):
 ```bash
-puppeteer-apply --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
-```
-
-### Playwright
-
-Using npm script (with verbose logging for debugging):
-```bash
-npm run playwright -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
-```
-
-With custom message:
-
-```bash
-npm run playwright -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --message "Your custom application message here" --verbose
-```
-
-Direct execution:
-```bash
-./playwright-apply.mjs --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
-```
-
-Using globally installed CLI (after `npm install -g`):
-```bash
-playwright-apply --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+hh-apply --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
 ```

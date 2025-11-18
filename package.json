@@ -1,20 +1,20 @@
 {
-  "name": "hhru-automation",
+  "name": "hh-apply",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.js",
   "type": "module",
   "bin": {
-    "playwright-apply": "./src/playwright-apply.mjs",
-    "puppeteer-apply": "./src/puppeteer-apply.mjs"
+    "hh-apply": "./src/apply.mjs"
   },
   "scripts": {
     "test": "node --test tests/",
-    "playwright": "node src/playwright-apply.mjs",
-    "puppeteer": "node src/puppeteer-apply.mjs",
+    "apply": "node src/apply.mjs",
+    "playwright": "node src/apply.mjs --engine playwright",
+    "puppeteer": "node src/apply.mjs --engine puppeteer",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "check": "npm run lint && npm test && node src/playwright-apply.mjs --help > /dev/null && node src/puppeteer-apply.mjs --help > /dev/null && node -c src/inbrowser-clicks.js"
+    "check": "npm run lint && npm test && node src/apply.mjs --help > /dev/null && node -c src/inbrowser-clicks.js"
   },
   "keywords": [],
   "author": "",
