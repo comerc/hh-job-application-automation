@@ -473,7 +473,7 @@ github.com/link-foundation`;
           const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
           await page.evaluate(el => el.scrollIntoView(), el);
-          await el.click();
+          await page.evaluate(el => el.click(), el);
           console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
           await new Promise(r => setTimeout(r, 5000));
