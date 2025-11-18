@@ -226,6 +226,84 @@ github.com/link-foundation`;
   const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000; // Convert seconds to milliseconds
 
   /**
+   * Universal function to fill a textarea with text
+   * This ensures consistent behavior across all textareas
+   * @param {Object} options - Configuration object
+   * @param {Locator|string} options.locatorOrSelector - Playwright Locator or CSS selector for the textarea
+   * @param {string} options.text - Text to type into the textarea
+   * @param {boolean} options.checkEmpty - Only type if textarea is empty (default: true)
+   * @param {boolean} options.scrollIntoView - Scroll textarea into center of viewport (default: true)
+   * @param {boolean} options.simulateTyping - Use typing simulation vs direct fill (default: true)
+   * @returns {Promise<boolean>} - Returns true if text was filled, false if skipped
+   */
+  async function fillTextArea(options = {}) {
+    const {
+      locatorOrSelector,
+      text,
+      checkEmpty = true,
+      scrollIntoView = true,
+      simulateTyping = true,
+    } = options;
+
+    if (!locatorOrSelector || !text) {
+      console.error('⚠️  fillTextArea: locatorOrSelector and text are required');
+      return false;
+    }
+
+    try {
+      // Get locator (either passed directly or from selector)
+      const locator = typeof locatorOrSelector === 'string'
+        ? page.locator(locatorOrSelector)
+        : locatorOrSelector;
+
+      // Wait for textarea to exist
+      await locator.waitFor({ state: 'visible', timeout: 5000 });
+
+      // Check if textarea is empty (if required)
+      if (checkEmpty) {
+        const currentValue = await locator.inputValue();
+        if (currentValue && currentValue.trim() !== '') {
+          if (argv.verbose) {
+            console.log(`🔍 [VERBOSE] Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."`);
+          }
+          return false;
+        }
+      }
+
+      // Scroll textarea into center of viewport for better visibility
+      if (scrollIntoView) {
+        await locator.evaluate((el) => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        });
+
+        // Wait a bit for scroll animation
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      // Click to focus
+      await locator.click();
+
+      // Fill the text
+      if (simulateTyping) {
+        // Type the text character by character (simulates real user input)
+        await locator.type(text);
+      } else {
+        // Fill directly (faster but may not trigger all events)
+        await locator.fill(text);
+      }
+
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Filled textarea with text: "${text.substring(0, 50)}..."`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('⚠️  Error in fillTextArea:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Setup Q&A auto-fill and auto-save for all textareas on the page
    * Issue #68: Automatically remember and prefill answers to repetitive questions
    * Issue #80: Use proper typing simulation instead of direct value assignment
@@ -272,18 +350,18 @@ github.com/link-foundation`;
         }
       }
 
-      // Prefill textareas using Playwright's type() method for proper event triggering
+      // Prefill textareas using fillTextArea for consistent behavior
       // Issue #80: Direct value assignment doesn't work with hh.ru's framework
       for (const [question, { answer, selector }] of questionToAnswer) {
         try {
-          const textarea = page.locator(selector);
-          const currentValue = await textarea.inputValue();
-
-          if (!currentValue || currentValue.trim() === '') {
-            // Use click() + type() method to simulate real user input like cover letter filling
-            // This triggers all necessary events that hh.ru framework expects
-            await textarea.click();
-            await textarea.type(answer);
+          const filled = await fillTextArea({
+            locatorOrSelector: selector,
+            text: answer,
+            checkEmpty: true,
+            scrollIntoView: true,
+            simulateTyping: true,
+          });
+          if (filled) {
             console.log(`[QA] Prefilled answer for: ${question}`);
           } else {
             console.log(`[QA] Textarea already has content for: ${question}`);
@@ -564,13 +642,15 @@ github.com/link-foundation`;
       }
     }
 
-    // Check if textarea is already filled
-    const currentValue = await textarea.inputValue();
-    if (!currentValue || currentValue.trim() === '') {
-      // Click on textarea to activate it
-      await textarea.click();
-      // Type the message
-      await textarea.type(MESSAGE);
+    // Use fillTextArea for consistent behavior
+    const filled = await fillTextArea({
+      locatorOrSelector: textareaSelector,
+      text: MESSAGE,
+      checkEmpty: true,
+      scrollIntoView: true,
+      simulateTyping: true,
+    });
+    if (filled) {
       console.log('✅ Prefilled cover letter message');
     } else {
       console.log('⏭️  Cover letter already contains text, skipping prefill');
@@ -832,28 +912,22 @@ github.com/link-foundation`;
       await addCover.click();
     }
 
-    const textarea = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] Clicking textarea to focus');
-    }
-    await textarea.click();
-
-    // Issue #47 Fix 1: Only type if textarea is empty to prevent double typing
-    const currentValue = await textarea.inputValue();
-    if (argv.verbose) {
-      console.log(`🔍 [VERBOSE] Current textarea value: "${currentValue}"`);
-    }
-    if (!currentValue || currentValue.trim() === '') {
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Typing message into textarea: "${MESSAGE.substring(0, 50)}..."`);
-      }
-      await textarea.type(MESSAGE);
+    // Use fillTextArea for consistent behavior
+    const filled = await fillTextArea({
+      locatorOrSelector: 'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
+      text: MESSAGE,
+      checkEmpty: true,
+      scrollIntoView: true,
+      simulateTyping: true,
+    });
+    if (filled) {
       console.log('✅ Playwright: typed message successfully');
     } else {
       console.log('⏭️  Playwright: textarea already contains text, skipping typing to prevent double entry');
     }
 
     // Verify textarea contains the expected message
+    const textarea = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
     const textareaValue = await textarea.inputValue();
     if (textareaValue === MESSAGE) {
       console.log('✅ Playwright: verified textarea contains target message');

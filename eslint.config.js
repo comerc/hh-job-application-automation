@@ -21,6 +21,7 @@ export default [
         // Browser globals - used in page.evaluate() contexts and inbrowser-clicks.js
         window: 'readonly',
         document: 'readonly',
+        Event: 'readonly',
       },
     },
     rules: {
@@ -61,6 +62,7 @@ export default [
         // Browser globals - used in page.evaluate() contexts
         window: 'readonly',
         document: 'readonly',
+        Event: 'readonly',
       },
     },
     rules: {
