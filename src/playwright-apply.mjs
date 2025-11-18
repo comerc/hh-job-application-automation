@@ -404,11 +404,11 @@ github.com/link-foundation`;
     await page.waitForSelector('body');
 
     // Log all textareas on the page for debugging
-    const allTextareas = page.locator('textarea');
-    const count = await allTextareas.count();
+    const initialTextareas = page.locator('textarea');
+    const count = await initialTextareas.count();
     console.log(`🔍 Initial scan: Found ${count} textarea(s) on page`);
     for (let i = 0; i < count; i++) {
-      const textarea = allTextareas.nth(i);
+      const textarea = initialTextareas.nth(i);
       const dataQa = await textarea.getAttribute('data-qa');
       const isVisible = await textarea.isVisible();
       console.log(`🔍 Initial textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
@@ -467,11 +467,11 @@ github.com/link-foundation`;
           console.log(`🔍 Textarea visibility after toggle click: ${textareaVisible}`);
           console.log('✅ Cover letter section expanded');
           // Log number of textareas after toggle click
-          const textareasAfter = page.locator('textarea');
-          const countAfter = await textareasAfter.count();
+          const textareasAfterToggle = page.locator('textarea');
+          const countAfter = await textareasAfterToggle.count();
           console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
           for (let i = 0; i < countAfter; i++) {
-            const textarea = textareasAfter.nth(i);
+            const textarea = textareasAfterToggle.nth(i);
             const dataQa = await textarea.getAttribute('data-qa');
             const isVisible = await textarea.isVisible();
             console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
