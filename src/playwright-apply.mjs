@@ -430,24 +430,44 @@ github.com/link-foundation`;
     }
 
     // If textarea not visible, try to click the toggle button to expand the cover letter section
-    // Use the same comprehensive selector as the main loop to ensure consistency
+    // IMPORTANT: Prioritize data-qa attributes to avoid clicking wrong elements
     if (!textareaAlreadyVisible) {
       try {
-        const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), button:has-text("добавить"), a:has-text("добавить"), button:has-text("письмо"), a:has-text("письмо"), button:has-text("написать"), a:has-text("написать"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+        // First, try to find by specific data-qa attributes (most reliable)
+        let addCover = page.locator('[data-qa="vacancy-response-letter-toggle"]').first();
+        if (await addCover.count() === 0) {
+          addCover = page.locator('[data-qa="add-cover-letter"]').first();
+        }
+
+        // If not found by data-qa, try to find by text but ONLY for small, specific elements
+        // Use a more specific selector that targets only button/a/span with exact text, excluding large divs
+        if (await addCover.count() === 0) {
+          if (argv.verbose) {
+            console.log('🔍 [VERBOSE] data-qa not found, searching by text in small elements only');
+          }
+          // This selector is more specific - it looks for buttons/links/spans that contain the text
+          // but not huge container divs
+          addCover = page.locator('button:has-text("Сопроводительное письмо"), a:has-text("Сопроводительное письмо"), span:has-text("Сопроводительное письмо")').first();
+        }
+
         const toggleExists = await addCover.count() > 0;
         if (toggleExists) {
           const text = await addCover.textContent();
           const dataQa = await addCover.getAttribute('data-qa');
           const isVisible = await addCover.isVisible();
           const isEnabled = await addCover.isEnabled();
-          console.log(`🔍 Found toggle element: text="${text?.trim()}", data-qa="${dataQa}", visible=${isVisible}, enabled=${isEnabled}`);
+          if (argv.verbose) {
+            console.log(`🔍 [VERBOSE] Found toggle element: text="${text?.trim()}", data-qa="${dataQa}", visible=${isVisible}, enabled=${isEnabled}`);
+          }
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${text?.trim()}", data-qa: "${dataQa}") to expand...`);
           await addCover.scrollIntoViewIfNeeded();
           await addCover.click();
           console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 10000));
-          console.log('🔍 Waited 5000ms after click');
+          await new Promise(r => setTimeout(r, 2000));
+          if (argv.verbose) {
+            console.log('🔍 [VERBOSE] Waited 2000ms after toggle click');
+          }
           // Check if textarea became visible after click
           const textareaAfterClick = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]').first();
           let textareaVisible = false;
@@ -464,17 +484,21 @@ github.com/link-foundation`;
               }
             }
           }
-          console.log(`🔍 Textarea visibility after toggle click: ${textareaVisible}`);
+          if (argv.verbose) {
+            console.log(`🔍 [VERBOSE] Textarea visibility after toggle click: ${textareaVisible}`);
+          }
           console.log('✅ Cover letter section expanded');
           // Log number of textareas after toggle click
           const textareasAfterToggle = page.locator('textarea');
           const countAfter = await textareasAfterToggle.count();
-          console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
-          for (let i = 0; i < countAfter; i++) {
-            const textarea = textareasAfterToggle.nth(i);
-            const dataQa = await textarea.getAttribute('data-qa');
-            const isVisible = await textarea.isVisible();
-            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          if (argv.verbose) {
+            console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
+            for (let i = 0; i < countAfter; i++) {
+              const textarea = textareasAfterToggle.nth(i);
+              const dataQa = await textarea.getAttribute('data-qa');
+              const isVisible = await textarea.isVisible();
+              console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+            }
           }
         } else {
           console.log('💡 Toggle button not found, cover letter section may already be expanded');
@@ -797,15 +821,32 @@ github.com/link-foundation`;
       continue;
     }
 
-    const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), button:has-text("добавить"), a:has-text("добавить"), button:has-text("письмо"), a:has-text("письмо"), button:has-text("написать"), a:has-text("написать"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
-    if (await addCover.count()) await addCover.click();
+    // Only match specific cover letter button - don't use broad words like "добавить" that match question buttons
+    const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+    if (await addCover.count()) {
+      if (argv.verbose) {
+        const text = await addCover.textContent();
+        const dataQa = await addCover.getAttribute('data-qa');
+        console.log(`🔍 [VERBOSE] Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
+      }
+      await addCover.click();
+    }
 
     const textarea = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Clicking textarea to focus');
+    }
     await textarea.click();
 
     // Issue #47 Fix 1: Only type if textarea is empty to prevent double typing
     const currentValue = await textarea.inputValue();
+    if (argv.verbose) {
+      console.log(`🔍 [VERBOSE] Current textarea value: "${currentValue}"`);
+    }
     if (!currentValue || currentValue.trim() === '') {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Typing message into textarea: "${MESSAGE.substring(0, 50)}..."`);
+      }
       await textarea.type(MESSAGE);
       console.log('✅ Playwright: typed message successfully');
     } else {

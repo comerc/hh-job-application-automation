@@ -452,67 +452,79 @@ github.com/link-foundation`;
     }
 
     // If textarea not visible, try to click the toggle button to expand the cover letter section
-    // Use the same comprehensive selector as the main loop to ensure consistency
+    // IMPORTANT: Prioritize data-qa attributes to avoid clicking wrong elements
     if (!textareaAlreadyVisible) {
       try {
-        const nodes = await page.$$('button, a, span, div');
-        let toggleClicked = false;
-        let toggleCandidates = [];
-        for (const el of nodes) {
-          const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
-          const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-          const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
-          if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || txt.toLowerCase().includes('написать') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
-            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
-            const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
-            toggleCandidates.push({ text: txt, dataQa, tag, visible: isVisible, enabled: isEnabled });
+        // First, try to find by specific data-qa attributes (most reliable)
+        let toggleButton = await page.$('[data-qa="vacancy-response-letter-toggle"]');
+        if (!toggleButton) {
+          toggleButton = await page.$('[data-qa="add-cover-letter"]');
+        }
+
+        // If not found by data-qa, try to find by text but ONLY for small, specific elements
+        if (!toggleButton) {
+          if (argv.verbose) {
+            console.log('🔍 [VERBOSE] data-qa not found, searching by text in small elements only');
+          }
+          const nodes = await page.$$('button, a, span');  // Exclude div to avoid matching containers
+          for (const el of nodes) {
+            const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
+            const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
+            // Only match if text is short (< 100 chars) and contains "сопроводительное"
+            // This avoids matching huge container divs
+            if (txt.length < 100 && txt.toLowerCase().includes('сопроводительное')) {
+              const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
+              const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
+              if (isVisible && isEnabled) {
+                toggleButton = el;
+                if (argv.verbose) {
+                  console.log(`🔍 [VERBOSE] Found by text: "${txt}", tag=${tag}`);
+                }
+                break;
+              }
+            }
           }
         }
-        console.log(`🔍 Found ${toggleCandidates.length} toggle candidate(s): ${toggleCandidates.map(c => `text="${c.text}", data-qa="${c.dataQa}", tag=${c.tag}, visible=${c.visible}, enabled=${c.enabled}`).join('; ')}`);
-        for (const candidate of toggleCandidates) {
-          if (!candidate.visible || !candidate.enabled) continue;
-          const txt = candidate.text;
-          const dataQa = candidate.dataQa;
-          // Find the element again
-          let el;
-          if (dataQa) {
-            el = await page.$(`[data-qa="${dataQa}"]`);
-          } else {
-            // Find by text, but it's hard, so skip if no dataQa
-            continue;
-          }
-          if (!el) continue;
-          const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
+
+        if (toggleButton) {
+          const txt = await page.evaluate(el => el.textContent.trim(), toggleButton);
+          const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), toggleButton);
+          const tag = await page.evaluate(el => el.tagName.toLowerCase(), toggleButton);
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
-          await page.evaluate(el => el.scrollIntoView(), el);
-          await page.evaluate(el => el.click(), el);
+          await page.evaluate(el => el.scrollIntoView(), toggleButton);
+          await page.evaluate(el => el.click(), toggleButton);
           console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 10000));
-          console.log('🔍 Waited 5000ms after click');
+          await new Promise(r => setTimeout(r, 2000));
+          if (argv.verbose) {
+            console.log('🔍 [VERBOSE] Waited 2000ms after toggle click');
+          }
           // Check if textarea became visible after click
           const textareaAfterClick = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]') || await page.$('textarea[data-qa="vacancy-response-form-letter-input"]') || await page.$('textarea');
           if (textareaAfterClick) {
             const isVisibleAfter = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareaAfterClick);
-            console.log(`🔍 Textarea visibility after toggle click: ${isVisibleAfter}`);
+            if (argv.verbose) {
+              console.log(`🔍 [VERBOSE] Textarea visibility after toggle click: ${isVisibleAfter}`);
+            }
           } else {
-            console.log('🔍 No textarea found after toggle click');
+            if (argv.verbose) {
+              console.log('🔍 [VERBOSE] No textarea found after toggle click');
+            }
           }
           console.log('✅ Cover letter section expanded');
-          toggleClicked = true;
-          break;
-        }
-        if (!toggleClicked) {
-          console.log(`💡 Toggle button not found (${toggleCandidates.length} candidates checked), cover letter section may already be expanded`);
-        } else {
+
           // Log number of textareas after toggle click
           const textareasAfter = await page.$$('textarea');
-          console.log(`📊 After toggle click: Found ${textareasAfter.length} textarea(s) on page`);
-          for (let i = 0; i < textareasAfter.length; i++) {
-            const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareasAfter[i]);
-            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareasAfter[i]);
-            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          if (argv.verbose) {
+            console.log(`📊 After toggle click: Found ${textareasAfter.length} textarea(s) on page`);
+            for (let i = 0; i < textareasAfter.length; i++) {
+              const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareasAfter[i]);
+              const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareasAfter[i]);
+              console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+            }
           }
+        } else {
+          console.log('💡 Toggle button not found, cover letter section may already be expanded');
         }
       } catch (error) {
         // Toggle button might not exist if the section is already expanded
@@ -821,16 +833,35 @@ github.com/link-foundation`;
     for (const el of nodes) {
       const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
       const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-      if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || txt.toLowerCase().includes('написать') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
+      // Only match specific cover letter button - don't use broad words like "добавить" that match question buttons
+      if (txt.toLowerCase().includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+        if (argv.verbose) {
+          console.log(`🔍 [VERBOSE] Clicking cover letter toggle: text="${txt}", data-qa="${dataQa}"`);
+        }
+        await el.click();
+        break;
+      }
     }
 
     // Activate textarea and type
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Waiting for textarea to be visible');
+    }
     await page.waitForSelector('textarea[data-qa="vacancy-response-popup-form-letter-input"]', { visible: true });
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Clicking textarea to focus');
+    }
     await page.click('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
 
     // Issue #47 Fix 1: Only type if textarea is empty to prevent double typing
     const currentValue = await page.$eval('textarea[data-qa="vacancy-response-popup-form-letter-input"]', el => el.value);
+    if (argv.verbose) {
+      console.log(`🔍 [VERBOSE] Current textarea value: "${currentValue}"`);
+    }
     if (!currentValue || currentValue.trim() === '') {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Typing message into textarea: "${MESSAGE.substring(0, 50)}..."`);
+      }
       await page.type('textarea[data-qa="vacancy-response-popup-form-letter-input"]', MESSAGE);
       console.log('✅ Puppeteer: typed message successfully');
     } else {
