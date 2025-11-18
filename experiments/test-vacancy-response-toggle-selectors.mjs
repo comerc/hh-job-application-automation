@@ -4,7 +4,6 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
 import os from 'os';
-import fs from 'fs/promises';
 
 async function testSelectors() {
   console.log('🔍 Testing different selectors for cover letter toggle button on vacancy_response page...\n');
