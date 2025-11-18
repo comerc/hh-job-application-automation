@@ -420,6 +420,9 @@ github.com/link-foundation`;
   async function handleVacancyResponsePage() {
     console.log('📝 Detected vacancy_response page, handling application form...');
 
+    // Ensure page is loaded
+    await page.waitForSelector('body');
+
     // Log all textareas on the page for debugging
     const allTextareas = await page.$$('textarea');
     console.log(`🔍 Initial scan: Found ${allTextareas.length} textarea(s) on page`);
