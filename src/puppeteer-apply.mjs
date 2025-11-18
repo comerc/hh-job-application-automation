@@ -449,13 +449,14 @@ github.com/link-foundation`;
         for (const el of nodes) {
           const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
           const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-          if (txt.includes('сопроводительное') || txt.includes('добавить') || txt.includes('письмо') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+          const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
+          if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
             const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
             const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
-            toggleCandidates.push({ text: txt, dataQa, visible: isVisible, enabled: isEnabled });
+            toggleCandidates.push({ text: txt, dataQa, tag, visible: isVisible, enabled: isEnabled });
           }
         }
-        console.log(`🔍 Found ${toggleCandidates.length} toggle candidate(s): ${toggleCandidates.map(c => `text="${c.text}", data-qa="${c.dataQa}", visible=${c.visible}, enabled=${c.enabled}`).join('; ')}`);
+        console.log(`🔍 Found ${toggleCandidates.length} toggle candidate(s): ${toggleCandidates.map(c => `text="${c.text}", data-qa="${c.dataQa}", tag=${c.tag}, visible=${c.visible}, enabled=${c.enabled}`).join('; ')}`);
         for (const candidate of toggleCandidates) {
           if (!candidate.visible || !candidate.enabled) continue;
           const txt = candidate.text;
@@ -469,14 +470,15 @@ github.com/link-foundation`;
             continue;
           }
           if (!el) continue;
-          console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}") to expand...`);
+          const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
+          console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
           await page.evaluate(el => el.scrollIntoView(), el);
-          await el.click();
+          await page.evaluate(el => el.click(), el);
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Toggle click completed');
           }
-            // Wait a moment for the expand animation to complete
-            await new Promise(r => setTimeout(r, 3000));
+          // Wait a moment for the expand animation to complete
+          await new Promise(r => setTimeout(r, 5000));
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Waited 2000ms after click');
           }
@@ -490,6 +492,13 @@ github.com/link-foundation`;
           // Log number of textareas after toggle click
           const textareasAfter = await page.$$('textarea');
           console.log(`📊 After toggle click: Found ${textareasAfter.length} textarea(s) on page`);
+          if (argv.verbose) {
+            for (let i = 0; i < textareasAfter.length; i++) {
+              const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareasAfter[i]);
+              const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareasAfter[i]);
+              console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+            }
+          }
         }
       } catch (error) {
         // Toggle button might not exist if the section is already expanded
@@ -543,18 +552,18 @@ github.com/link-foundation`;
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Any textarea found and visible');
           }
-         } catch {
-           console.log('⚠️  Cover letter textarea not found on vacancy_response page');
-           // Try to find any textareas on the page for debugging
-           const textareas = await page.$$('textarea');
-           console.log(`🔍 Found ${textareas.length} textarea(s) on page:`);
-           for (let i = 0; i < textareas.length; i++) {
-             const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareas[i]);
-             const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareas[i]);
-             console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
-           }
-           return;
-         }
+        } catch {
+          console.log('⚠️  Cover letter textarea not found on vacancy_response page');
+          // Try to find any textareas on the page for debugging
+          const textareas = await page.$$('textarea');
+          console.log(`🔍 Found ${textareas.length} textarea(s) on page:`);
+          for (let i = 0; i < textareas.length; i++) {
+            const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareas[i]);
+            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareas[i]);
+            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          }
+          return;
+        }
       }
     }
 
@@ -800,7 +809,7 @@ github.com/link-foundation`;
     for (const el of nodes) {
       const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
       const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-      if (txt.includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
+      if (txt.toLowerCase().includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await page.evaluate(el => el.click(), el); break; }
     }
 
     // Activate textarea and type

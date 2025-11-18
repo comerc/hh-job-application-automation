@@ -436,7 +436,7 @@ github.com/link-foundation`;
             console.log('🔍 [VERBOSE] Toggle click completed');
           }
           // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 3000));
+          await new Promise(r => setTimeout(r, 5000));
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Waited 2000ms after click');
           }
@@ -445,6 +445,14 @@ github.com/link-foundation`;
           const textareasAfter = page.locator('textarea');
           const countAfter = await textareasAfter.count();
           console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
+          if (argv.verbose) {
+            for (let i = 0; i < countAfter; i++) {
+              const textarea = textareasAfter.nth(i);
+              const dataQa = await textarea.getAttribute('data-qa');
+              const isVisible = await textarea.isVisible();
+              console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+            }
+          }
         } else {
           console.log('💡 Toggle button not found, cover letter section may already be expanded');
         }
@@ -478,7 +486,7 @@ github.com/link-foundation`;
         if (argv.verbose) {
           console.log(`🔍 [VERBOSE] Trying alternative textarea selector: ${textareaSelector}`);
         }
-          await textarea.waitFor({ state: 'visible', timeout: 5000 });
+        await textarea.waitFor({ state: 'visible', timeout: 5000 });
         if (argv.verbose) {
           console.log('🔍 [VERBOSE] Alternative textarea found and visible');
         }
@@ -490,24 +498,24 @@ github.com/link-foundation`;
           if (argv.verbose) {
             console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
           }
-        await textarea.waitFor({ state: 'visible', timeout: 5000 });
+          await textarea.waitFor({ state: 'visible', timeout: 5000 });
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Any textarea found and visible');
           }
-         } catch {
-           console.log('⚠️  Cover letter textarea not found on vacancy_response page');
-           // Try to find any textareas on the page for debugging
-           const allTextareas = page.locator('textarea');
-           const count = await allTextareas.count();
-           console.log(`🔍 Found ${count} textarea(s) on page:`);
-           for (let i = 0; i < count; i++) {
-             const locator = allTextareas.nth(i);
-             const dataQa = await locator.getAttribute('data-qa');
-             const isVisible = await locator.isVisible();
-             console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
-           }
-           return;
-         }
+        } catch {
+          console.log('⚠️  Cover letter textarea not found on vacancy_response page');
+          // Try to find any textareas on the page for debugging
+          const allTextareas = page.locator('textarea');
+          const count = await allTextareas.count();
+          console.log(`🔍 Found ${count} textarea(s) on page:`);
+          for (let i = 0; i < count; i++) {
+            const locator = allTextareas.nth(i);
+            const dataQa = await locator.getAttribute('data-qa');
+            const isVisible = await locator.isVisible();
+            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          }
+          return;
+        }
       }
     }
 
