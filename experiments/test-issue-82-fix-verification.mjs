@@ -89,3 +89,4 @@ if (hasErrors) {
   console.log('Both puppeteer and playwright handleVacancyResponsePage functions now');
   console.log('use the same comprehensive selector as their respective main loops.');
 }
+
