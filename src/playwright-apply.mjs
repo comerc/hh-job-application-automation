@@ -432,7 +432,7 @@ github.com/link-foundation`;
           await addCover.click();
           console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 5000));
+          await new Promise(r => setTimeout(r, 10000));
           console.log('🔍 Waited 5000ms after click');
           // Check if textarea became visible after click
           const textareaAfterClick = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]').first();
