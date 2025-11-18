@@ -396,15 +396,18 @@ github.com/link-foundation`;
     console.log('📝 Detected vacancy_response page, handling application form...');
 
     // First, try to click the toggle button to expand the cover letter section if it's collapsed
+    // Use the same comprehensive selector as the main loop to ensure consistency
     try {
-      const toggleButton = page.locator('[data-qa="vacancy-response-letter-toggle"]');
-      const toggleExists = await toggleButton.count() > 0;
+      const addCover = page.locator('button:has-text("Добавить сопроводительное"), a:has-text("Добавить сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+      const toggleExists = await addCover.count() > 0;
       if (toggleExists) {
         console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
-        await toggleButton.click();
+        await addCover.click();
         // Wait a moment for the expand animation to complete
         await new Promise(r => setTimeout(r, 500));
         console.log('✅ Cover letter section expanded');
+      } else {
+        console.log('💡 Toggle button not found, cover letter section may already be expanded');
       }
     } catch {
       // Toggle button might not exist if the section is already expanded

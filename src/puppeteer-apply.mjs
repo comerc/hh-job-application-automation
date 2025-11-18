@@ -416,14 +416,25 @@ github.com/link-foundation`;
     console.log('📝 Detected vacancy_response page, handling application form...');
 
     // First, try to click the toggle button to expand the cover letter section if it's collapsed
+    // Use the same comprehensive selector as the main loop to ensure consistency
     try {
-      const toggleButton = await page.$('[data-qa="vacancy-response-letter-toggle"]');
-      if (toggleButton) {
-        console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
-        await toggleButton.click();
-        // Wait a moment for the expand animation to complete
-        await new Promise(r => setTimeout(r, 500));
-        console.log('✅ Cover letter section expanded');
+      const nodes = await page.$$('button, a, span, div');
+      let toggleClicked = false;
+      for (const el of nodes) {
+        const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
+        const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
+        if (txt === 'Добавить сопроводительное' || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+          console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
+          await el.click();
+          // Wait a moment for the expand animation to complete
+          await new Promise(r => setTimeout(r, 500));
+          console.log('✅ Cover letter section expanded');
+          toggleClicked = true;
+          break;
+        }
+      }
+      if (!toggleClicked) {
+        console.log('💡 Toggle button not found, cover letter section may already be expanded');
       }
     } catch {
       // Toggle button might not exist if the section is already expanded
