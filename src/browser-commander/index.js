@@ -157,6 +157,31 @@ export function makeBrowserCommander(options = {}) {
   const engine = detectEngine(page);
 
   /**
+   * Wait/sleep for a specified time with optional verbose logging
+   * @param {Object} options - Configuration options
+   * @param {number} options.ms - Milliseconds to wait
+   * @param {string} options.reason - Reason for waiting (for verbose logging)
+   * @returns {Promise<void>}
+   */
+  async function wait(options = {}) {
+    const { ms, reason } = options;
+
+    if (!ms) {
+      throw new Error('ms is required in options');
+    }
+
+    if (verbose && reason) {
+      console.log(`🔍 [VERBOSE] Waiting ${ms}ms: ${reason}`);
+    }
+
+    await new Promise(r => setTimeout(r, ms));
+
+    if (verbose && reason) {
+      console.log(`🔍 [VERBOSE] Wait complete (${ms}ms)`);
+    }
+  }
+
+  /**
    * Fill a textarea with text
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector or Playwright Locator
@@ -205,7 +230,7 @@ export function makeBrowserCommander(options = {}) {
           await locator.evaluate((el) => {
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
           });
-          await new Promise(r => setTimeout(r, 300));
+          await wait({ ms: 300, reason: 'scroll animation to complete' });
         }
 
         await locator.click();
@@ -239,7 +264,7 @@ export function makeBrowserCommander(options = {}) {
           await page.$eval(selector, (el) => {
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
           });
-          await new Promise(r => setTimeout(r, 300));
+          await wait({ ms: 300, reason: 'scroll animation to complete' });
         }
 
         await page.click(selector);
@@ -308,7 +333,7 @@ export function makeBrowserCommander(options = {}) {
         if (scrollIntoView) {
           const behavior = smoothScroll ? 'smooth' : 'instant';
           if (verbose) {
-            console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}, will wait ${waitAfterScroll}ms after scroll`);
+            console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
           }
 
           await locator.evaluate((el, scrollBehavior) => {
@@ -316,11 +341,7 @@ export function makeBrowserCommander(options = {}) {
           }, behavior);
 
           // Wait for scroll animation to complete
-          await new Promise(r => setTimeout(r, waitAfterScroll));
-
-          if (verbose) {
-            console.log(`🔍 [VERBOSE] Scroll complete, waited ${waitAfterScroll}ms`);
-          }
+          await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
         }
 
         if (verbose) {
@@ -356,18 +377,14 @@ export function makeBrowserCommander(options = {}) {
         if (scrollIntoView) {
           const behavior = smoothScroll ? 'smooth' : 'instant';
           if (verbose) {
-            console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}, will wait ${waitAfterScroll}ms after scroll`);
+            console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
           }
 
           await page.evaluate((el, scrollBehavior) => {
             el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
           }, element, behavior);
 
-          await new Promise(r => setTimeout(r, waitAfterScroll));
-
-          if (verbose) {
-            console.log(`🔍 [VERBOSE] Scroll complete, waited ${waitAfterScroll}ms`);
-          }
+          await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
         }
 
         if (verbose) {
@@ -714,6 +731,7 @@ export function makeBrowserCommander(options = {}) {
   return {
     engine,
     page,
+    wait,
     fillTextArea,
     clickButton,
     evaluate,

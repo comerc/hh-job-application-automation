@@ -153,7 +153,7 @@ github.com/link-foundation`;
         }
       }
 
-      await new Promise(resolve => setTimeout(resolve, pollingInterval));
+      await commander.wait({ ms: pollingInterval, reason: 'polling interval before next URL check' });
     }
   }
 
@@ -429,11 +429,8 @@ github.com/link-foundation`;
           });
 
           console.log('🔍 Toggle click completed');
-          await new Promise(r => setTimeout(r, 1700));
 
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Waited 2000ms after toggle click');
-          }
+          await commander.wait({ ms: 1700, reason: 'expand animation to complete' });
           console.log('✅ Cover letter section expanded');
 
           // Log textareas after toggle
@@ -459,27 +456,33 @@ github.com/link-foundation`;
       if (argv.verbose) {
         console.log(`🔍 [VERBOSE] Waiting for textarea selector: ${textareaSelector}`);
       }
-      await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 10000 });
+      await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
       if (argv.verbose) {
         console.log('🔍 [VERBOSE] Textarea found and visible');
       }
     } catch {
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] First selector timed out after 2000ms, trying alternative');
+      }
       textareaSelector = 'textarea[data-qa="vacancy-response-form-letter-input"]';
       try {
         if (argv.verbose) {
           console.log(`🔍 [VERBOSE] Trying alternative textarea selector: ${textareaSelector}`);
         }
-        await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 5000 });
+        await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
         if (argv.verbose) {
           console.log('🔍 [VERBOSE] Alternative textarea found and visible');
         }
       } catch {
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] Alternative selector timed out after 2000ms, trying any textarea');
+        }
         textareaSelector = 'textarea';
         try {
           if (argv.verbose) {
             console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
           }
-          await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 5000 });
+          await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Any textarea found and visible');
           }
@@ -541,7 +544,7 @@ github.com/link-foundation`;
           scrollIntoView: true,
         });
         console.log('✅ Clicked submit button');
-        await new Promise(r => setTimeout(r, 2000));
+        await commander.wait({ ms: 2000, reason: 'submission to complete' });
       }
     } else {
       console.log('⚠️  Multiple textareas found, manual submission required to avoid errors');
@@ -666,11 +669,11 @@ github.com/link-foundation`;
 
     // Handle navigation or modal
     await Promise.race([
-      new Promise(r => setTimeout(r, 2000)),
+      commander.wait({ ms: 2000, reason: 'navigation or modal to appear' }),
       commander.waitForNavigation({ timeout: 2000 }).catch(() => {}),
     ]);
 
-    await new Promise(r => setTimeout(r, 2000));
+    await commander.wait({ ms: 2000, reason: 'delayed redirects to complete' });
 
     const currentUrl = commander.getUrl();
 
@@ -681,12 +684,12 @@ github.com/link-foundation`;
         console.log('💡 This is a vacancy_response page, handling automatically...');
         await handleVacancyResponsePage();
 
-        await new Promise(r => setTimeout(r, 2000));
+        await commander.wait({ ms: 2000, reason: 'potential redirect or manual navigation' });
 
         const newUrl = commander.getUrl();
         if (targetPagePattern.test(newUrl)) {
           console.log('✅ Back on search page after submission');
-          await new Promise(r => setTimeout(r, 1000));
+          await commander.wait({ ms: 1000, reason: 'page to fully load' });
           continue;
         } else if (vacancyResponsePattern.test(newUrl)) {
           console.log('💡 Waiting for you to complete and navigate back to:', START_URL);
@@ -701,7 +704,7 @@ github.com/link-foundation`;
             return;
           }
           console.log('✅ Returned to target page! Continuing with button loop...');
-          await new Promise(r => setTimeout(r, 1000));
+          await commander.wait({ ms: 1000, reason: 'page to fully load after navigation' });
           continue;
         }
       } else {
@@ -716,7 +719,7 @@ github.com/link-foundation`;
         }
 
         console.log('✅ Returned to target page! Continuing with button loop...');
-        await new Promise(r => setTimeout(r, 1000));
+        await commander.wait({ ms: 1000, reason: 'page to fully load after manual navigation' });
         continue;
       }
     }
@@ -756,11 +759,11 @@ github.com/link-foundation`;
       }
 
       const oneHourInMs = 60 * 60 * 1000;
-      await new Promise(r => setTimeout(r, oneHourInMs));
+      await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
 
       console.log('🔄 Refreshing the page after wait period...');
       await commander.goto({ url: START_URL });
-      await new Promise(r => setTimeout(r, 2000));
+      await commander.wait({ ms: 2000, reason: 'page to load after refresh' });
       continue;
     }
 
@@ -846,10 +849,10 @@ github.com/link-foundation`;
     });
     console.log(`✅ ${commander.engine}: clicked submit button`);
 
-    await new Promise(r => setTimeout(r, 2000));
+    await commander.wait({ ms: 2000, reason: 'modal to close after submission' });
 
     console.log(`⏳ Waiting ${BUTTON_CLICK_INTERVAL / 1000} seconds before processing next button...`);
-    await new Promise(r => setTimeout(r, BUTTON_CLICK_INTERVAL));
+    await commander.wait({ ms: BUTTON_CLICK_INTERVAL, reason: 'interval before next application' });
   }
 })().catch(async (error) => {
   console.error('❌ Error occurred:', error.message);
