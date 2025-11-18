@@ -95,6 +95,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
       type: 'string',
       description: 'Message to send with job application',
     })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging for debugging',
+      default: false,
+    })
     .help()
     .argv;
 
@@ -415,39 +420,172 @@ github.com/link-foundation`;
   async function handleVacancyResponsePage() {
     console.log('📝 Detected vacancy_response page, handling application form...');
 
-    // First, try to click the toggle button to expand the cover letter section if it's collapsed
-    try {
-      const toggleButton = await page.$('[data-qa="vacancy-response-letter-toggle"]');
-      if (toggleButton) {
-        console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
-        await toggleButton.click();
-        // Wait a moment for the expand animation to complete
-        await new Promise(r => setTimeout(r, 500));
-        console.log('✅ Cover letter section expanded');
+    // Ensure page is loaded
+    await page.waitForSelector('body');
+
+    // Log all textareas on the page for debugging
+    const allTextareas = await page.$$('textarea');
+    console.log(`🔍 Initial scan: Found ${allTextareas.length} textarea(s) on page`);
+    for (let i = 0; i < allTextareas.length; i++) {
+      const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), allTextareas[i]);
+      const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, allTextareas[i]);
+      console.log(`🔍 Initial textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+    }
+
+    // Check if textarea is already visible
+    let textareaAlreadyVisible = false;
+    let textareaSelector = '';
+    const possibleSelectors = ['textarea[data-qa="vacancy-response-popup-form-letter-input"]', 'textarea[data-qa="vacancy-response-form-letter-input"]'];
+
+    for (const sel of possibleSelectors) {
+      try {
+        const el = await page.$(sel);
+        if (el && await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el)) {
+          textareaAlreadyVisible = true;
+          textareaSelector = sel;
+          console.log('💡 Cover letter section already expanded, textarea visible');
+          break;
+        }
+      } catch {
+        // Continue to next selector
       }
-    } catch {
-      // Toggle button might not exist if the section is already expanded
-      console.log('💡 Toggle button not found, cover letter section may already be expanded');
+    }
+
+    // If textarea not visible, try to click the toggle button to expand the cover letter section
+    // Use the same comprehensive selector as the main loop to ensure consistency
+    if (!textareaAlreadyVisible) {
+      try {
+        const nodes = await page.$$('button, a, span, div');
+        let toggleClicked = false;
+        let toggleCandidates = [];
+        for (const el of nodes) {
+          const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
+          const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
+          const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
+          if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || txt.toLowerCase().includes('написать') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
+            const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
+            toggleCandidates.push({ text: txt, dataQa, tag, visible: isVisible, enabled: isEnabled });
+          }
+        }
+        console.log(`🔍 Found ${toggleCandidates.length} toggle candidate(s): ${toggleCandidates.map(c => `text="${c.text}", data-qa="${c.dataQa}", tag=${c.tag}, visible=${c.visible}, enabled=${c.enabled}`).join('; ')}`);
+        for (const candidate of toggleCandidates) {
+          if (!candidate.visible || !candidate.enabled) continue;
+          const txt = candidate.text;
+          const dataQa = candidate.dataQa;
+          // Find the element again
+          let el;
+          if (dataQa) {
+            el = await page.$(`[data-qa="${dataQa}"]`);
+          } else {
+            // Find by text, but it's hard, so skip if no dataQa
+            continue;
+          }
+          if (!el) continue;
+          const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
+          console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
+          await page.evaluate(el => el.scrollIntoView(), el);
+          await page.evaluate(el => el.click(), el);
+          console.log('🔍 Toggle click completed');
+          // Wait a moment for the expand animation to complete
+          await new Promise(r => setTimeout(r, 10000));
+          console.log('🔍 Waited 5000ms after click');
+          // Check if textarea became visible after click
+          const textareaAfterClick = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]') || await page.$('textarea[data-qa="vacancy-response-form-letter-input"]') || await page.$('textarea');
+          if (textareaAfterClick) {
+            const isVisibleAfter = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareaAfterClick);
+            console.log(`🔍 Textarea visibility after toggle click: ${isVisibleAfter}`);
+          } else {
+            console.log('🔍 No textarea found after toggle click');
+          }
+          console.log('✅ Cover letter section expanded');
+          toggleClicked = true;
+          break;
+        }
+        if (!toggleClicked) {
+          console.log(`💡 Toggle button not found (${toggleCandidates.length} candidates checked), cover letter section may already be expanded`);
+        } else {
+          // Log number of textareas after toggle click
+          const textareasAfter = await page.$$('textarea');
+          console.log(`📊 After toggle click: Found ${textareasAfter.length} textarea(s) on page`);
+          for (let i = 0; i < textareasAfter.length; i++) {
+            const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareasAfter[i]);
+            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareasAfter[i]);
+            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          }
+        }
+      } catch (error) {
+        // Toggle button might not exist if the section is already expanded
+        console.log('💡 Toggle button not found, cover letter section may already be expanded');
+        console.log(`🔍 Error during toggle: ${error.message}`);
+      }
     }
 
     // Wait for the textarea to be visible
+    if (!textareaAlreadyVisible) {
+      textareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
+    }
     try {
-      await page.waitForSelector('textarea[data-qa="vacancy-response-popup-form-letter-input"]', {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Waiting for textarea selector: ${textareaSelector}`);
+      }
+      await page.waitForSelector(textareaSelector, {
         visible: true,
-        timeout: 5000,
+        timeout: 10000,
       });
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Textarea found and visible');
+      }
     } catch {
-      console.log('⚠️  Cover letter textarea not found on vacancy_response page');
-      return;
+      // Try alternative selector without "popup" for vacancy_response page
+      textareaSelector = 'textarea[data-qa="vacancy-response-form-letter-input"]';
+      try {
+        if (argv.verbose) {
+          console.log(`🔍 [VERBOSE] Trying alternative textarea selector: ${textareaSelector}`);
+        }
+        await page.waitForSelector(textareaSelector, {
+          visible: true,
+          timeout: 5000,
+        });
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] Alternative textarea found and visible');
+        }
+      } catch {
+        // Try any textarea as last resort
+        textareaSelector = 'textarea';
+        try {
+          if (argv.verbose) {
+            console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
+          }
+          await page.waitForSelector(textareaSelector, {
+            visible: true,
+            timeout: 5000,
+          });
+          if (argv.verbose) {
+            console.log('🔍 [VERBOSE] Any textarea found and visible');
+          }
+        } catch {
+          console.log('⚠️  Cover letter textarea not found on vacancy_response page');
+          // Try to find any textareas on the page for debugging
+          const textareas = await page.$$('textarea');
+          console.log(`🔍 Found ${textareas.length} textarea(s) on page:`);
+          for (let i = 0; i < textareas.length; i++) {
+            const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareas[i]);
+            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareas[i]);
+            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          }
+          return;
+        }
+      }
     }
 
     // Check if textarea is already filled
-    const currentValue = await page.$eval('textarea[data-qa="vacancy-response-popup-form-letter-input"]', el => el.value);
+    const currentValue = await page.$eval(textareaSelector, el => el.value);
     if (!currentValue || currentValue.trim() === '') {
       // Click on textarea to activate it
-      await page.click('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
+      await page.click(textareaSelector);
       // Type the message
-      await page.type('textarea[data-qa="vacancy-response-popup-form-letter-input"]', MESSAGE);
+      await page.type(textareaSelector, MESSAGE);
       console.log('✅ Prefilled cover letter message');
     } else {
       console.log('⏭️  Cover letter already contains text, skipping prefill');
@@ -678,12 +816,12 @@ github.com/link-foundation`;
       continue;
     }
 
-    // Click "Добавить сопроводительное" or element with data-qa="add-cover-letter" or data-qa="vacancy-response-letter-toggle"
+    // Click element containing "сопроводительное" or element with data-qa="add-cover-letter" or data-qa="vacancy-response-letter-toggle"
     const nodes = await page.$$('button, a, span, div');
     for (const el of nodes) {
       const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
       const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-      if (txt === 'Добавить сопроводительное' || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
+      if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || txt.toLowerCase().includes('написать') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
     }
 
     // Activate textarea and type
