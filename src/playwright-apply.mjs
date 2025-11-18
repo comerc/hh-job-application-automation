@@ -95,6 +95,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
       type: 'string',
       description: 'Message to send with job application',
     })
+    .option('verbose', {
+      type: 'boolean',
+      description: 'Enable verbose logging for debugging',
+      default: false,
+    })
     .help()
     .argv;
 
@@ -401,26 +406,75 @@ github.com/link-foundation`;
       const addCover = page.locator('button:has-text("Добавить сопроводительное"), a:has-text("Добавить сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
       const toggleExists = await addCover.count() > 0;
       if (toggleExists) {
+        if (argv.verbose) {
+          const text = await addCover.textContent();
+          const dataQa = await addCover.getAttribute('data-qa');
+          const isVisible = await addCover.isVisible();
+          const isEnabled = await addCover.isEnabled();
+          console.log(`🔍 [VERBOSE] Found toggle element: text="${text?.trim()}", data-qa="${dataQa}", visible=${isVisible}, enabled=${isEnabled}`);
+        }
         console.log('🔘 Cover letter section is collapsed, clicking toggle to expand...');
+        await addCover.scrollIntoViewIfNeeded();
         await addCover.click();
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] Toggle click completed');
+        }
         // Wait a moment for the expand animation to complete
         await new Promise(r => setTimeout(r, 500));
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] Waited 500ms after click');
+        }
         console.log('✅ Cover letter section expanded');
       } else {
         console.log('💡 Toggle button not found, cover letter section may already be expanded');
       }
-    } catch {
+    } catch (error) {
       // Toggle button might not exist if the section is already expanded
       console.log('💡 Toggle button not found, cover letter section may already be expanded');
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Error during toggle: ${error.message}`);
+      }
     }
 
     // Wait for the textarea to be visible
-    const textarea = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
+    let textareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
+    let textarea = page.locator(textareaSelector);
     try {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Waiting for textarea selector: ${textareaSelector}`);
+      }
       await textarea.waitFor({ state: 'visible', timeout: 5000 });
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Textarea found and visible');
+      }
     } catch {
-      console.log('⚠️  Cover letter textarea not found on vacancy_response page');
-      return;
+      // Try alternative selector without "popup" for vacancy_response page
+      textareaSelector = 'textarea[data-qa="vacancy-response-form-letter-input"]';
+      textarea = page.locator(textareaSelector);
+      try {
+        if (argv.verbose) {
+          console.log(`🔍 [VERBOSE] Trying alternative textarea selector: ${textareaSelector}`);
+        }
+        await textarea.waitFor({ state: 'visible', timeout: 2000 });
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] Alternative textarea found and visible');
+        }
+      } catch {
+        console.log('⚠️  Cover letter textarea not found on vacancy_response page');
+        if (argv.verbose) {
+          // Try to find any textareas on the page for debugging
+          const allTextareas = page.locator('textarea');
+          const count = await allTextareas.count();
+          console.log(`🔍 [VERBOSE] Found ${count} textarea(s) on page:`);
+          for (let i = 0; i < count; i++) {
+            const locator = allTextareas.nth(i);
+            const dataQa = await locator.getAttribute('data-qa');
+            const isVisible = await locator.isVisible();
+            console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+          }
+        }
+        return;
+      }
     }
 
     // Check if textarea is already filled
