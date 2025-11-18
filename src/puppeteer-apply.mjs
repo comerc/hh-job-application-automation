@@ -473,7 +473,7 @@ github.com/link-foundation`;
           const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
           await page.evaluate(el => el.scrollIntoView(), el);
-          await page.evaluate(el => el.click(), el);
+          await el.click();
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Toggle click completed');
           }
@@ -809,7 +809,7 @@ github.com/link-foundation`;
     for (const el of nodes) {
       const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
       const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-      if (txt.toLowerCase().includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await page.evaluate(el => el.click(), el); break; }
+      if (txt.toLowerCase().includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
     }
 
     // Activate textarea and type
