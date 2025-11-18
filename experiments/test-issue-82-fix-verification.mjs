@@ -18,10 +18,10 @@ const puppeteerCode = fs.readFileSync(puppeteerFile, 'utf8');
 
 const puppeteerHandleVacancyResponsePage = puppeteerCode
   .split('\n')
-  .slice(415, 435)
+  .slice(445, 465)
   .join('\n');
 
-if (puppeteerHandleVacancyResponsePage.includes('Добавить сопроводительное') &&
+if (puppeteerHandleVacancyResponsePage.includes('сопроводительное') &&
     puppeteerHandleVacancyResponsePage.includes('add-cover-letter') &&
     puppeteerHandleVacancyResponsePage.includes('vacancy-response-letter-toggle')) {
   console.log('✅ Puppeteer: handleVacancyResponsePage uses comprehensive selector');
@@ -36,10 +36,10 @@ const playwrightCode = fs.readFileSync(playwrightFile, 'utf8');
 
 const playwrightHandleVacancyResponsePage = playwrightCode
   .split('\n')
-  .slice(395, 410)
+  .slice(415, 430)
   .join('\n');
 
-if (playwrightHandleVacancyResponsePage.includes('Добавить сопроводительное') &&
+if (playwrightHandleVacancyResponsePage.includes('сопроводительное') &&
     playwrightHandleVacancyResponsePage.includes('add-cover-letter') &&
     playwrightHandleVacancyResponsePage.includes('vacancy-response-letter-toggle')) {
   console.log('✅ Playwright: handleVacancyResponsePage uses comprehensive selector');
@@ -51,7 +51,7 @@ if (playwrightHandleVacancyResponsePage.includes('Добавить сопров�
 // Verify both implementations match the main loop approach
 console.log('\n📋 Verifying consistency with main loop...');
 
-if (puppeteerCode.includes('Добавить сопроводительное') &&
+if (puppeteerCode.includes('сопроводительное') &&
     puppeteerCode.includes('add-cover-letter') &&
     puppeteerCode.includes('vacancy-response-letter-toggle')) {
   console.log('✅ Puppeteer main loop uses comprehensive selector');
@@ -60,7 +60,7 @@ if (puppeteerCode.includes('Добавить сопроводительное') 
   hasErrors = true;
 }
 
-if (playwrightCode.includes('Добавить сопроводительное') &&
+if (playwrightCode.includes('сопроводительное') &&
     playwrightCode.includes('add-cover-letter') &&
     playwrightCode.includes('vacancy-response-letter-toggle')) {
   console.log('✅ Playwright main loop uses comprehensive selector');

@@ -448,7 +448,7 @@ github.com/link-foundation`;
         for (const el of nodes) {
           const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
           const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-          if (txt === 'Добавить сопроводительное' || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+          if (txt.includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
             if (argv.verbose) {
               console.log(`🔍 [VERBOSE] Found toggle element: text="${txt}", data-qa="${dataQa}"`);
               const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
@@ -462,9 +462,9 @@ github.com/link-foundation`;
               console.log('🔍 [VERBOSE] Toggle click completed');
             }
             // Wait a moment for the expand animation to complete
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 2000));
             if (argv.verbose) {
-              console.log('🔍 [VERBOSE] Waited 1000ms after click');
+              console.log('🔍 [VERBOSE] Waited 2000ms after click');
             }
             console.log('✅ Cover letter section expanded');
             toggleClicked = true;
@@ -780,12 +780,12 @@ github.com/link-foundation`;
       continue;
     }
 
-    // Click "Добавить сопроводительное" or element with data-qa="add-cover-letter" or data-qa="vacancy-response-letter-toggle"
+    // Click element containing "сопроводительное" or element with data-qa="add-cover-letter" or data-qa="vacancy-response-letter-toggle"
     const nodes = await page.$$('button, a, span, div');
     for (const el of nodes) {
       const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
       const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-      if (txt === 'Добавить сопроводительное' || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
+      if (txt.includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
     }
 
     // Activate textarea and type

@@ -419,7 +419,7 @@ github.com/link-foundation`;
     // Use the same comprehensive selector as the main loop to ensure consistency
     if (!textareaAlreadyVisible) {
       try {
-        const addCover = page.locator('button:has-text("Добавить сопроводительное"), a:has-text("Добавить сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+        const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
         const toggleExists = await addCover.count() > 0;
         if (toggleExists) {
           if (argv.verbose) {
@@ -436,9 +436,9 @@ github.com/link-foundation`;
             console.log('🔍 [VERBOSE] Toggle click completed');
           }
           // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise(r => setTimeout(r, 2000));
           if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Waited 1000ms after click');
+            console.log('🔍 [VERBOSE] Waited 2000ms after click');
           }
           console.log('✅ Cover letter section expanded');
         } else {
@@ -766,7 +766,7 @@ github.com/link-foundation`;
       continue;
     }
 
-    const addCover = page.locator('button:has-text("Добавить сопроводительное"), a:has-text("Добавить сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+    const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
     if (await addCover.count()) await addCover.click();
 
     const textarea = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]');
