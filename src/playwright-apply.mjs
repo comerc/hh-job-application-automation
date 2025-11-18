@@ -400,6 +400,17 @@ github.com/link-foundation`;
   async function handleVacancyResponsePage() {
     console.log('📝 Detected vacancy_response page, handling application form...');
 
+    // Log all textareas on the page for debugging
+    const allTextareas = page.locator('textarea');
+    const count = await allTextareas.count();
+    console.log(`🔍 Initial scan: Found ${count} textarea(s) on page`);
+    for (let i = 0; i < count; i++) {
+      const textarea = allTextareas.nth(i);
+      const dataQa = await textarea.getAttribute('data-qa');
+      const isVisible = await textarea.isVisible();
+      console.log(`🔍 Initial textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+    }
+
     // Check if textarea is already visible
     let textareaAlreadyVisible = false;
     let textareaSelector = '';
