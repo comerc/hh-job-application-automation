@@ -424,34 +424,43 @@ github.com/link-foundation`;
         if (toggleExists) {
           const text = await addCover.textContent();
           const dataQa = await addCover.getAttribute('data-qa');
-          if (argv.verbose) {
-            const isVisible = await addCover.isVisible();
-            const isEnabled = await addCover.isEnabled();
-            console.log(`🔍 [VERBOSE] Found toggle element: text="${text?.trim()}", data-qa="${dataQa}", visible=${isVisible}, enabled=${isEnabled}`);
-          }
+          const isVisible = await addCover.isVisible();
+          const isEnabled = await addCover.isEnabled();
+          console.log(`🔍 Found toggle element: text="${text?.trim()}", data-qa="${dataQa}", visible=${isVisible}, enabled=${isEnabled}`);
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${text?.trim()}", data-qa: "${dataQa}") to expand...`);
           await addCover.scrollIntoViewIfNeeded();
           await addCover.click();
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Toggle click completed');
-          }
+          console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
           await new Promise(r => setTimeout(r, 5000));
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Waited 2000ms after click');
+          console.log('🔍 Waited 5000ms after click');
+          // Check if textarea became visible after click
+          const textareaAfterClick = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]').first();
+          let textareaVisible = false;
+          if (await textareaAfterClick.count() > 0) {
+            textareaVisible = await textareaAfterClick.isVisible();
+          } else {
+            const altTextarea = page.locator('textarea[data-qa="vacancy-response-form-letter-input"]').first();
+            if (await altTextarea.count() > 0) {
+              textareaVisible = await altTextarea.isVisible();
+            } else {
+              const anyTextarea = page.locator('textarea').first();
+              if (await anyTextarea.count() > 0) {
+                textareaVisible = await anyTextarea.isVisible();
+              }
+            }
           }
+          console.log(`🔍 Textarea visibility after toggle click: ${textareaVisible}`);
           console.log('✅ Cover letter section expanded');
           // Log number of textareas after toggle click
           const textareasAfter = page.locator('textarea');
           const countAfter = await textareasAfter.count();
           console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
-          if (argv.verbose) {
-            for (let i = 0; i < countAfter; i++) {
-              const textarea = textareasAfter.nth(i);
-              const dataQa = await textarea.getAttribute('data-qa');
-              const isVisible = await textarea.isVisible();
-              console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
-            }
+          for (let i = 0; i < countAfter; i++) {
+            const textarea = textareasAfter.nth(i);
+            const dataQa = await textarea.getAttribute('data-qa');
+            const isVisible = await textarea.isVisible();
+            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
           }
         } else {
           console.log('💡 Toggle button not found, cover letter section may already be expanded');
@@ -459,9 +468,7 @@ github.com/link-foundation`;
       } catch (error) {
         // Toggle button might not exist if the section is already expanded
         console.log('💡 Toggle button not found, cover letter section may already be expanded');
-        if (argv.verbose) {
-          console.log(`🔍 [VERBOSE] Error during toggle: ${error.message}`);
-        }
+        console.log(`🔍 Error during toggle: ${error.message}`);
       }
     }
 

@@ -474,13 +474,17 @@ github.com/link-foundation`;
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
           await page.evaluate(el => el.scrollIntoView(), el);
           await el.click();
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Toggle click completed');
-          }
+          console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
           await new Promise(r => setTimeout(r, 5000));
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Waited 2000ms after click');
+          console.log('🔍 Waited 5000ms after click');
+          // Check if textarea became visible after click
+          const textareaAfterClick = await page.$('textarea[data-qa="vacancy-response-popup-form-letter-input"]') || await page.$('textarea[data-qa="vacancy-response-form-letter-input"]') || await page.$('textarea');
+          if (textareaAfterClick) {
+            const isVisibleAfter = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareaAfterClick);
+            console.log(`🔍 Textarea visibility after toggle click: ${isVisibleAfter}`);
+          } else {
+            console.log('🔍 No textarea found after toggle click');
           }
           console.log('✅ Cover letter section expanded');
           toggleClicked = true;
@@ -492,20 +496,16 @@ github.com/link-foundation`;
           // Log number of textareas after toggle click
           const textareasAfter = await page.$$('textarea');
           console.log(`📊 After toggle click: Found ${textareasAfter.length} textarea(s) on page`);
-          if (argv.verbose) {
-            for (let i = 0; i < textareasAfter.length; i++) {
-              const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareasAfter[i]);
-              const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareasAfter[i]);
-              console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
-            }
+          for (let i = 0; i < textareasAfter.length; i++) {
+            const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareasAfter[i]);
+            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareasAfter[i]);
+            console.log(`🔍 Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
           }
         }
       } catch (error) {
         // Toggle button might not exist if the section is already expanded
         console.log('💡 Toggle button not found, cover letter section may already be expanded');
-        if (argv.verbose) {
-          console.log(`🔍 [VERBOSE] Error during toggle: ${error.message}`);
-        }
+        console.log(`🔍 Error during toggle: ${error.message}`);
       }
     }
 
