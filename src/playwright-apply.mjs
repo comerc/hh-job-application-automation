@@ -419,7 +419,7 @@ github.com/link-foundation`;
     // Use the same comprehensive selector as the main loop to ensure consistency
     if (!textareaAlreadyVisible) {
       try {
-        const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), button:has-text("добавить"), a:has-text("добавить"), button:has-text("письмо"), a:has-text("письмо"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+        const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), button:has-text("добавить"), a:has-text("добавить"), button:has-text("письмо"), a:has-text("письмо"), button:has-text("написать"), a:has-text("написать"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
         const toggleExists = await addCover.count() > 0;
         if (toggleExists) {
           const text = await addCover.textContent();
@@ -776,7 +776,7 @@ github.com/link-foundation`;
       continue;
     }
 
-    const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
+    const addCover = page.locator('button:has-text("сопроводительное"), a:has-text("сопроводительное"), button:has-text("добавить"), a:has-text("добавить"), button:has-text("письмо"), a:has-text("письмо"), button:has-text("написать"), a:has-text("написать"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]').first();
     if (await addCover.count()) await addCover.click();
 
     const textarea = page.locator('textarea[data-qa="vacancy-response-popup-form-letter-input"]');

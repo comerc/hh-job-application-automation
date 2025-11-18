@@ -450,7 +450,7 @@ github.com/link-foundation`;
           const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
           const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
           const tag = await page.evaluate(el => el.tagName.toLowerCase(), el);
-          if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
+          if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || txt.toLowerCase().includes('написать') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') {
             const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, el);
             const isEnabled = await page.evaluate(el => !el.disabled && el.style.display !== 'none', el);
             toggleCandidates.push({ text: txt, dataQa, tag, visible: isVisible, enabled: isEnabled });
@@ -809,7 +809,7 @@ github.com/link-foundation`;
     for (const el of nodes) {
       const txt = (await page.evaluate(el => el.textContent.trim(), el)) || '';
       const dataQa = (await page.evaluate(el => el.getAttribute('data-qa'), el)) || '';
-      if (txt.toLowerCase().includes('сопроводительное') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
+      if (txt.toLowerCase().includes('сопроводительное') || txt.toLowerCase().includes('добавить') || txt.toLowerCase().includes('письмо') || txt.toLowerCase().includes('написать') || dataQa === 'add-cover-letter' || dataQa === 'vacancy-response-letter-toggle') { await el.click(); break; }
     }
 
     // Activate textarea and type
