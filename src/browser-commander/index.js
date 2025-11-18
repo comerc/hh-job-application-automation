@@ -351,9 +351,7 @@ export function makeBrowserCommander(options = {}) {
         await locator.click();
 
         if (verbose) {
-          const tagName = await locator.evaluate(el => el.tagName);
-          const text = await locator.textContent();
-          console.log(`🔍 [VERBOSE] Clicked ${tagName}: "${text?.trim().substring(0, 30)}..."`);
+          console.log('🔍 [VERBOSE] Click completed');
         }
 
         return true;
@@ -398,9 +396,7 @@ export function makeBrowserCommander(options = {}) {
         }
 
         if (verbose) {
-          const tagName = await page.evaluate(el => el.tagName, element);
-          const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), element);
-          console.log(`🔍 [VERBOSE] Clicked ${tagName}: "${text}..."`);
+          console.log('🔍 [VERBOSE] Click completed');
         }
 
         return true;
