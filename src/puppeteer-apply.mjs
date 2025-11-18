@@ -462,9 +462,9 @@ github.com/link-foundation`;
               console.log('🔍 [VERBOSE] Toggle click completed');
             }
             // Wait a moment for the expand animation to complete
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 1000));
             if (argv.verbose) {
-              console.log('🔍 [VERBOSE] Waited 500ms after click');
+              console.log('🔍 [VERBOSE] Waited 1000ms after click');
             }
             console.log('✅ Cover letter section expanded');
             toggleClicked = true;
@@ -513,18 +513,33 @@ github.com/link-foundation`;
           console.log('🔍 [VERBOSE] Alternative textarea found and visible');
         }
       } catch {
-        console.log('⚠️  Cover letter textarea not found on vacancy_response page');
-        if (argv.verbose) {
-          // Try to find any textareas on the page for debugging
-          const textareas = await page.$$('textarea');
-          console.log(`🔍 [VERBOSE] Found ${textareas.length} textarea(s) on page:`);
-          for (let i = 0; i < textareas.length; i++) {
-            const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareas[i]);
-            const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareas[i]);
-            console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+        // Try any textarea as last resort
+        textareaSelector = 'textarea';
+        try {
+          if (argv.verbose) {
+            console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
           }
+          await page.waitForSelector(textareaSelector, {
+            visible: true,
+            timeout: 2000,
+          });
+          if (argv.verbose) {
+            console.log('🔍 [VERBOSE] Any textarea found and visible');
+          }
+        } catch {
+          console.log('⚠️  Cover letter textarea not found on vacancy_response page');
+          if (argv.verbose) {
+            // Try to find any textareas on the page for debugging
+            const textareas = await page.$$('textarea');
+            console.log(`🔍 [VERBOSE] Found ${textareas.length} textarea(s) on page:`);
+            for (let i = 0; i < textareas.length; i++) {
+              const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), textareas[i]);
+              const isVisible = await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, textareas[i]);
+              console.log(`🔍 [VERBOSE] Textarea ${i}: data-qa="${dataQa}", visible=${isVisible}`);
+            }
+          }
+          return;
         }
-        return;
       }
     }
 
