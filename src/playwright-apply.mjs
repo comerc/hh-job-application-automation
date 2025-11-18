@@ -500,7 +500,7 @@ github.com/link-foundation`;
           }
           await textarea.waitFor({ state: 'visible', timeout: 5000 });
           if (argv.verbose) {
-              console.log('🔍 [VERBOSE] Any textarea found and visible');
+            console.log('🔍 [VERBOSE] Any textarea found and visible');
           }
         } catch {
           console.log('⚠️  Cover letter textarea not found on vacancy_response page');
