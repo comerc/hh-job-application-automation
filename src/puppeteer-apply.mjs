@@ -326,6 +326,68 @@ github.com/link-foundation`;
   }
 
   /**
+   * Universal function to click a button or clickable element
+   * This ensures consistent behavior with proper scrolling
+   * @param {Object} options - Configuration object
+   * @param {string|ElementHandle} options.locatorOrSelector - CSS selector or ElementHandle for the button
+   * @param {boolean} options.scrollIntoView - Scroll button into center of viewport (default: true)
+   * @param {number} options.waitAfterScroll - Wait time in ms after scrolling (default: 300)
+   * @returns {Promise<boolean>} - Returns true if clicked, false if failed
+   */
+  async function clickButton(options = {}) {
+    const {
+      locatorOrSelector,
+      scrollIntoView = true,
+      waitAfterScroll = 300,
+    } = options;
+
+    if (!locatorOrSelector) {
+      console.error('⚠️  clickButton: locatorOrSelector is required');
+      return false;
+    }
+
+    try {
+      // Get element (either passed directly or from selector)
+      const element = typeof locatorOrSelector === 'string'
+        ? await page.$(locatorOrSelector)
+        : locatorOrSelector;
+
+      if (!element) {
+        console.error(`⚠️  clickButton: Element not found for selector "${locatorOrSelector}"`);
+        return false;
+      }
+
+      // Scroll button into center of viewport for better visibility
+      if (scrollIntoView) {
+        await page.evaluate((el) => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        }, element);
+
+        // Wait for scroll animation
+        await new Promise(r => setTimeout(r, waitAfterScroll));
+      }
+
+      // Click the button
+      if (typeof locatorOrSelector === 'string') {
+        await page.click(locatorOrSelector);
+      } else {
+        await element.click();
+      }
+
+      if (argv.verbose) {
+        const tagName = await page.evaluate(el => el.tagName, element);
+        const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), element);
+        console.log(`🔍 [VERBOSE] Clicked ${tagName}: "${text}..."`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('⚠️  Error in clickButton:', error.message);
+      return false;
+    }
+  }
+
+  /**
    * Setup Q&A auto-fill and auto-save for all textareas on the page
    * Issue #68: Automatically remember and prefill answers to repetitive questions
    * Issue #80: Use proper typing simulation instead of direct value assignment
@@ -571,11 +633,17 @@ github.com/link-foundation`;
           const dataQa = await page.evaluate(el => el.getAttribute('data-qa'), toggleButton);
           const tag = await page.evaluate(el => el.tagName.toLowerCase(), toggleButton);
           console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${txt}", data-qa: "${dataQa}", tag: ${tag}) to expand...`);
-          await page.evaluate(el => el.scrollIntoView(), toggleButton);
-          await page.evaluate(el => el.click(), toggleButton);
+
+          // Use clickButton for proper scrolling and clicking
+          await clickButton({
+            locatorOrSelector: toggleButton,
+            scrollIntoView: true,
+            waitAfterScroll: 300,
+          });
+
           console.log('🔍 Toggle click completed');
           // Wait a moment for the expand animation to complete
-          await new Promise(r => setTimeout(r, 2000));
+          await new Promise(r => setTimeout(r, 1700)); // Reduced since clickButton already waits 300ms
           if (argv.verbose) {
             console.log('🔍 [VERBOSE] Waited 2000ms after toggle click');
           }
@@ -711,8 +779,12 @@ github.com/link-foundation`;
       if (isButtonDisabled) {
         console.log('⚠️  Submit button is disabled, manual action required');
       } else {
-        // Click the submit button
-        await page.click('[data-qa="vacancy-response-submit-popup"]');
+        // Click the submit button using clickButton for proper scrolling
+        await clickButton({
+          locatorOrSelector: '[data-qa="vacancy-response-submit-popup"]',
+          scrollIntoView: true,
+          waitAfterScroll: 300,
+        });
         console.log('✅ Clicked submit button');
 
         // Wait for submission to complete
@@ -981,8 +1053,12 @@ github.com/link-foundation`;
       process.exit(1);
     }
 
-    // Click the "Откликнуться" submit button
-    await page.click('[data-qa="vacancy-response-submit-popup"]');
+    // Click the "Откликнуться" submit button using clickButton for proper scrolling
+    await clickButton({
+      locatorOrSelector: '[data-qa="vacancy-response-submit-popup"]',
+      scrollIntoView: true,
+      waitAfterScroll: 300,
+    });
     console.log('✅ Puppeteer: clicked submit button');
 
     // Wait for the modal to close after submission
