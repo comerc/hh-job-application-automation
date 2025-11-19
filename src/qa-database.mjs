@@ -4,6 +4,34 @@
  *
  * IMPORTANT: This module REQUIRES explicit file path configuration!
  * Use createQADatabase(filePath) to create an instance.
+ *
+ * ============================================================================
+ * LINKS NOTATION FORMAT - Multiline Support
+ * ============================================================================
+ *
+ * Links Notation NATIVELY supports multiline strings through indentation:
+ *
+ * Format:
+ *   Question (no indentation)
+ *     Answer line 1 (2 spaces)
+ *     Answer line 2 (2 spaces)
+ *     Answer line 3 (2 spaces)
+ *
+ * Key Features:
+ * - Questions are NOT indented (0 spaces)
+ * - Answers are indented with exactly 2 spaces
+ * - Multiline answers: EVERY line must have 2-space indentation
+ * - Newlines are preserved NATURALLY - DO NOT use \n escaping!
+ * - Only quote characters (") need escaping if present in content
+ *
+ * Example:
+ *   What is your experience?
+ *     I have worked with:
+ *     - JavaScript for 5 years
+ *     - Python for 3 years
+ *
+ * This format preserves multiline content without any special escape sequences.
+ * ============================================================================
  */
 import { Parser } from 'links-notation';
 import fs from 'fs/promises';
@@ -64,6 +92,16 @@ export function createQADatabase(filePath) {
 
   /**
    * Reads Q&A pairs from qa.lino file
+   *
+   * IMPORTANT: Links Notation multiline indented format:
+   * - Each indented line creates a SEPARATE link with the same question
+   * - We must combine all answers for the same question with newlines
+   * - Example file format:
+   *     Question
+   *       Answer line 1
+   *       Answer line 2
+   *   Becomes 3 separate links in parser, we combine into 1 Q&A pair
+   *
    * Issue #78: Add better error handling and backup recovery to prevent data loss
    * @returns {Promise<Map<string, string>>} Map of questions to answers
    */
@@ -80,6 +118,8 @@ export function createQADatabase(filePath) {
       const links = parser.parse(content);
 
       // Extract Q&A pairs from parsed links
+      // Note: Multiple indented answer lines create multiple links with same question
+      // We need to combine them into a single multiline answer
       const qaMap = new Map();
 
       for (const link of links) {
@@ -88,7 +128,13 @@ export function createQADatabase(filePath) {
           const answer = extractText(link.values[1]);
 
           if (question && answer) {
-            qaMap.set(question, answer);
+            // If question already exists, append answer with newline (multiline support)
+            if (qaMap.has(question)) {
+              const existingAnswer = qaMap.get(question);
+              qaMap.set(question, existingAnswer + '\n' + answer);
+            } else {
+              qaMap.set(question, answer);
+            }
           }
         }
       }
@@ -141,51 +187,73 @@ export function createQADatabase(filePath) {
 
   /**
    * Escapes a string for safe use in links-notation format
-   * Issue #78: Quote strings with `:` and `()` to preserve literal text
-   * Multiline support: Escape newlines as `\n` for proper storage
-   * @param {string} str - String to escape
-   * @returns {string} Escaped and quoted string if needed
+   *
+   * IMPORTANT: Links Notation Features:
+   * - Multiline strings are NATIVELY supported through indentation
+   * - DO NOT escape \n - Links Notation handles multiline content naturally!
+   * - Simple quoting rules:
+   *   - Has " but not ' → wrap with '...'
+   *   - Has ' but not " → wrap with "..."
+   *   - Has both " and ' → wrap with "..." and use "" to escape "
+   *   - Has colon/parens but no quotes → wrap with "..."
+   *
+   * Issue #78: Quote strings with special chars to preserve literal text
+   * @param {string} str - String to format (preserves newlines as-is)
+   * @returns {string} String ready for Links Notation (may be quoted if needed)
    */
   function escapeForLinksNotation(str) {
+    // Check for characters that need quoting
     const hasColon = str.includes(':');
-    const hasQuotes = str.includes('"') || str.includes("'");
+    const hasDoubleQuotes = str.includes('"');
+    const hasSingleQuotes = str.includes("'");
     const hasParens = str.includes('(') || str.includes(')');
-    const hasNewline = str.includes('\n');
 
-    const needsQuoting = hasColon || hasQuotes || hasParens || hasNewline;
+    const needsQuoting = hasColon || hasDoubleQuotes || hasSingleQuotes || hasParens;
 
     if (needsQuoting) {
-      const hasDoubleQuotes = str.includes('"');
-      const hasSingleQuotes = str.includes("'");
+      if (hasDoubleQuotes && !hasSingleQuotes) {
+        // Has " but not ' → use single quotes
+        return `'${str}'`;
+      } else if (hasSingleQuotes && !hasDoubleQuotes) {
+        // Has ' but not " → use double quotes
+        return `"${str}"`;
+      } else if (hasDoubleQuotes && hasSingleQuotes) {
+        // Has both " and ' → choose the wrapper with fewer escapes needed
+        const doubleQuoteCount = (str.match(/"/g) || []).length;
+        const singleQuoteCount = (str.match(/'/g) || []).length;
 
-      // IMPORTANT: Escape in correct order: backslash first, then newlines, then quotes
-      // This prevents double-escaping
-      let escaped = str.replace(/\\/g, '\\\\'); // \ -> \\
-      escaped = escaped.replace(/\n/g, '\\n');  // newline -> \n
-
-      if (hasDoubleQuotes && hasSingleQuotes) {
-        // Has both - use double quotes and escape inner double quotes
-        escaped = escaped.replace(/"/g, '\\"');
-        return `"${escaped}"`;
-      } else if (hasDoubleQuotes) {
-        // Has double quotes - use single quotes to wrap
-        return `'${escaped}'`;
-      } else if (hasSingleQuotes) {
-        // Has single quotes - use double quotes to wrap
-        return `"${escaped}"`;
+        if (singleQuoteCount < doubleQuoteCount) {
+          // Fewer single quotes → wrap with " and escape ' as ''
+          const escaped = str.replace(/'/g, "''");
+          return `"${escaped}"`;
+        } else {
+          // Fewer or equal double quotes → wrap with ' and escape " as ""
+          const escaped = str.replace(/"/g, '""');
+          return `'${escaped}'`;
+        }
       } else {
-        // No quotes - use double quotes
-        return `"${escaped}"`;
+        // Has colon or parentheses but no quotes → use double quotes
+        return `"${str}"`;
       }
     }
 
+    // No special characters - no quoting needed
     return str;
   }
 
   /**
    * Writes Q&A pairs to qa.lino file
-   * Issue #78: Properly escape special characters to prevent parse errors
-   * Creates a backup before writing
+   *
+   * IMPORTANT: Links Notation multiline format:
+   * - Questions are not indented
+   * - Answers are indented with 2 spaces
+   * - If answer contains newlines, EVERY line must be indented with 2 spaces
+   * - This preserves multiline content naturally without \n escaping
+   *
+   * Optimization: Skips writing if content is unchanged (no backup, no IO)
+   *
+   * Issue #78: Properly format multiline content for Links Notation
+   * Creates a backup before writing (only if changes detected)
    * @param {Map<string, string>} qaMap - Map of questions to answers
    */
   async function writeQADatabase(qaMap) {
@@ -193,24 +261,90 @@ export function createQADatabase(filePath) {
       // Ensure data directory exists
       await fs.mkdir(path.dirname(QA_FILE_PATH), { recursive: true });
 
-      // Create backup of existing file before writing
-      try {
-        await fs.access(QA_FILE_PATH);
-        const backupPath = `${QA_FILE_PATH}.backup`;
-        await fs.copyFile(QA_FILE_PATH, backupPath);
-      } catch {
-        // File doesn't exist yet, no backup needed
-      }
-
-      // Format as indented Q&A pairs with proper escaping
+      // Format as indented Q&A pairs with proper multiline handling
       const lines = [];
       for (const [question, answer] of qaMap.entries()) {
-        lines.push(escapeForLinksNotation(question));
-        lines.push(`  ${escapeForLinksNotation(answer)}`);
+        // Question handling:
+        // - If question has newlines, MUST quote it (otherwise each line becomes separate Q&A)
+        // - Use same escaping logic as single-line, but force quoting
+        const hasNewline = question.includes('\n');
+        let escapedQuestion;
+        if (hasNewline) {
+          // Multiline questions must be quoted
+          const hasDoubleQuotes = question.includes('"');
+          const hasSingleQuotes = question.includes("'");
+
+          if (hasDoubleQuotes && !hasSingleQuotes) {
+            // Has " but not ' → use single quotes
+            escapedQuestion = `'${question}'`;
+          } else if (hasSingleQuotes && !hasDoubleQuotes) {
+            // Has ' but not " → use double quotes
+            escapedQuestion = `"${question}"`;
+          } else if (hasDoubleQuotes && hasSingleQuotes) {
+            // Has both → choose wrapper with fewer escapes
+            const doubleQuoteCount = (question.match(/"/g) || []).length;
+            const singleQuoteCount = (question.match(/'/g) || []).length;
+
+            if (singleQuoteCount < doubleQuoteCount) {
+              // Fewer single quotes → wrap with " and escape ' as ''
+              const escaped = question.replace(/'/g, "''");
+              escapedQuestion = `"${escaped}"`;
+            } else {
+              // Fewer or equal double quotes → wrap with ' and escape " as ""
+              const escaped = question.replace(/"/g, '""');
+              escapedQuestion = `'${escaped}'`;
+            }
+          } else {
+            // No quotes → use double quotes
+            escapedQuestion = `"${question}"`;
+          }
+        } else {
+          // Single-line question - use normal escaping
+          escapedQuestion = escapeForLinksNotation(question);
+        }
+        lines.push(escapedQuestion);
+
+        // Answer handling:
+        // - If answer is quoted (starts with " or '), write as single quoted multiline
+        // - Otherwise, split by newlines and indent each line with 2 spaces
+        const escapedAnswer = escapeForLinksNotation(answer);
+        const isQuoted = escapedAnswer.startsWith('"') || escapedAnswer.startsWith("'");
+
+        if (isQuoted) {
+          // Quoted answer - write as-is with 2-space indent (quotes preserve newlines)
+          lines.push(`  ${escapedAnswer}`);
+        } else {
+          // Unquoted answer - split by newlines and indent each line
+          const answerLines = escapedAnswer.split('\n');
+          for (const answerLine of answerLines) {
+            lines.push(`  ${answerLine}`);
+          }
+        }
       }
 
-      const content = lines.join('\n') + '\n';
-      await fs.writeFile(QA_FILE_PATH, content, 'utf8');
+      const newContent = lines.join('\n') + '\n';
+
+      // Check if content has changed - skip write if identical (optimization)
+      let existingContent = '';
+      try {
+        existingContent = await fs.readFile(QA_FILE_PATH, 'utf8');
+      } catch {
+        // File doesn't exist yet, will be created
+      }
+
+      if (existingContent === newContent) {
+        // No changes - skip backup and write operations
+        return;
+      }
+
+      // Content changed - create backup before writing
+      if (existingContent) {
+        const backupPath = `${QA_FILE_PATH}.backup`;
+        await fs.writeFile(backupPath, existingContent, 'utf8');
+      }
+
+      // Write new content
+      await fs.writeFile(QA_FILE_PATH, newContent, 'utf8');
     } catch (error) {
       console.error('Error writing Q&A database:', error);
       throw error;
@@ -248,25 +382,35 @@ export function createQADatabase(filePath) {
 
   /**
    * Unescapes a string from links-notation format
-   * Converts escaped sequences back to their original characters
-   * @param {string} str - String to unescape
-   * @returns {string} Unescaped string
+   *
+   * IMPORTANT: Links Notation naturally preserves newlines!
+   * - Multiline content is already in the string as actual newlines
+   * - Unescape doubled quotes: "" → " and '' → '
+   * - DO NOT process \n sequences - they should not exist in properly formatted files
+   *
+   * @param {string} str - String to unescape (already contains real newlines)
+   * @returns {string} Unescaped string (only quotes unescaped)
    */
   function unescapeFromLinksNotation(str) {
     if (!str) return str;
 
-    // Unescape in reverse order of escaping: quotes first, then newlines, then backslashes
-    let unescaped = str.replace(/\\"/g, '"');   // \" -> "
-    unescaped = unescaped.replace(/\\n/g, '\n'); // \n -> newline
-    unescaped = unescaped.replace(/\\\\/g, '\\'); // \\ -> \
+    // Unescape doubled quotes (Links Notation escape sequences)
+    let unescaped = str.replace(/""/g, '"');  // "" → "
+    unescaped = unescaped.replace(/''/g, "'"); // '' → '
 
     return unescaped;
   }
 
   /**
    * Extracts text from a Link object
+   *
+   * IMPORTANT: Links Notation multiline support:
+   * - Quoted multiline: "text\nline2" - parser preserves actual newlines in .id
+   * - Indented multiline: Parser concatenates all indented lines into word tokens
+   *   We join word tokens with spaces (parser handles line boundaries internally)
+   *
    * @param {Object} link - The link to extract text from
-   * @returns {string} The extracted text (with escape sequences converted back)
+   * @returns {string} The extracted text (with actual newlines if quoted, spaces if indented)
    */
   function extractText(link) {
     if (!link) return '';
@@ -274,8 +418,11 @@ export function createQADatabase(filePath) {
     let text = '';
 
     if (link.id && (!link.values || link.values.length === 0)) {
+      // Single value with .id (might contain actual newlines if quoted)
       text = link.id;
     } else if (!link.id && link.values && link.values.length > 0) {
+      // Multiple word tokens - join with spaces
+      // Note: For indented multiline, parser concatenates lines into words
       text = link.values.map(v => extractText(v)).join(' ');
     } else if (link.id) {
       text = link.id;

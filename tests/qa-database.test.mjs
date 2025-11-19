@@ -773,5 +773,177 @@ github.com/link-foundation`;
       assert.ok(retrieved.includes('github.com/linksplatform'), 'Should contain third line');
       assert.ok(retrieved.includes('github.com/link-foundation'), 'Should contain fourth line');
     });
+
+    test('should NOT escape newlines as \\n in the file (Links Notation native multiline)', async () => {
+      await cleanup();
+
+      // Complex multiline question and answer from real usage
+      const question = `- Работали ли с async io на питоне (есть ли опыт работы с асинхронным кодом), какие задачи решали
+- Приходилось ли работать на проектах с микросервисной архитектурой? Если да, сколько было микросервисов, примерно.
+- Какой был размер самой крупной команды, где вам удалось поработать (примерно)?Сколько было разработчиков? Был ли BA, QA отдел?
+- Был ли опыт управления командой? Если был, то сколько человек было в команде?`;
+
+      const answer = `- Python имеет очень низкую производительность
+- Я предпочитаю JavaScript или Rust
+- Из плюсов Python имеет высокую популярность среди разработчиков`;
+
+      await addOrUpdateQA(question, answer);
+
+      // Read the raw file content
+      const fileContent = await fs.readFile(TEST_QA_FILE, 'utf8');
+
+      // CRITICAL: File should NOT contain literal \n escape sequences
+      // Links Notation uses NATURAL newlines, not escape sequences
+      assert.ok(
+        !fileContent.includes('\\n'),
+        'File should NOT contain literal \\n escape sequences - Links Notation uses natural newlines!',
+      );
+
+      // Verify the file contains actual newline characters
+      const lineCount = fileContent.split('\n').length;
+      assert.ok(
+        lineCount > 5,
+        `File should have multiple actual newlines (got ${lineCount} lines)`,
+      );
+
+      // Verify data can be read back correctly
+      const retrieved = await getAnswer(question);
+      assert.equal(retrieved, answer, 'Multiline content should round-trip correctly');
+    });
+
+    test('should write multiline answers with proper indentation (2 spaces per line)', async () => {
+      await cleanup();
+
+      const question = 'Multi-line question?';
+      const answer = `Line 1
+Line 2
+Line 3`;
+
+      await addOrUpdateQA(question, answer);
+
+      // Read raw file
+      const fileContent = await fs.readFile(TEST_QA_FILE, 'utf8');
+      const lines = fileContent.split('\n');
+
+      // Find the question line
+      const questionLineIndex = lines.findIndex(line => line.trim() === question);
+      assert.ok(questionLineIndex >= 0, 'Question should be in file');
+
+      // Check that answer lines are indented with exactly 2 spaces
+      assert.equal(lines[questionLineIndex + 1], '  Line 1', 'First answer line should have 2-space indent');
+      assert.equal(lines[questionLineIndex + 2], '  Line 2', 'Second answer line should have 2-space indent');
+      assert.equal(lines[questionLineIndex + 3], '  Line 3', 'Third answer line should have 2-space indent');
+    });
+
+    test('should handle multiline questions AND multiline answers', async () => {
+      await cleanup();
+
+      // Note: Multiline questions will be quoted (because Links Notation indented format
+      // would create multiple separate Q&A pairs, one per line)
+      const multilineQuestion = `How do I use
+the system?`;
+
+      const multilineAnswer = `Step 1: Read docs
+Step 2: Try examples
+Step 3: Experiment`;
+
+      await addOrUpdateQA(multilineQuestion, multilineAnswer);
+
+      // Read back
+      const retrieved = await getAnswer(multilineQuestion);
+      assert.equal(retrieved, multilineAnswer, 'Both multiline question and answer should work');
+
+      // Check file format
+      const fileContent = await fs.readFile(TEST_QA_FILE, 'utf8');
+
+      // Should NOT have literal \n escape sequences in the file
+      assert.ok(!fileContent.includes('\\n'), 'No \\n escape sequences allowed');
+
+      // Multiline question will be quoted to preserve structure
+      // Multiline answer uses indented format (each line indented with 2 spaces)
+      assert.ok(fileContent.includes('Step 1'), 'Should contain answer content');
+      assert.ok(fileContent.includes('Step 2'), 'Should contain answer content');
+      assert.ok(fileContent.includes('Step 3'), 'Should contain answer content');
+    });
+
+    test('should preserve exact formatting from production qa.lino example', async () => {
+      await cleanup();
+
+      // Exact example from the production file
+      const question = 'Укажите ваши ожидания по заработной плате';
+      const answer = 'От 450000 рублей в месяц на руки.';
+
+      await addOrUpdateQA(question, answer);
+
+      const fileContent = await fs.readFile(TEST_QA_FILE, 'utf8');
+
+      // Should match the format: question on one line, answer indented on next
+      const expectedFormat = `${question}\n  ${answer}\n`;
+      assert.equal(fileContent, expectedFormat, 'Should match exact production format');
+
+      // No escape sequences
+      assert.ok(!fileContent.includes('\\n'), 'No \\n in simple single-line case');
+      assert.ok(!fileContent.includes('\\t'), 'No \\t escape sequences');
+      assert.ok(!fileContent.includes('\\r'), 'No \\r escape sequences');
+    });
+
+    test('should use single quotes to wrap strings with double quotes (production format)', async () => {
+      await cleanup();
+
+      // This is the exact format from the production file
+      // The question contains regular double quotes "на руки"
+      // We should wrap with single quotes to avoid needing to escape
+      const question = 'Какой оклад "на руки" вам интересен?';
+      const answer = 'От 450000 рублей в месяц на руки';
+
+      await addOrUpdateQA(question, answer);
+
+      const fileContent = await fs.readFile(TEST_QA_FILE, 'utf8');
+
+      // Should use single quotes to wrap (no escaping needed for " inside ')
+      assert.ok(
+        fileContent.includes("'Какой оклад \"на руки\" вам интересен?'"),
+        `Should wrap with single quotes to avoid escaping double quotes. Got: ${fileContent}`,
+      );
+
+      // Read back and verify round-trip
+      const retrieved = await getAnswer(question);
+      assert.equal(retrieved, answer, 'Should round-trip correctly');
+    });
+
+    test('should produce zero changes when reading and re-saving production qa.lino', async () => {
+      // This test ensures we don't introduce unnecessary changes to the production file
+      const PRODUCTION_QA_FILE = path.join(process.cwd(), 'data', 'qa.lino');
+
+      // Read original production file
+      const originalContent = await fs.readFile(PRODUCTION_QA_FILE, 'utf8');
+
+      // Create a database instance for production file
+      const prodDB = createQADatabase(PRODUCTION_QA_FILE);
+
+      try {
+        // Read all Q&A pairs
+        const qaMap = await prodDB.readQADatabase();
+        assert.ok(qaMap.size > 0, 'Production file should have Q&A pairs');
+
+        // Write them back
+        await prodDB.writeQADatabase(qaMap);
+
+        // Read the file again
+        const newContent = await fs.readFile(PRODUCTION_QA_FILE, 'utf8');
+
+        // Content should be IDENTICAL (zero changes)
+        assert.equal(
+          newContent,
+          originalContent,
+          'Re-saving production qa.lino should produce zero changes - content must be identical',
+        );
+
+        console.log(`✅ Production qa.lino round-trip successful: ${qaMap.size} Q&A pairs, zero changes`);
+      } finally {
+        // Always restore original content to avoid modifying production file
+        await fs.writeFile(PRODUCTION_QA_FILE, originalContent, 'utf8');
+      }
+    });
   });
 });
