@@ -744,5 +744,34 @@ What about paths?
       // The key requirement is that the EXACT text is preserved
       assert.equal(result.get(question), answer, 'Colon should be preserved as literal text');
     });
+
+    test('should handle multiline answers correctly', async () => {
+      await cleanup();
+
+      // Multiline answers (e.g., GitHub links) should be preserved with newlines
+      const question = 'What are your GitHub links?';
+      const multilineAnswer = `github.com/konard
+github.com/deep-assistant
+github.com/linksplatform
+github.com/link-foundation`;
+
+      // Save multiline answer
+      await addOrUpdateQA(question, multilineAnswer);
+
+      // Read back
+      const retrieved = await getAnswer(question);
+
+      // Verify newlines are preserved
+      assert.equal(retrieved, multilineAnswer, 'Multiline answer should be preserved exactly');
+      assert.equal(
+        retrieved.split('\n').length,
+        4,
+        'Should have 4 lines (newlines preserved)',
+      );
+      assert.ok(retrieved.includes('github.com/konard'), 'Should contain first line');
+      assert.ok(retrieved.includes('github.com/deep-assistant'), 'Should contain second line');
+      assert.ok(retrieved.includes('github.com/linksplatform'), 'Should contain third line');
+      assert.ok(retrieved.includes('github.com/link-foundation'), 'Should contain fourth line');
+    });
   });
 });

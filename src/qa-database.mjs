@@ -142,6 +142,7 @@ export function createQADatabase(filePath) {
   /**
    * Escapes a string for safe use in links-notation format
    * Issue #78: Quote strings with `:` and `()` to preserve literal text
+   * Multiline support: Escape newlines as `\n` for proper storage
    * @param {string} str - String to escape
    * @returns {string} Escaped and quoted string if needed
    */
@@ -149,22 +150,32 @@ export function createQADatabase(filePath) {
     const hasColon = str.includes(':');
     const hasQuotes = str.includes('"') || str.includes("'");
     const hasParens = str.includes('(') || str.includes(')');
+    const hasNewline = str.includes('\n');
 
-    const needsQuoting = hasColon || hasQuotes || hasParens;
+    const needsQuoting = hasColon || hasQuotes || hasParens || hasNewline;
 
     if (needsQuoting) {
       const hasDoubleQuotes = str.includes('"');
       const hasSingleQuotes = str.includes("'");
 
+      // IMPORTANT: Escape in correct order: backslash first, then newlines, then quotes
+      // This prevents double-escaping
+      let escaped = str.replace(/\\/g, '\\\\'); // \ -> \\
+      escaped = escaped.replace(/\n/g, '\\n');  // newline -> \n
+
       if (hasDoubleQuotes && hasSingleQuotes) {
-        const escaped = str.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        // Has both - use double quotes and escape inner double quotes
+        escaped = escaped.replace(/"/g, '\\"');
         return `"${escaped}"`;
       } else if (hasDoubleQuotes) {
-        return `'${str}'`;
+        // Has double quotes - use single quotes to wrap
+        return `'${escaped}'`;
       } else if (hasSingleQuotes) {
-        return `"${str}"`;
+        // Has single quotes - use double quotes to wrap
+        return `"${escaped}"`;
       } else {
-        return `"${str}"`;
+        // No quotes - use double quotes
+        return `"${escaped}"`;
       }
     }
 
@@ -236,26 +247,42 @@ export function createQADatabase(filePath) {
   }
 
   /**
+   * Unescapes a string from links-notation format
+   * Converts escaped sequences back to their original characters
+   * @param {string} str - String to unescape
+   * @returns {string} Unescaped string
+   */
+  function unescapeFromLinksNotation(str) {
+    if (!str) return str;
+
+    // Unescape in reverse order of escaping: quotes first, then newlines, then backslashes
+    let unescaped = str.replace(/\\"/g, '"');   // \" -> "
+    unescaped = unescaped.replace(/\\n/g, '\n'); // \n -> newline
+    unescaped = unescaped.replace(/\\\\/g, '\\'); // \\ -> \
+
+    return unescaped;
+  }
+
+  /**
    * Extracts text from a Link object
    * @param {Object} link - The link to extract text from
-   * @returns {string} The extracted text
+   * @returns {string} The extracted text (with escape sequences converted back)
    */
   function extractText(link) {
     if (!link) return '';
 
+    let text = '';
+
     if (link.id && (!link.values || link.values.length === 0)) {
-      return link.id;
+      text = link.id;
+    } else if (!link.id && link.values && link.values.length > 0) {
+      text = link.values.map(v => extractText(v)).join(' ');
+    } else if (link.id) {
+      text = link.id;
     }
 
-    if (!link.id && link.values && link.values.length > 0) {
-      return link.values.map(v => extractText(v)).join(' ');
-    }
-
-    if (link.id) {
-      return link.id;
-    }
-
-    return '';
+    // Unescape the text before returning
+    return unescapeFromLinksNotation(text);
   }
 
   // Return the public API
