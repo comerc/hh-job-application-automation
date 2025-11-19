@@ -7,6 +7,7 @@
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
+import makeLog from 'log-lazy';
 
 /**
  * Common Chrome arguments used across both Playwright and Puppeteer
@@ -73,6 +74,18 @@ async function disableTranslateInPreferences(options = {}) {
  */
 function isVerboseEnabled() {
   return !!(process.env.VERBOSE || process.argv.includes('--verbose'));
+}
+
+/**
+ * Create a logger instance with verbose level control
+ * @param {Object} options - Configuration options
+ * @param {boolean} options.verbose - Enable verbose logging
+ * @returns {Object} - Logger instance
+ */
+function createLogger(options = {}) {
+  const { verbose = false } = options;
+  const log = makeLog({ level: verbose ? 'debug' : 'error' });
+  return log;
 }
 
 /**
@@ -205,23 +218,8 @@ export function makeBrowserCommander(options = {}) {
 
   const engine = detectEngine(page);
 
-  /**
-   * Log verbose message if verbose mode is enabled
-   * @param {Object} options - Configuration options
-   * @param {string} options.message - Message to log
-   * @param {string} options.prefix - Prefix for the message (default: 'VERBOSE')
-   */
-  function logVerbose(options = {}) {
-    const { message, prefix = 'VERBOSE' } = options;
-
-    if (!message) {
-      throw new Error('message is required in options');
-    }
-
-    if (verbose) {
-      console.log(`🔍 [${prefix}] ${message}`);
-    }
-  }
+  // Create logger instance with debug level for verbose mode
+  const log = createLogger({ verbose });
 
   /**
    * Helper to create Playwright locator from selector string
@@ -277,23 +275,20 @@ export function makeBrowserCommander(options = {}) {
    * Check if an input element is empty
    * @param {Object} options - Configuration options
    * @param {Object} options.locatorOrElement - Element or locator to check
-   * @param {string} options.selector - CSS selector (for Puppeteer fallback)
    * @returns {Promise<boolean>} - True if empty, false if has content
    */
   async function checkIfElementEmpty(options = {}) {
-    const { locatorOrElement, selector } = options;
+    const { locatorOrElement } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
 
     if (engine === 'playwright') {
-      if (!locatorOrElement) {
-        throw new Error('locatorOrElement is required for Playwright');
-      }
       const currentValue = await locatorOrElement.inputValue();
       return !currentValue || currentValue.trim() === '';
     } else {
-      if (!selector) {
-        throw new Error('selector is required for Puppeteer');
-      }
-      const currentValue = await page.$eval(selector, el => el.value);
+      const currentValue = await page.evaluate(el => el.value, locatorOrElement);
       return !currentValue || currentValue.trim() === '';
     }
   }
@@ -302,40 +297,99 @@ export function makeBrowserCommander(options = {}) {
    * Perform fill/type operation on an element
    * @param {Object} options - Configuration options
    * @param {Object} options.locatorOrElement - Element or locator to fill
-   * @param {string} options.selector - CSS selector (for Puppeteer)
    * @param {string} options.text - Text to fill
    * @param {boolean} options.simulateTyping - Whether to simulate typing (default: true)
    * @returns {Promise<void>}
    */
   async function performFill(options = {}) {
-    const { locatorOrElement, selector, text, simulateTyping = true } = options;
+    const { locatorOrElement, text, simulateTyping = true } = options;
 
     if (!text) {
       throw new Error('text is required in options');
     }
 
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
     if (engine === 'playwright') {
-      if (!locatorOrElement) {
-        throw new Error('locatorOrElement is required for Playwright');
-      }
       if (simulateTyping) {
         await locatorOrElement.type(text);
       } else {
         await locatorOrElement.fill(text);
       }
     } else {
-      if (!selector) {
-        throw new Error('selector is required for Puppeteer');
-      }
       if (simulateTyping) {
-        await page.type(selector, text);
+        // For Puppeteer, we need to focus first, then type
+        await locatorOrElement.focus();
+        await page.keyboard.type(text);
       } else {
-        await page.$eval(selector, (el, value) => {
+        await page.evaluate((el, value) => {
           el.value = value;
           el.dispatchEvent(new Event('input', { bubbles: true }));
           el.dispatchEvent(new Event('change', { bubbles: true }));
-        }, text);
+        }, locatorOrElement, text);
       }
+    }
+  }
+
+  /**
+   * Wait for element to be visible
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Element or locator to wait for
+   * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
+   * @returns {Promise<void>}
+   */
+  async function waitForVisible(options = {}) {
+    const { locatorOrElement, timeout = TIMING.DEFAULT_TIMEOUT } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
+    if (engine === 'playwright') {
+      await locatorOrElement.waitFor({ state: 'visible', timeout });
+    } else {
+      // For Puppeteer, element is already fetched, just verify it exists
+      if (!locatorOrElement) {
+        throw new Error('Element not found');
+      }
+    }
+  }
+
+  /**
+   * Click an element
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Element or locator to click
+   * @returns {Promise<void>}
+   */
+  async function clickElement(options = {}) {
+    const { locatorOrElement } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
+    await locatorOrElement.click();
+  }
+
+  /**
+   * Get input value from element
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Element or locator
+   * @returns {Promise<string>}
+   */
+  async function getInputValue(options = {}) {
+    const { locatorOrElement } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
+    if (engine === 'playwright') {
+      return await locatorOrElement.inputValue();
+    } else {
+      return await page.evaluate(el => el.value, locatorOrElement);
     }
   }
 
@@ -355,11 +409,11 @@ export function makeBrowserCommander(options = {}) {
     if (engine === 'playwright') {
       const tagName = await locatorOrElement.evaluate(el => el.tagName);
       const text = await locatorOrElement.textContent();
-      logVerbose({ message: `About to scroll to ${tagName}: "${text?.trim().substring(0, 30)}..."` });
+      log.debug(() => `🔍 [VERBOSE] About to scroll to ${tagName}: "${text?.trim().substring(0, 30)}..."`);
     } else {
       const tagName = await page.evaluate(el => el.tagName, locatorOrElement);
       const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), locatorOrElement);
-      logVerbose({ message: `About to scroll to ${tagName}: "${text}..."` });
+      log.debug(() => `🔍 [VERBOSE] About to scroll to ${tagName}: "${text}..."`);
     }
   }
 
@@ -378,13 +432,13 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (reason) {
-      logVerbose({ message: `Waiting ${ms}ms: ${reason}` });
+      log.debug(() => `🔍 [VERBOSE] Waiting ${ms}ms: ${reason}`);
     }
 
     await new Promise(r => setTimeout(r, ms));
 
     if (reason) {
-      logVerbose({ message: `Wait complete (${ms}ms)` });
+      log.debug(() => `🔍 [VERBOSE] Wait complete (${ms}ms)`);
     }
   }
 
@@ -419,7 +473,7 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
-   * Scroll element into view
+   * Scroll element into view (low-level, does not check if scroll is needed)
    * @param {Object} options - Configuration options
    * @param {Object} options.locatorOrElement - Playwright locator or Puppeteer element
    * @param {string} options.behavior - 'smooth' or 'instant' (default: 'smooth')
@@ -443,6 +497,95 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
+   * Check if element needs scrolling (is it more than threshold% away from viewport center)
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Playwright locator or Puppeteer element
+   * @param {number} options.threshold - Percentage of viewport height to consider "significant" (default: 10)
+   * @returns {Promise<boolean>} - True if scroll is needed
+   */
+  async function needsScrolling(options = {}) {
+    const { locatorOrElement, threshold = 10 } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
+    if (engine === 'playwright') {
+      return await locatorOrElement.evaluate((el, thresholdPercent) => {
+        const rect = el.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const elementCenter = rect.top + rect.height / 2;
+        const viewportCenter = viewportHeight / 2;
+        const distanceFromCenter = Math.abs(elementCenter - viewportCenter);
+        const thresholdPixels = (viewportHeight * thresholdPercent) / 100;
+
+        // Check if element is visible and within threshold
+        const isVisible = rect.top >= 0 && rect.bottom <= viewportHeight;
+        const isWithinThreshold = distanceFromCenter <= thresholdPixels;
+
+        return !isVisible || !isWithinThreshold;
+      }, threshold);
+    } else {
+      return await page.evaluate((el, thresholdPercent) => {
+        const rect = el.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const elementCenter = rect.top + rect.height / 2;
+        const viewportCenter = viewportHeight / 2;
+        const distanceFromCenter = Math.abs(elementCenter - viewportCenter);
+        const thresholdPixels = (viewportHeight * thresholdPercent) / 100;
+
+        // Check if element is visible and within threshold
+        const isVisible = rect.top >= 0 && rect.bottom <= viewportHeight;
+        const isWithinThreshold = distanceFromCenter <= thresholdPixels;
+
+        return !isVisible || !isWithinThreshold;
+      }, locatorOrElement, threshold);
+    }
+  }
+
+  /**
+   * Scroll element into view only if needed (>threshold% from center)
+   * Automatically waits for scroll animation if scroll was performed
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Playwright locator or Puppeteer element
+   * @param {string} options.behavior - 'smooth' or 'instant' (default: 'smooth')
+   * @param {number} options.threshold - Percentage of viewport height to consider "significant" (default: 10)
+   * @param {number} options.waitAfterScroll - Wait time after scroll in ms (default: TIMING.SCROLL_ANIMATION_WAIT for smooth, 0 for instant)
+   * @returns {Promise<boolean>} - True if scroll was performed, false if skipped
+   */
+  async function scrollIntoViewIfNeeded(options = {}) {
+    const {
+      locatorOrElement,
+      behavior = 'smooth',
+      threshold = 10,
+      waitAfterScroll = behavior === 'smooth' ? TIMING.SCROLL_ANIMATION_WAIT : 0
+    } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
+    // Check if scrolling is needed
+    const needsScroll = await needsScrolling({ locatorOrElement, threshold });
+
+    if (!needsScroll) {
+      log.debug(() => `🔍 [VERBOSE] Element already in view (within ${threshold}% threshold), skipping scroll`);
+      return false;
+    }
+
+    // Perform scroll
+    log.debug(() => `🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
+    await scrollIntoView({ locatorOrElement, behavior });
+
+    // Wait for scroll animation if specified
+    if (waitAfterScroll > 0) {
+      await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
+    }
+
+    return true;
+  }
+
+  /**
    * Fill a textarea with text
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector or Playwright Locator
@@ -451,7 +594,8 @@ export function makeBrowserCommander(options = {}) {
    * @param {boolean} options.scrollIntoView - Scroll into view (default: true)
    * @param {boolean} options.simulateTyping - Simulate typing vs direct fill (default: true)
    * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
-   * @returns {Promise<boolean>} - True if filled, false if skipped
+   * @returns {Promise<boolean>} - True if filled, false if skipped (element already has content)
+   * @throws {Error} - If selector or text is missing, or if operation fails
    */
   async function fillTextArea(options = {}) {
     const {
@@ -464,63 +608,38 @@ export function makeBrowserCommander(options = {}) {
     } = options;
 
     if (!selector || !text) {
-      console.error('⚠️  fillTextArea: selector and text are required');
-      return false;
+      throw new Error('fillTextArea: selector and text are required in options');
     }
 
-    try {
-      if (engine === 'playwright') {
-        const locator = await getLocatorOrElement({ selector });
-        await locator.waitFor({ state: 'visible', timeout });
+    // Get the element/locator
+    const locatorOrElement = await getLocatorOrElement({ selector });
 
-        if (checkEmpty) {
-          const isEmpty = await checkIfElementEmpty({ locatorOrElement: locator });
-          if (!isEmpty) {
-            const currentValue = await locator.inputValue();
-            logVerbose({ message: `Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."` });
-            return false;
-          }
-        }
+    // Wait for element to be visible
+    await waitForVisible({ locatorOrElement, timeout });
 
-        if (shouldScroll) {
-          await scrollIntoView({ locatorOrElement: locator, behavior: 'smooth' });
-          await wait({ ms: TIMING.SCROLL_ANIMATION_WAIT, reason: 'scroll animation to complete' });
-        }
-
-        await locator.click();
-        await performFill({ locatorOrElement: locator, text, simulateTyping });
-        logVerbose({ message: `Filled textarea with text: "${text.substring(0, 50)}..."` });
-
-        return true;
-      } else {
-        // Puppeteer implementation
-        await page.waitForSelector(selector, { visible: true, timeout });
-
-        if (checkEmpty) {
-          const isEmpty = await checkIfElementEmpty({ selector });
-          if (!isEmpty) {
-            const currentValue = await page.$eval(selector, el => el.value);
-            logVerbose({ message: `Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."` });
-            return false;
-          }
-        }
-
-        const element = await page.$(selector);
-        if (shouldScroll) {
-          await scrollIntoView({ locatorOrElement: element, behavior: 'smooth' });
-          await wait({ ms: TIMING.SCROLL_ANIMATION_WAIT, reason: 'scroll animation to complete' });
-        }
-
-        await page.click(selector);
-        await performFill({ selector, text, simulateTyping });
-        logVerbose({ message: `Filled textarea with text: "${text.substring(0, 50)}..."` });
-
-        return true;
+    // Check if empty (if requested)
+    if (checkEmpty) {
+      const isEmpty = await checkIfElementEmpty({ locatorOrElement });
+      if (!isEmpty) {
+        const currentValue = await getInputValue({ locatorOrElement });
+        log.debug(() => `🔍 [VERBOSE] Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."`);
+        return false;
       }
-    } catch (error) {
-      console.error('⚠️  Error in fillTextArea:', error.message);
-      return false;
     }
+
+    // Scroll into view (if requested and needed)
+    if (shouldScroll) {
+      await scrollIntoViewIfNeeded({ locatorOrElement, behavior: 'smooth' });
+    }
+
+    // Click the element
+    await clickElement({ locatorOrElement });
+
+    // Fill the text
+    await performFill({ locatorOrElement, text, simulateTyping });
+    log.debug(() => `🔍 [VERBOSE] Filled textarea with text: "${text.substring(0, 50)}..."`);
+
+    return true;
   }
 
   /**
@@ -531,7 +650,8 @@ export function makeBrowserCommander(options = {}) {
    * @param {number} options.waitAfterScroll - Wait time after scroll in ms (default: TIMING.DEFAULT_WAIT_AFTER_SCROLL)
    * @param {boolean} options.smoothScroll - Use smooth scroll animation (default: true)
    * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
-   * @returns {Promise<boolean>} - True if clicked, false if failed
+   * @returns {Promise<void>}
+   * @throws {Error} - If selector is missing, element not found, or click operation fails
    */
   async function clickButton(options = {}) {
     const {
@@ -543,46 +663,30 @@ export function makeBrowserCommander(options = {}) {
     } = options;
 
     if (!selector) {
-      console.error('⚠️  clickButton: selector is required');
-      return false;
+      throw new Error('clickButton: selector is required in options');
     }
 
-    try {
-      const locatorOrElement = await getLocatorOrElement({ selector });
+    // Get the element/locator
+    const locatorOrElement = await getLocatorOrElement({ selector });
 
-      if (engine === 'playwright') {
-        await locatorOrElement.waitFor({ state: 'visible', timeout });
-      } else {
-        // Puppeteer - check element exists
-        if (!locatorOrElement) {
-          console.error(`⚠️  clickButton: Element not found for selector "${selector}"`);
-          return false;
-        }
-      }
+    // Wait for element to be visible
+    await waitForVisible({ locatorOrElement, timeout });
 
-      // Log element info if verbose
-      if (verbose) {
-        await logElementInfo({ locatorOrElement });
-      }
-
-      // Scroll if needed
-      if (shouldScroll) {
-        const behavior = smoothScroll ? 'smooth' : 'instant';
-        logVerbose({ message: `Scrolling with behavior: ${behavior}` });
-        await scrollIntoView({ locatorOrElement, behavior });
-        await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
-      }
-
-      // Perform click
-      logVerbose({ message: 'About to click element' });
-      await locatorOrElement.click();
-      logVerbose({ message: 'Click completed' });
-
-      return true;
-    } catch (error) {
-      console.error('⚠️  Error in clickButton:', error.message);
-      return false;
+    // Log element info if verbose
+    if (verbose) {
+      await logElementInfo({ locatorOrElement });
     }
+
+    // Scroll into view (if requested and needed)
+    if (shouldScroll) {
+      const behavior = smoothScroll ? 'smooth' : 'instant';
+      await scrollIntoViewIfNeeded({ locatorOrElement, behavior, waitAfterScroll });
+    }
+
+    // Perform click
+    log.debug(() => `🔍 [VERBOSE] About to click element`);
+    await clickElement({ locatorOrElement });
+    log.debug(() => `🔍 [VERBOSE] Click completed`);
   }
 
   /**
@@ -827,30 +931,68 @@ export function makeBrowserCommander(options = {}) {
     if (engine === 'playwright') {
       return createPlaywrightLocator({ selector });
     } else {
-      // Return a wrapper that mimics Playwright locator API
-      return {
-        selector,
+      // Return a wrapper that mimics Playwright locator API for Puppeteer
+      const createLocatorWrapper = (sel) => ({
+        selector: sel,
         async count() {
-          const elements = await page.$$(selector);
+          const elements = await page.$$(sel);
           return elements.length;
         },
-        async click() {
-          await page.click(selector);
+        async click(options = {}) {
+          await page.click(sel, options);
         },
         async fill(text) {
-          await page.type(selector, text);
+          await page.$eval(sel, (el, value) => {
+            el.value = value;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }, text);
+        },
+        async type(text, options = {}) {
+          await page.type(sel, text, options);
         },
         async textContent() {
-          const element = await page.$(selector);
+          const element = await page.$(sel);
           if (!element) return null;
           return await page.evaluate(el => el.textContent, element);
         },
-        nth(index) {
-          return {
-            selector: `${selector}:nth-of-type(${index + 1})`,
-          };
+        async inputValue() {
+          const element = await page.$(sel);
+          if (!element) return '';
+          return await page.evaluate(el => el.value, element);
         },
-      };
+        async getAttribute(name) {
+          const element = await page.$(sel);
+          if (!element) return null;
+          return await page.evaluate((el, attr) => el.getAttribute(attr), element, name);
+        },
+        async isVisible() {
+          const element = await page.$(sel);
+          if (!element) return false;
+          return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, element);
+        },
+        async waitFor(options = {}) {
+          const { state = 'visible', timeout = TIMING.DEFAULT_TIMEOUT } = options;
+          const visible = state === 'visible';
+          await page.waitForSelector(sel, { visible, timeout });
+        },
+        nth(index) {
+          return createLocatorWrapper(`${sel}:nth-of-type(${index + 1})`);
+        },
+        first() {
+          return createLocatorWrapper(`${sel}:nth-of-type(1)`);
+        },
+        last() {
+          return createLocatorWrapper(`${sel}:last-of-type`);
+        },
+        async evaluate(fn, arg) {
+          const element = await page.$(sel);
+          if (!element) throw new Error(`Element not found: ${sel}`);
+          return await page.evaluate(fn, element, arg);
+        },
+      });
+
+      return createLocatorWrapper(selector);
     }
   }
 
@@ -949,12 +1091,7 @@ export function makeBrowserCommander(options = {}) {
       if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
         selector = await normalizeSelector({ selector });
         if (!selector) {
-          // Return appropriate default based on function
-          if (fn === clickButton) {
-            console.error('⚠️  Element with text not found');
-            return false;
-          }
-          return null;
+          throw new Error('Element with specified text not found');
         }
       }
 
@@ -990,21 +1127,26 @@ export function makeBrowserCommander(options = {}) {
     // Core properties
     engine,
     page,
+    log, // Expose log instance for direct use
 
     // Helper functions (now public)
-    logVerbose,
     createPlaywrightLocator,
     getLocatorOrElement,
     scrollIntoView,
+    scrollIntoViewIfNeeded,
+    needsScrolling,
     checkIfElementEmpty,
     performFill,
     logElementInfo,
     normalizeSelector,
     withTextSelectorSupport,
+    waitForVisible,
+    clickElement,
+    getInputValue,
 
     // Main API functions
     wait,
-    fillTextArea,
+    fillTextArea: withTextSelectorSupport(fillTextArea),
     clickButton: withTextSelectorSupport(clickButton),
     evaluate,
     waitForSelector,
@@ -1014,10 +1156,10 @@ export function makeBrowserCommander(options = {}) {
     getUrl,
     waitForNavigation,
     getAttribute: withTextSelectorSupport(getAttribute),
-    isVisible,
+    isVisible: withTextSelectorSupport(isVisible),
     count: countEnhanced,
     textContent: withTextSelectorSupport(textContent),
-    inputValue,
+    inputValue: withTextSelectorSupport(inputValue),
     locator,
     findByText,
   };

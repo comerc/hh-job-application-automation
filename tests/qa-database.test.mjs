@@ -22,7 +22,7 @@ import {
 
 // Test data directory
 const TEST_DATA_DIR = path.join(process.cwd(), 'data');
-const TEST_QA_FILE = path.join(TEST_DATA_DIR, 'qa.lino');
+const TEST_QA_FILE = path.join(TEST_DATA_DIR, 'qa.test.lino');
 
 // Helper to clean up test data
 async function cleanup() {
@@ -558,7 +558,7 @@ What about paths?
 
     test('should handle multiple Q&A pairs with various special characters from real-world usage', async () => {
       await cleanup();
-      // Only test special characters that actually appear in the real qa.lino file
+      // Only test special characters that actually appear in the real qa.test.lino file
       const testData = new Map([
         ['Простой вопрос?', 'Простой ответ'],
         ['Вопрос с двоеточием: как дела?', 'Хорошо!'],
