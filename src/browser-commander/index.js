@@ -248,10 +248,10 @@ export function makeBrowserCommander(options = {}) {
 
   /**
    * Get locator/element from selector (unified helper for both engines)
-   * Reduces code duplication across functions
+   * Does NOT wait - use waitForLocatorOrElement() if you need to wait
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector or element/locator
-   * @returns {Promise<Object|null>} - Locator for Playwright, Element for Puppeteer
+   * @returns {Promise<Object|null>} - Locator for Playwright, Element for Puppeteer (can be null)
    */
   async function getLocatorOrElement(options = {}) {
     const { selector } = options;
@@ -266,7 +266,7 @@ export function makeBrowserCommander(options = {}) {
     if (engine === 'playwright') {
       return createPlaywrightLocator({ selector });
     } else {
-      // For Puppeteer, return element
+      // For Puppeteer, return element (can be null if doesn't exist)
       return await page.$(selector);
     }
   }
@@ -334,7 +334,38 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
-   * Wait for element to be visible
+   * Get locator/element and wait for it to be visible
+   * Unified waiting behavior for both engines
+   * @param {Object} options - Configuration options
+   * @param {string|Object} options.selector - CSS selector or existing locator/element
+   * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
+   * @returns {Promise<Object>} - Locator for Playwright, Element for Puppeteer
+   * @throws {Error} - If element not found or not visible within timeout
+   */
+  async function waitForLocatorOrElement(options = {}) {
+    const { selector, timeout = TIMING.DEFAULT_TIMEOUT } = options;
+
+    if (!selector) {
+      throw new Error('selector is required in options');
+    }
+
+    if (engine === 'playwright') {
+      const locator = await getLocatorOrElement({ selector });
+      await locator.waitFor({ state: 'visible', timeout });
+      return locator;
+    } else {
+      // Puppeteer: wait for selector to be visible
+      await page.waitForSelector(selector, { visible: true, timeout });
+      const element = await page.$(selector);
+      if (!element) {
+        throw new Error(`Element not found after waiting: ${selector}`);
+      }
+      return element;
+    }
+  }
+
+  /**
+   * Wait for element to be visible (works with existing locatorOrElement)
    * @param {Object} options - Configuration options
    * @param {Object} options.locatorOrElement - Element or locator to wait for
    * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
@@ -611,11 +642,8 @@ export function makeBrowserCommander(options = {}) {
       throw new Error('fillTextArea: selector and text are required in options');
     }
 
-    // Get the element/locator
-    const locatorOrElement = await getLocatorOrElement({ selector });
-
-    // Wait for element to be visible
-    await waitForVisible({ locatorOrElement, timeout });
+    // Get locator/element and wait for it to be visible (unified for both engines)
+    const locatorOrElement = await waitForLocatorOrElement({ selector, timeout });
 
     // Check if empty (if requested)
     if (checkEmpty) {
@@ -666,11 +694,8 @@ export function makeBrowserCommander(options = {}) {
       throw new Error('clickButton: selector is required in options');
     }
 
-    // Get the element/locator
-    const locatorOrElement = await getLocatorOrElement({ selector });
-
-    // Wait for element to be visible
-    await waitForVisible({ locatorOrElement, timeout });
+    // Get locator/element and wait for it to be visible (unified for both engines)
+    const locatorOrElement = await waitForLocatorOrElement({ selector, timeout });
 
     // Log element info if verbose
     if (verbose) {
@@ -1132,6 +1157,7 @@ export function makeBrowserCommander(options = {}) {
     // Helper functions (now public)
     createPlaywrightLocator,
     getLocatorOrElement,
+    waitForLocatorOrElement,
     scrollIntoView,
     scrollIntoViewIfNeeded,
     needsScrolling,

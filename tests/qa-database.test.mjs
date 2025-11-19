@@ -12,17 +12,18 @@ import { describe, test, assert } from 'test-anywhere';
 import fs from 'fs/promises';
 import path from 'path';
 
-// Import the module to test
-import {
-  readQADatabase,
-  writeQADatabase,
-  addOrUpdateQA,
-  getAnswer,
-} from '../src/qa-database.mjs';
+// Import the factory function
+// Note: Utility functions (levenshteinDistance, etc.) are tested in separate test files
+import { createQADatabase } from '../src/qa-database.mjs';
 
-// Test data directory
-const TEST_DATA_DIR = path.join(process.cwd(), 'data');
+// CRITICAL: Create QA database instance with ISOLATED test file path
+// This prevents tests from EVER touching production data/qa.lino
+const TEST_DATA_DIR = path.join(process.cwd(), 'test-data');
 const TEST_QA_FILE = path.join(TEST_DATA_DIR, 'qa.test.lino');
+
+// Create test database instance
+const qaDB = createQADatabase(TEST_QA_FILE);
+const { readQADatabase, writeQADatabase, addOrUpdateQA, getAnswer } = qaDB;
 
 // Helper to clean up test data
 async function cleanup() {

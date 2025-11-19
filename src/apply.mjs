@@ -9,8 +9,15 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import os from 'os';
-import { readQADatabase, addOrUpdateQA, findBestMatch } from './qa-database.mjs';
+import { createQADatabase, findBestMatch } from './qa-database.mjs';
 import { launchBrowser, makeBrowserCommander } from './browser-commander/index.js';
+
+// Create QA database instance with explicit production file path
+const QA_DB_PATH = path.join(process.cwd(), 'data', 'qa.lino');
+const qaDB = createQADatabase(QA_DB_PATH);
+
+// Extract methods from database instance
+const { readQADatabase, addOrUpdateQA } = qaDB;
 
 let browser = null;
 let commander = null;
@@ -180,7 +187,11 @@ github.com/link-foundation`;
 
   const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy/;
   const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
+  const vacancyPagePattern = /^https:\/\/hh\.ru\/vacancy\/(\d+)/;
   const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000;
+
+  // Track vacancy page flow: vacancy_response -> vacancy details -> click button -> back to START_URL
+  let isOnVacancyPageFromResponse = false;
 
   /**
    * Setup Q&A auto-fill and auto-save for all textareas on the page
@@ -632,55 +643,143 @@ github.com/link-foundation`;
   process.on('exit', () => clearInterval(saveInterval));
 
   // Setup navigation listener (engine-specific)
+  const handleNavigation = async (currentUrl) => {
+    try {
+      const wasOnVacancyResponse = vacancyResponsePattern.test(lastUrl);
+      const isOnVacancyResponse = vacancyResponsePattern.test(currentUrl);
+      const vacancyPageMatch = currentUrl.match(vacancyPagePattern);
+
+      // Track when navigating from vacancy_response to vacancy details page
+      if (wasOnVacancyResponse && vacancyPageMatch) {
+        const vacancyResponseMatch = lastUrl.match(/vacancyId=(\d+)/);
+        if (vacancyResponseMatch) {
+          const responseVacancyId = vacancyResponseMatch[1];
+          const pageVacancyId = vacancyPageMatch[1];
+
+          // Check if vacancyId matches
+          if (responseVacancyId === pageVacancyId) {
+            console.log(`📄 Navigated to vacancy details page (ID: ${pageVacancyId}) from vacancy_response`);
+            isOnVacancyPageFromResponse = true;
+          }
+        }
+      }
+
+      // Save Q&A when leaving vacancy_response page
+      if (wasOnVacancyResponse && !isOnVacancyResponse) {
+        console.log('🔄 Navigation detected from vacancy_response page, saving Q&A pairs...');
+        const savedCount = await saveQAPairs();
+        if (savedCount > 0) {
+          console.log(`💾 Saved ${savedCount} Q&A pair(s) before navigation`);
+        }
+      }
+
+      // Reset flag when leaving vacancy page
+      if (!vacancyPageMatch) {
+        isOnVacancyPageFromResponse = false;
+      }
+
+      lastUrl = currentUrl;
+    } catch (error) {
+      console.log('⚠️  Error in navigation handler:', error.message);
+    }
+  };
+
   if (commander.engine === 'playwright') {
     page.on('framenavigated', async (frame) => {
       if (frame !== page.mainFrame()) return;
-
-      try {
-        const currentUrl = frame.url();
-        const wasOnVacancyResponse = vacancyResponsePattern.test(lastUrl);
-        const isOnVacancyResponse = vacancyResponsePattern.test(currentUrl);
-
-        if (wasOnVacancyResponse && !isOnVacancyResponse) {
-          console.log('🔄 Navigation detected from vacancy_response page, saving Q&A pairs...');
-          const savedCount = await saveQAPairs();
-          if (savedCount > 0) {
-            console.log(`💾 Saved ${savedCount} Q&A pair(s) before navigation`);
-          }
-        }
-
-        lastUrl = currentUrl;
-      } catch (error) {
-        console.log('⚠️  Error saving Q&A during navigation:', error.message);
-      }
+      await handleNavigation(frame.url());
     });
   } else {
     // Puppeteer navigation listener
     page.on('framenavigated', async (frame) => {
       if (frame !== page.mainFrame()) return;
+      await handleNavigation(frame.url());
+    });
+  }
 
-      try {
-        const currentUrl = frame.url();
-        const wasOnVacancyResponse = vacancyResponsePattern.test(lastUrl);
-        const isOnVacancyResponse = vacancyResponsePattern.test(currentUrl);
+  /**
+   * Setup click listener on vacancy page to detect "Откликнуться" button clicks
+   * When clicked from vacancy_response flow, redirect back to START_URL
+   */
+  async function setupVacancyPageClickListener() {
+    try {
+      await commander.evaluate({
+        fn: () => {
+          // Add click listener to all links
+          document.addEventListener('click', (event) => {
+            const target = event.target.closest('a, button');
+            if (target && target.textContent.trim() === 'Откликнуться') {
+              // Store flag in sessionStorage to trigger redirect after response
+              window.sessionStorage.setItem('shouldRedirectAfterResponse', 'true');
+            }
+          }, true);
+        },
+      });
+    } catch (error) {
+      console.log('⚠️  Error setting up vacancy page click listener:', error.message);
+    }
+  }
 
-        if (wasOnVacancyResponse && !isOnVacancyResponse) {
-          console.log('🔄 Navigation detected from vacancy_response page, saving Q&A pairs...');
-          const savedCount = await saveQAPairs();
-          if (savedCount > 0) {
-            console.log(`💾 Saved ${savedCount} Q&A pair(s) before navigation`);
+  /**
+   * Check if we should redirect after vacancy response
+   * This is checked after clicking "Откликнуться" on vacancy page from vacancy_response flow
+   */
+  async function checkAndRedirectIfNeeded() {
+    try {
+      const shouldRedirect = await commander.evaluate({
+        fn: () => {
+          const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
+          if (flag === 'true') {
+            window.sessionStorage.removeItem('shouldRedirectAfterResponse');
+            return true;
           }
-        }
+          return false;
+        },
+      });
 
-        lastUrl = currentUrl;
-      } catch (error) {
-        console.log('⚠️  Error saving Q&A during navigation:', error.message);
+      if (shouldRedirect && isOnVacancyPageFromResponse) {
+        console.log('✅ Response submitted from vacancy page, redirecting back to search page...');
+        await commander.goto({ url: START_URL });
+        await commander.wait({ ms: 1000, reason: 'page to load after redirect' });
+        // Reset the tracking flag
+        isOnVacancyPageFromResponse = false;
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.log('⚠️  Error checking redirect condition:', error.message);
+      return false;
+    }
+  }
+
+  // Setup click listener whenever we navigate to a vacancy page from vacancy_response
+  if (commander.engine === 'playwright') {
+    page.on('framenavigated', async (frame) => {
+      if (frame !== page.mainFrame()) return;
+      const currentUrl = frame.url();
+      if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
+        await setupVacancyPageClickListener();
+      }
+    });
+  } else {
+    page.on('framenavigated', async (frame) => {
+      if (frame !== page.mainFrame()) return;
+      const currentUrl = frame.url();
+      if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
+        await setupVacancyPageClickListener();
       }
     });
   }
 
   // Main loop to process all "Откликнуться" buttons
   while (true) {
+    // Check if we should redirect back from vacancy page
+    const didRedirect = await checkAndRedirectIfNeeded();
+    if (didRedirect) {
+      continue;
+    }
+
     // Get all "Откликнуться" buttons
     const openButtonsData = await commander.evaluate({
       fn: () => {
