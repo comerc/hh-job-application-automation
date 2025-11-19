@@ -199,6 +199,25 @@ export async function launchBrowser(options = {}) {
     console.log(`✅ Browser launched with ${engine} engine`);
   }
 
+  // Unfocus address bar automatically after browser launch
+  // Using page.bringToFront() - confirmed working solution
+  try {
+    // Wait for the browser to fully initialize
+    await new Promise(r => setTimeout(r, 500));
+
+    // Bring page to front - this removes focus from address bar
+    await page.bringToFront();
+
+    if (verbose) {
+      console.log('✅ Address bar unfocused automatically');
+    }
+  } catch (error) {
+    // Ignore errors - this is just a UX improvement
+    if (verbose) {
+      console.log('⚠️  Could not unfocus address bar:', error.message);
+    }
+  }
+
   return { browser, page };
 }
 
@@ -788,20 +807,26 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
-   * Focus page content to prevent address bar from being selected
-   * Fixes the annoying issue where address bar is focused after navigation
+   * Unfocus address bar to prevent it from being selected
+   * Fixes the annoying issue where address bar is focused after browser launch/navigation
+   * Uses page.bringToFront() as recommended by Puppeteer/Playwright communities
+   * @param {Object} options - Configuration options
+   * @param {Object} options.page - Browser page object (optional, uses closure if not provided)
    * @returns {Promise<void>}
    */
-  async function focusPageContent() {
+  async function unfocusAddressBar(options = {}) {
+    const { page: pageArg } = options;
+
+    // Use provided page or fall back to closure variable
+    const targetPage = pageArg || page;
+
+    if (!targetPage) {
+      throw new Error('page is required in options or must be available in closure');
+    }
+
     try {
-      await evaluate({
-        fn: () => {
-          // Focus the body element to remove focus from address bar
-          document.body?.focus();
-          // Also click on the body to ensure focus
-          document.body?.click();
-        },
-      });
+      // Bring page to front - this removes focus from address bar
+      await targetPage.bringToFront();
     } catch {
       // Ignore errors - this is just a UX improvement
     }
@@ -812,22 +837,16 @@ export function makeBrowserCommander(options = {}) {
    * @param {Object} options - Configuration options
    * @param {string} options.url - URL to navigate to
    * @param {string} options.waitUntil - Wait until condition (default: 'domcontentloaded')
-   * @param {boolean} options.focusContent - Focus page content after navigation (default: true)
    * @returns {Promise<void>}
    */
   async function goto(options = {}) {
-    const { url, waitUntil = 'domcontentloaded', focusContent = true } = options;
+    const { url, waitUntil = 'domcontentloaded' } = options;
 
     if (!url) {
       throw new Error('url is required in options');
     }
 
     await page.goto(url, { waitUntil });
-
-    // Focus page content by default to prevent address bar selection
-    if (focusContent) {
-      await focusPageContent();
-    }
   }
 
   /**
@@ -1236,7 +1255,7 @@ export function makeBrowserCommander(options = {}) {
     waitForVisible,
     clickElement,
     getInputValue,
-    focusPageContent,
+    unfocusAddressBar,
 
     // Main API functions
     wait,

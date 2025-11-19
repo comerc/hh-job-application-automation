@@ -235,7 +235,6 @@ github.com/link-foundation`;
     console.log('📍 Login URL:', loginUrl);
 
     await commander.goto({ url: loginUrl });
-    await commander.focusPageContent();
 
     console.log('💡 The browser will automatically continue once you are redirected to:', START_URL);
 
@@ -243,11 +242,9 @@ github.com/link-foundation`;
 
     if (!pageClosedByUser) {
       console.log('✅ Login successful! Proceeding with automation...');
-      await commander.focusPageContent();
     }
   } else {
     await commander.goto({ url: START_URL });
-    await commander.focusPageContent();
   }
 
   /**
