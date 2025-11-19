@@ -339,7 +339,7 @@ export function makeBrowserCommander(options = {}) {
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector or existing locator/element
    * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
-   * @returns {Promise<Object>} - Locator for Playwright, Element for Puppeteer
+   * @returns {Promise<Object>} - Locator for Playwright (first match), Element for Puppeteer
    * @throws {Error} - If element not found or not visible within timeout
    */
   async function waitForLocatorOrElement(options = {}) {
@@ -351,10 +351,12 @@ export function makeBrowserCommander(options = {}) {
 
     if (engine === 'playwright') {
       const locator = await getLocatorOrElement({ selector });
-      await locator.waitFor({ state: 'visible', timeout });
-      return locator;
+      // Use .first() to handle multiple matches (Playwright strict mode)
+      const firstLocator = locator.first();
+      await firstLocator.waitFor({ state: 'visible', timeout });
+      return firstLocator;
     } else {
-      // Puppeteer: wait for selector to be visible
+      // Puppeteer: wait for selector to be visible (returns first match by default)
       await page.waitForSelector(selector, { visible: true, timeout });
       const element = await page.$(selector);
       if (!element) {
