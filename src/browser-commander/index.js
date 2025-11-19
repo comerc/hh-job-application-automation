@@ -185,6 +185,44 @@ export function makeBrowserCommander(options = {}) {
   const engine = detectEngine(page);
 
   /**
+   * Helper to create Playwright locator from selector string
+   * Handles :nth-of-type() pseudo-selectors which don't work in Playwright locators
+   * @param {string} selector - CSS selector
+   * @returns {Object} - Playwright locator
+   */
+  function createPlaywrightLocator(selector) {
+    // Check if selector has :nth-of-type(n) pattern
+    const nthOfTypeMatch = selector.match(/^(.+):nth-of-type\((\d+)\)$/);
+
+    if (nthOfTypeMatch) {
+      const baseSelector = nthOfTypeMatch[1];
+      const index = parseInt(nthOfTypeMatch[2], 10) - 1; // Convert to 0-based index
+      return page.locator(baseSelector).nth(index);
+    }
+
+    return page.locator(selector);
+  }
+
+  /**
+   * Get locator/element from selector (unified helper for both engines)
+   * Reduces code duplication across functions
+   * @param {string|Object} selector - CSS selector or element/locator
+   * @returns {Object|Promise<Object|null>} - Locator for Playwright (sync), Element for Puppeteer (async)
+   */
+  function getLocatorOrElement(selector) {
+    if (typeof selector !== 'string') {
+      return selector; // Already a locator/element
+    }
+
+    if (engine === 'playwright') {
+      return createPlaywrightLocator(selector);
+    } else {
+      // For Puppeteer, return a promise
+      return page.$(selector);
+    }
+  }
+
+  /**
    * Wait/sleep for a specified time with optional verbose logging
    * @param {Object} options - Configuration options
    * @param {number} options.ms - Milliseconds to wait
@@ -210,6 +248,53 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
+   * Evaluate JavaScript in page context
+   * @param {Object} options - Configuration options
+   * @param {Function} options.fn - Function to evaluate
+   * @param {Array} options.args - Arguments to pass to function (default: [])
+   * @returns {Promise<any>} - Result of evaluation
+   */
+  async function evaluate(options = {}) {
+    const { fn, args = [] } = options;
+
+    if (!fn) {
+      throw new Error('fn is required in options');
+    }
+
+    if (engine === 'playwright') {
+      // Playwright only accepts a single argument (can be an array/object)
+      if (args.length === 0) {
+        return await page.evaluate(fn);
+      } else if (args.length === 1) {
+        return await page.evaluate(fn, args[0]);
+      } else {
+        // Multiple args - pass as array
+        return await page.evaluate(fn, args);
+      }
+    } else {
+      // Puppeteer accepts spread arguments
+      return await page.evaluate(fn, ...args);
+    }
+  }
+
+  /**
+   * Scroll element into view
+   * @param {Object} locatorOrElement - Playwright locator or Puppeteer element
+   * @param {string} behavior - 'smooth' or 'instant'
+   */
+  async function scrollIntoView(locatorOrElement, behavior = 'smooth') {
+    if (engine === 'playwright') {
+      await locatorOrElement.evaluate((el, scrollBehavior) => {
+        el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
+      }, behavior);
+    } else {
+      await page.evaluate((el, scrollBehavior) => {
+        el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
+      }, locatorOrElement, behavior);
+    }
+  }
+
+  /**
    * Fill a textarea with text
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector or Playwright Locator
@@ -225,7 +310,7 @@ export function makeBrowserCommander(options = {}) {
       selector,
       text,
       checkEmpty = true,
-      scrollIntoView = true,
+      scrollIntoView: shouldScroll = true,
       simulateTyping = true,
       timeout = 5000,
     } = options;
@@ -237,11 +322,7 @@ export function makeBrowserCommander(options = {}) {
 
     try {
       if (engine === 'playwright') {
-        // Playwright implementation
-        const locator = typeof selector === 'string'
-          ? createPlaywrightLocator(selector)
-          : selector;
-
+        const locator = getLocatorOrElement(selector);
         await locator.waitFor({ state: 'visible', timeout });
 
         if (checkEmpty) {
@@ -254,10 +335,8 @@ export function makeBrowserCommander(options = {}) {
           }
         }
 
-        if (scrollIntoView) {
-          await locator.evaluate((el) => {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-          });
+        if (shouldScroll) {
+          await scrollIntoView(locator, 'smooth');
           await wait({ ms: 300, reason: 'scroll animation to complete' });
         }
 
@@ -288,7 +367,7 @@ export function makeBrowserCommander(options = {}) {
           }
         }
 
-        if (scrollIntoView) {
+        if (shouldScroll) {
           await page.$eval(selector, (el) => {
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
           });
@@ -332,7 +411,7 @@ export function makeBrowserCommander(options = {}) {
   async function clickButton(options = {}) {
     const {
       selector,
-      scrollIntoView = true,
+      scrollIntoView: shouldScroll = true,
       waitAfterScroll = 1000,
       smoothScroll = true,
       timeout = 5000,
@@ -345,11 +424,7 @@ export function makeBrowserCommander(options = {}) {
 
     try {
       if (engine === 'playwright') {
-        // Playwright implementation
-        const locator = typeof selector === 'string'
-          ? createPlaywrightLocator(selector)
-          : selector;
-
+        const locator = getLocatorOrElement(selector);
         await locator.waitFor({ state: 'visible', timeout });
 
         if (verbose) {
@@ -358,17 +433,13 @@ export function makeBrowserCommander(options = {}) {
           console.log(`🔍 [VERBOSE] About to scroll to ${tagName}: "${text?.trim().substring(0, 30)}..."`);
         }
 
-        if (scrollIntoView) {
+        if (shouldScroll) {
           const behavior = smoothScroll ? 'smooth' : 'instant';
           if (verbose) {
             console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
           }
 
-          await locator.evaluate((el, scrollBehavior) => {
-            el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
-          }, behavior);
-
-          // Wait for scroll animation to complete
+          await scrollIntoView(locator, behavior);
           await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
         }
 
@@ -385,9 +456,7 @@ export function makeBrowserCommander(options = {}) {
         return true;
       } else {
         // Puppeteer implementation
-        const element = typeof selector === 'string'
-          ? await page.$(selector)
-          : selector;
+        const element = await getLocatorOrElement(selector);
 
         if (!element) {
           console.error(`⚠️  clickButton: Element not found for selector "${selector}"`);
@@ -400,16 +469,13 @@ export function makeBrowserCommander(options = {}) {
           console.log(`🔍 [VERBOSE] About to scroll to ${tagName}: "${text}..."`);
         }
 
-        if (scrollIntoView) {
+        if (shouldScroll) {
           const behavior = smoothScroll ? 'smooth' : 'instant';
           if (verbose) {
             console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
           }
 
-          await page.evaluate((el, scrollBehavior) => {
-            el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
-          }, element, behavior);
-
+          await scrollIntoView(element, behavior);
           await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
         }
 
@@ -417,11 +483,7 @@ export function makeBrowserCommander(options = {}) {
           console.log('🔍 [VERBOSE] About to click element');
         }
 
-        if (typeof selector === 'string') {
-          await page.click(selector);
-        } else {
-          await element.click();
-        }
+        await element.click();
 
         if (verbose) {
           console.log('🔍 [VERBOSE] Click completed');
@@ -432,36 +494,6 @@ export function makeBrowserCommander(options = {}) {
     } catch (error) {
       console.error('⚠️  Error in clickButton:', error.message);
       return false;
-    }
-  }
-
-  /**
-   * Evaluate JavaScript in page context
-   * @param {Object} options - Configuration options
-   * @param {Function} options.fn - Function to evaluate
-   * @param {Array} options.args - Arguments to pass to function (default: [])
-   * @returns {Promise<any>} - Result of evaluation
-   */
-  async function evaluate(options = {}) {
-    const { fn, args = [] } = options;
-
-    if (!fn) {
-      throw new Error('fn is required in options');
-    }
-
-    if (engine === 'playwright') {
-      // Playwright only accepts a single argument (can be an array/object)
-      if (args.length === 0) {
-        return await page.evaluate(fn);
-      } else if (args.length === 1) {
-        return await page.evaluate(fn, args[0]);
-      } else {
-        // Multiple args - pass as array
-        return await page.evaluate(fn, args);
-      }
-    } else {
-      // Puppeteer accepts spread arguments
-      return await page.evaluate(fn, ...args);
     }
   }
 
@@ -550,11 +582,7 @@ export function makeBrowserCommander(options = {}) {
       throw new Error('url is required in options');
     }
 
-    if (engine === 'playwright') {
-      await page.goto(url, { waitUntil });
-    } else {
-      await page.goto(url, { waitUntil });
-    }
+    await page.goto(url, { waitUntil });
   }
 
   /**
@@ -573,31 +601,7 @@ export function makeBrowserCommander(options = {}) {
    */
   async function waitForNavigation(options = {}) {
     const { timeout } = options;
-
-    if (engine === 'playwright') {
-      await page.waitForNavigation(timeout ? { timeout } : undefined);
-    } else {
-      await page.waitForNavigation(timeout ? { timeout } : undefined);
-    }
-  }
-
-  /**
-   * Helper to create Playwright locator from selector string
-   * Handles :nth-of-type() pseudo-selectors which don't work in Playwright locators
-   * @param {string} selector - CSS selector
-   * @returns {Object} - Playwright locator
-   */
-  function createPlaywrightLocator(selector) {
-    // Check if selector has :nth-of-type(n) pattern
-    const nthOfTypeMatch = selector.match(/^(.+):nth-of-type\((\d+)\)$/);
-
-    if (nthOfTypeMatch) {
-      const baseSelector = nthOfTypeMatch[1];
-      const index = parseInt(nthOfTypeMatch[2], 10) - 1; // Convert to 0-based index
-      return page.locator(baseSelector).nth(index);
-    }
-
-    return page.locator(selector);
+    await page.waitForNavigation(timeout ? { timeout } : undefined);
   }
 
   /**
@@ -615,18 +619,12 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = typeof selector === 'string'
-        ? createPlaywrightLocator(selector)
-        : selector;
+      const locator = getLocatorOrElement(selector);
       return await locator.getAttribute(attribute);
     } else {
-      if (typeof selector === 'string') {
-        const element = await page.$(selector);
-        if (!element) return null;
-        return await page.evaluate((el, attr) => el.getAttribute(attr), element, attribute);
-      } else {
-        return await page.evaluate((el, attr) => el.getAttribute(attr), selector, attribute);
-      }
+      const element = await getLocatorOrElement(selector);
+      if (!element) return null;
+      return await page.evaluate((el, attr) => el.getAttribute(attr), element, attribute);
     }
   }
 
@@ -644,9 +642,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = typeof selector === 'string'
-        ? createPlaywrightLocator(selector)
-        : selector;
+      const locator = getLocatorOrElement(selector);
       try {
         await locator.waitFor({ state: 'visible', timeout: 100 });
         return true;
@@ -654,13 +650,9 @@ export function makeBrowserCommander(options = {}) {
         return false;
       }
     } else {
-      if (typeof selector === 'string') {
-        const element = await page.$(selector);
-        if (!element) return false;
-        return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, element);
-      } else {
-        return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, selector);
-      }
+      const element = await getLocatorOrElement(selector);
+      if (!element) return false;
+      return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, element);
     }
   }
 
@@ -699,18 +691,12 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = typeof selector === 'string'
-        ? createPlaywrightLocator(selector)
-        : selector;
+      const locator = getLocatorOrElement(selector);
       return await locator.textContent();
     } else {
-      if (typeof selector === 'string') {
-        const element = await page.$(selector);
-        if (!element) return null;
-        return await page.evaluate(el => el.textContent, element);
-      } else {
-        return await page.evaluate(el => el.textContent, selector);
-      }
+      const element = await getLocatorOrElement(selector);
+      if (!element) return null;
+      return await page.evaluate(el => el.textContent, element);
     }
   }
 
@@ -728,16 +714,12 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = typeof selector === 'string'
-        ? createPlaywrightLocator(selector)
-        : selector;
+      const locator = getLocatorOrElement(selector);
       return await locator.inputValue();
     } else {
-      if (typeof selector === 'string') {
-        return await page.$eval(selector, el => el.value);
-      } else {
-        return await page.evaluate(el => el.value, selector);
-      }
+      const element = await getLocatorOrElement(selector);
+      if (!element) return '';
+      return await page.evaluate(el => el.value, element);
     }
   }
 
@@ -867,6 +849,32 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
+   * Enhanced wrapper for functions that need to handle text selectors
+   * @param {Function} fn - The function to wrap
+   * @returns {Function} - Wrapped function
+   */
+  function withTextSelectorSupport(fn) {
+    return async (options = {}) => {
+      let { selector } = options;
+
+      // Normalize Puppeteer text selectors
+      if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
+        selector = await normalizeSelector({ selector });
+        if (!selector) {
+          // Return appropriate default based on function
+          if (fn === clickButton) {
+            console.error('⚠️  Element with text not found');
+            return false;
+          }
+          return null;
+        }
+      }
+
+      return fn({ ...options, selector });
+    };
+  }
+
+  /**
    * Enhanced count that handles text selectors
    */
   async function countEnhanced(options = {}) {
@@ -890,61 +898,12 @@ export function makeBrowserCommander(options = {}) {
     return count(options);
   }
 
-  /**
-   * Enhanced clickButton that handles text selectors
-   */
-  async function clickButtonEnhanced(options = {}) {
-    let { selector } = options;
-
-    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-      selector = await normalizeSelector({ selector });
-      if (!selector) {
-        console.error('⚠️  clickButton: Element with text not found');
-        return false;
-      }
-    }
-
-    return clickButton({ ...options, selector });
-  }
-
-  /**
-   * Enhanced textContent that handles text selectors
-   */
-  async function textContentEnhanced(options = {}) {
-    let { selector } = options;
-
-    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-      selector = await normalizeSelector({ selector });
-      if (!selector) {
-        return null;
-      }
-    }
-
-    return textContent({ ...options, selector });
-  }
-
-  /**
-   * Enhanced getAttribute that handles text selectors
-   */
-  async function getAttributeEnhanced(options = {}) {
-    let { selector } = options;
-
-    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-      selector = await normalizeSelector({ selector });
-      if (!selector) {
-        return null;
-      }
-    }
-
-    return getAttribute({ ...options, selector });
-  }
-
   return {
     engine,
     page,
     wait,
     fillTextArea,
-    clickButton: clickButtonEnhanced,
+    clickButton: withTextSelectorSupport(clickButton),
     evaluate,
     waitForSelector,
     querySelector,
@@ -952,10 +911,10 @@ export function makeBrowserCommander(options = {}) {
     goto,
     getUrl,
     waitForNavigation,
-    getAttribute: getAttributeEnhanced,
+    getAttribute: withTextSelectorSupport(getAttribute),
     isVisible,
     count: countEnhanced,
-    textContent: textContentEnhanced,
+    textContent: withTextSelectorSupport(textContent),
     inputValue,
     locator,
     findByText,
