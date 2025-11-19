@@ -780,33 +780,22 @@ github.com/link-foundation`;
       continue;
     }
 
-    // Get all "Откликнуться" buttons
-    const openButtonsData = await commander.evaluate({
-      fn: () => {
-        const links = Array.from(document.querySelectorAll('a'));
-        return links
-          .map((link, index) => ({
-            text: link.textContent.trim(),
-            index,
-          }))
-          .filter(item => item.text === 'Откликнуться');
-      },
-    });
+    // Find "Откликнуться" button using text selector
+    const buttonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
+    const buttonCount = await commander.count({ selector: buttonSelector });
 
-    if (openButtonsData.length === 0) {
+    if (buttonCount === 0) {
       console.log('✅ No more "Откликнуться" buttons found. Automation completed successfully.');
       break;
     }
 
-    console.log(`📋 Found ${openButtonsData.length} "Откликнуться" button(s). Processing next button...`);
+    console.log(`📋 Found ${buttonCount} "Откликнуться" button(s). Processing next button...`);
 
-    // Click first button
-    await commander.evaluate({
-      fn: () => {
-        const links = Array.from(document.querySelectorAll('a'));
-        const button = links.filter(l => l.textContent.trim() === 'Откликнуться')[0];
-        if (button) button.click();
-      },
+    // Click first button with smooth scrolling animation
+    await commander.clickButton({
+      selector: buttonSelector,
+      scrollIntoView: true,
+      smoothScroll: true,
     });
 
     // Handle navigation or modal
