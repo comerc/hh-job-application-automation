@@ -48,7 +48,8 @@ function detectEngine(pageOrContext) {
   const hasEval = !!pageOrContext.$eval;
   const hasEvalAll = !!pageOrContext.$$eval;
   const locatorType = typeof pageOrContext.locator;
-  const hasContext = !!pageOrContext.context;
+  const contextType = typeof pageOrContext.context;
+  const hasContext = contextType === 'function' || contextType === 'object';
 
   // Debug logging
   if (process.env.VERBOSE || process.argv.includes('--verbose')) {
@@ -56,19 +57,30 @@ function detectEngine(pageOrContext) {
       hasEval,
       hasEvalAll,
       locatorType,
+      contextType,
       hasContext,
     });
   }
 
-  // Check for Puppeteer-specific methods first (more reliable)
+  // Check for Playwright-specific methods first
+  // Playwright has locator as a function and context() method
+  // Both engines have $eval and $$eval, so we check for unique Playwright features first
+  if (locatorType === 'function' && hasContext) {
+    if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+      console.log('🔍 [ENGINE DETECTION] Detected: playwright');
+    }
+    return 'playwright';
+  }
+  // Check for Puppeteer-specific methods
   // Puppeteer has $eval, $$eval but no context() method
-  if (hasEval && hasEvalAll) {
+  if (hasEval && hasEvalAll && !hasContext) {
+    if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+      console.log('🔍 [ENGINE DETECTION] Detected: puppeteer');
+    }
     return 'puppeteer';
   }
-  // Check for Playwright-specific methods
-  // Playwright has locator as a function and context() method
-  if (locatorType === 'function' && hasContext) {
-    return 'playwright';
+  if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+    console.log('🔍 [ENGINE DETECTION] Could not detect engine!');
   }
   throw new Error('Unknown browser automation engine. Expected Playwright or Puppeteer page object.');
 }
@@ -227,7 +239,7 @@ export function makeBrowserCommander(options = {}) {
       if (engine === 'playwright') {
         // Playwright implementation
         const locator = typeof selector === 'string'
-          ? page.locator(selector)
+          ? createPlaywrightLocator(selector)
           : selector;
 
         await locator.waitFor({ state: 'visible', timeout });
@@ -335,7 +347,7 @@ export function makeBrowserCommander(options = {}) {
       if (engine === 'playwright') {
         // Playwright implementation
         const locator = typeof selector === 'string'
-          ? page.locator(selector)
+          ? createPlaywrightLocator(selector)
           : selector;
 
         await locator.waitFor({ state: 'visible', timeout });
@@ -437,7 +449,20 @@ export function makeBrowserCommander(options = {}) {
       throw new Error('fn is required in options');
     }
 
-    return await page.evaluate(fn, ...args);
+    if (engine === 'playwright') {
+      // Playwright only accepts a single argument (can be an array/object)
+      if (args.length === 0) {
+        return await page.evaluate(fn);
+      } else if (args.length === 1) {
+        return await page.evaluate(fn, args[0]);
+      } else {
+        // Multiple args - pass as array
+        return await page.evaluate(fn, args);
+      }
+    } else {
+      // Puppeteer accepts spread arguments
+      return await page.evaluate(fn, ...args);
+    }
   }
 
   /**
@@ -456,7 +481,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = page.locator(selector);
+      const locator = createPlaywrightLocator(selector);
       await locator.waitFor({ state: visible ? 'visible' : 'attached', timeout });
     } else {
       await page.waitForSelector(selector, { visible, timeout });
@@ -477,7 +502,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = page.locator(selector).first();
+      const locator = createPlaywrightLocator(selector).first();
       const count = await locator.count();
       return count > 0 ? locator : null;
     } else {
@@ -499,7 +524,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = page.locator(selector);
+      const locator = createPlaywrightLocator(selector);
       const count = await locator.count();
       const elements = [];
       for (let i = 0; i < count; i++) {
@@ -557,6 +582,25 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
+   * Helper to create Playwright locator from selector string
+   * Handles :nth-of-type() pseudo-selectors which don't work in Playwright locators
+   * @param {string} selector - CSS selector
+   * @returns {Object} - Playwright locator
+   */
+  function createPlaywrightLocator(selector) {
+    // Check if selector has :nth-of-type(n) pattern
+    const nthOfTypeMatch = selector.match(/^(.+):nth-of-type\((\d+)\)$/);
+
+    if (nthOfTypeMatch) {
+      const baseSelector = nthOfTypeMatch[1];
+      const index = parseInt(nthOfTypeMatch[2], 10) - 1; // Convert to 0-based index
+      return page.locator(baseSelector).nth(index);
+    }
+
+    return page.locator(selector);
+  }
+
+  /**
    * Get element attribute
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector or element
@@ -572,7 +616,7 @@ export function makeBrowserCommander(options = {}) {
 
     if (engine === 'playwright') {
       const locator = typeof selector === 'string'
-        ? page.locator(selector)
+        ? createPlaywrightLocator(selector)
         : selector;
       return await locator.getAttribute(attribute);
     } else {
@@ -601,7 +645,7 @@ export function makeBrowserCommander(options = {}) {
 
     if (engine === 'playwright') {
       const locator = typeof selector === 'string'
-        ? page.locator(selector)
+        ? createPlaywrightLocator(selector)
         : selector;
       try {
         await locator.waitFor({ state: 'visible', timeout: 100 });
@@ -634,7 +678,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      return await page.locator(selector).count();
+      return await createPlaywrightLocator(selector).count();
     } else {
       const elements = await page.$$(selector);
       return elements.length;
@@ -656,7 +700,7 @@ export function makeBrowserCommander(options = {}) {
 
     if (engine === 'playwright') {
       const locator = typeof selector === 'string'
-        ? page.locator(selector)
+        ? createPlaywrightLocator(selector)
         : selector;
       return await locator.textContent();
     } else {
@@ -685,7 +729,7 @@ export function makeBrowserCommander(options = {}) {
 
     if (engine === 'playwright') {
       const locator = typeof selector === 'string'
-        ? page.locator(selector)
+        ? createPlaywrightLocator(selector)
         : selector;
       return await locator.inputValue();
     } else {
@@ -711,7 +755,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      return page.locator(selector);
+      return createPlaywrightLocator(selector);
     } else {
       // Return a wrapper that mimics Playwright locator API
       return {
@@ -773,10 +817,17 @@ export function makeBrowserCommander(options = {}) {
 
   /**
    * Normalize selector to handle Puppeteer text selectors
-   * @param {string|Object} selector - CSS selector or text selector object
+   * @param {Object} options - Configuration options
+   * @param {string|Object} options.selector - CSS selector or text selector object
    * @returns {Promise<string|null>} - CSS selector or null if not found
    */
-  async function normalizeSelector(selector) {
+  async function normalizeSelector(options = {}) {
+    const { selector } = options;
+
+    if (!selector) {
+      throw new Error('selector is required in options');
+    }
+
     if (typeof selector === 'string') {
       return selector;
     }
@@ -846,7 +897,7 @@ export function makeBrowserCommander(options = {}) {
     let { selector } = options;
 
     if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-      selector = await normalizeSelector(selector);
+      selector = await normalizeSelector({ selector });
       if (!selector) {
         console.error('⚠️  clickButton: Element with text not found');
         return false;
@@ -863,7 +914,7 @@ export function makeBrowserCommander(options = {}) {
     let { selector } = options;
 
     if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-      selector = await normalizeSelector(selector);
+      selector = await normalizeSelector({ selector });
       if (!selector) {
         return null;
       }
@@ -879,7 +930,7 @@ export function makeBrowserCommander(options = {}) {
     let { selector } = options;
 
     if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-      selector = await normalizeSelector(selector);
+      selector = await normalizeSelector({ selector });
       if (!selector) {
         return null;
       }
