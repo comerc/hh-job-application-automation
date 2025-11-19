@@ -28,7 +28,7 @@ The application now supports both Playwright and Puppeteer through a single unif
 
 Using npm script (with verbose logging for debugging):
 ```bash
-npm run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
+npm run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 7 --verbose
 ```
 
 Or explicitly specify Playwright:

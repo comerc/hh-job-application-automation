@@ -45,14 +45,30 @@ async function disableTranslateInPreferences(userDataDir) {
  * @returns {string} - 'playwright' or 'puppeteer'
  */
 function detectEngine(pageOrContext) {
-  // Playwright pages have evaluate that returns a JSHandle, Puppeteer has different API
-  // Check for Playwright-specific methods
-  if (pageOrContext.locator) {
-    return 'playwright';
+  const hasEval = !!pageOrContext.$eval;
+  const hasEvalAll = !!pageOrContext.$$eval;
+  const locatorType = typeof pageOrContext.locator;
+  const hasContext = !!pageOrContext.context;
+
+  // Debug logging
+  if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+    console.log('🔍 [ENGINE DETECTION]', {
+      hasEval,
+      hasEvalAll,
+      locatorType,
+      hasContext,
+    });
   }
-  // Check for Puppeteer-specific methods
-  if (pageOrContext.$eval) {
+
+  // Check for Puppeteer-specific methods first (more reliable)
+  // Puppeteer has $eval, $$eval but no context() method
+  if (hasEval && hasEvalAll) {
     return 'puppeteer';
+  }
+  // Check for Playwright-specific methods
+  // Playwright has locator as a function and context() method
+  if (locatorType === 'function' && hasContext) {
+    return 'playwright';
   }
   throw new Error('Unknown browser automation engine. Expected Playwright or Puppeteer page object.');
 }
@@ -724,12 +740,160 @@ export function makeBrowserCommander(options = {}) {
     }
   }
 
+  /**
+   * Find elements by text content (works across both engines)
+   * @param {Object} options - Configuration options
+   * @param {string} options.text - Text to search for
+   * @param {string} options.selector - Optional base selector (e.g., 'button', 'a', 'span')
+   * @param {boolean} options.exact - Exact match vs contains (default: false)
+   * @returns {Promise<string>} - CSS selector that can be used with other commander methods
+   */
+  async function findByText(options = {}) {
+    const { text, selector = '*', exact = false } = options;
+
+    if (!text) {
+      throw new Error('text is required in options');
+    }
+
+    if (engine === 'playwright') {
+      // Playwright supports :has-text() natively
+      const textSelector = exact ? `:text-is("${text}")` : `:has-text("${text}")`;
+      return `${selector}${textSelector}`;
+    } else {
+      // For Puppeteer, we need to use XPath or evaluate
+      // Return a special selector marker that will be handled by other methods
+      return {
+        _isPuppeteerTextSelector: true,
+        baseSelector: selector,
+        text,
+        exact,
+      };
+    }
+  }
+
+  /**
+   * Normalize selector to handle Puppeteer text selectors
+   * @param {string|Object} selector - CSS selector or text selector object
+   * @returns {Promise<string|null>} - CSS selector or null if not found
+   */
+  async function normalizeSelector(selector) {
+    if (typeof selector === 'string') {
+      return selector;
+    }
+
+    if (selector._isPuppeteerTextSelector) {
+      // Find element by text and generate a unique selector
+      const result = await page.evaluate((baseSelector, text, exact) => {
+        const elements = Array.from(document.querySelectorAll(baseSelector));
+        const matchingElement = elements.find(el => {
+          const elementText = el.textContent.trim();
+          return exact ? elementText === text : elementText.includes(text);
+        });
+
+        if (!matchingElement) {
+          return null;
+        }
+
+        // Generate a unique selector using data-qa or nth-of-type
+        const dataQa = matchingElement.getAttribute('data-qa');
+        if (dataQa) {
+          return `[data-qa="${dataQa}"]`;
+        }
+
+        // Use nth-of-type as fallback
+        const tagName = matchingElement.tagName.toLowerCase();
+        const siblings = Array.from(matchingElement.parentElement.children).filter(
+          el => el.tagName.toLowerCase() === tagName
+        );
+        const index = siblings.indexOf(matchingElement);
+        return `${tagName}:nth-of-type(${index + 1})`;
+      }, selector.baseSelector, selector.text, selector.exact);
+
+      return result;
+    }
+
+    return selector;
+  }
+
+  /**
+   * Enhanced count that handles text selectors
+   */
+  async function countEnhanced(options = {}) {
+    let { selector } = options;
+
+    if (!selector) {
+      throw new Error('selector is required in options');
+    }
+
+    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
+      const result = await page.evaluate((baseSelector, text, exact) => {
+        const elements = Array.from(document.querySelectorAll(baseSelector));
+        return elements.filter(el => {
+          const elementText = el.textContent.trim();
+          return exact ? elementText === text : elementText.includes(text);
+        }).length;
+      }, selector.baseSelector, selector.text, selector.exact);
+      return result;
+    }
+
+    return count(options);
+  }
+
+  /**
+   * Enhanced clickButton that handles text selectors
+   */
+  async function clickButtonEnhanced(options = {}) {
+    let { selector } = options;
+
+    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
+      selector = await normalizeSelector(selector);
+      if (!selector) {
+        console.error('⚠️  clickButton: Element with text not found');
+        return false;
+      }
+    }
+
+    return clickButton({ ...options, selector });
+  }
+
+  /**
+   * Enhanced textContent that handles text selectors
+   */
+  async function textContentEnhanced(options = {}) {
+    let { selector } = options;
+
+    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
+      selector = await normalizeSelector(selector);
+      if (!selector) {
+        return null;
+      }
+    }
+
+    return textContent({ ...options, selector });
+  }
+
+  /**
+   * Enhanced getAttribute that handles text selectors
+   */
+  async function getAttributeEnhanced(options = {}) {
+    let { selector } = options;
+
+    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
+      selector = await normalizeSelector(selector);
+      if (!selector) {
+        return null;
+      }
+    }
+
+    return getAttribute({ ...options, selector });
+  }
+
   return {
     engine,
     page,
     wait,
     fillTextArea,
-    clickButton,
+    clickButton: clickButtonEnhanced,
     evaluate,
     waitForSelector,
     querySelector,
@@ -737,11 +901,12 @@ export function makeBrowserCommander(options = {}) {
     goto,
     getUrl,
     waitForNavigation,
-    getAttribute,
+    getAttribute: getAttributeEnhanced,
     isVisible,
-    count,
-    textContent,
+    count: countEnhanced,
+    textContent: textContentEnhanced,
     inputValue,
     locator,
+    findByText,
   };
 }

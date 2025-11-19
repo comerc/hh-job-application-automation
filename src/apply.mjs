@@ -345,23 +345,40 @@ github.com/link-foundation`;
   async function handleVacancyResponsePage() {
     console.log('📝 Detected vacancy_response page, handling application form...');
 
+    if (argv.verbose) {
+      console.log(`🔍 [VERBOSE] Engine: ${commander.engine}`);
+      console.log('🔍 [VERBOSE] About to wait for body selector');
+    }
+
     await commander.waitForSelector({ selector: 'body' });
 
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Body selector found');
+    }
+
     // Log all textareas for debugging
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] About to count textareas');
+    }
     const initialCount = await commander.count({ selector: 'textarea' });
     console.log(`🔍 Initial scan: Found ${initialCount} textarea(s) on page`);
 
     if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Starting to inspect each textarea');
       for (let i = 0; i < initialCount; i++) {
-        const elements = await commander.querySelectorAll({ selector: 'textarea' });
-        const textarea = elements[i];
-        const dataQa = await commander.getAttribute({ selector: textarea, attribute: 'data-qa' });
-        const visible = await commander.isVisible({ selector: textarea });
+        const selector = `textarea:nth-of-type(${i + 1})`;
+        console.log(`🔍 [VERBOSE] Processing textarea ${i} with selector: ${selector}`);
+        const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
+        const visible = await commander.isVisible({ selector });
         console.log(`🔍 Initial textarea ${i}: data-qa="${dataQa}", visible=${visible}`);
       }
+      console.log('🔍 [VERBOSE] Finished inspecting textareas');
     }
 
     // Check if textarea is already visible
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Checking if textarea is already visible');
+    }
     let textareaAlreadyVisible = false;
     let textareaSelector = '';
     const possibleSelectors = [
@@ -370,9 +387,18 @@ github.com/link-foundation`;
     ];
 
     for (const sel of possibleSelectors) {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Checking selector: ${sel}`);
+      }
       const count = await commander.count({ selector: sel });
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Count for ${sel}: ${count}`);
+      }
       if (count > 0) {
         const visible = await commander.isVisible({ selector: sel });
+        if (argv.verbose) {
+          console.log(`🔍 [VERBOSE] Visible for ${sel}: ${visible}`);
+        }
         if (visible) {
           textareaAlreadyVisible = true;
           textareaSelector = sel;
@@ -380,6 +406,9 @@ github.com/link-foundation`;
           break;
         }
       }
+    }
+    if (argv.verbose) {
+      console.log(`🔍 [VERBOSE] textareaAlreadyVisible: ${textareaAlreadyVisible}`);
     }
 
     // If textarea not visible, click toggle button
@@ -406,12 +435,21 @@ github.com/link-foundation`;
         // Fallback to text matching for small elements
         if (!toggleFound) {
           if (argv.verbose) {
-            console.log('🔍 [VERBOSE] data-qa not found, searching by text in small elements only');
+            console.log('🔍 [VERBOSE] data-qa not found, searching by text');
           }
-          toggleSelector = 'button:has-text("Сопроводительное письмо"), a:has-text("Сопроводительное письмо"), span:has-text("Сопроводительное письмо")';
-          const count = await commander.count({ selector: toggleSelector });
-          if (count > 0) {
-            toggleFound = true;
+
+          // Try each element type separately using findByText
+          const elementTypes = ['button', 'a', 'span'];
+          for (const elementType of elementTypes) {
+            toggleSelector = await commander.findByText({
+              text: 'Сопроводительное письмо',
+              selector: elementType,
+            });
+            const count = await commander.count({ selector: toggleSelector });
+            if (count > 0) {
+              toggleFound = true;
+              break;
+            }
           }
         }
 
@@ -768,8 +806,38 @@ github.com/link-foundation`;
     }
 
     // Click cover letter toggle
-    const coverToggleSelector = 'button:has-text("сопроводительное"), a:has-text("сопроводительное"), [data-qa="add-cover-letter"], [data-qa="vacancy-response-letter-toggle"]';
-    const coverToggleCount = await commander.count({ selector: coverToggleSelector });
+    let coverToggleSelector = null;
+    let coverToggleCount = 0;
+
+    // Try data-qa selectors first
+    const coverDataQaSelectors = [
+      '[data-qa="add-cover-letter"]',
+      '[data-qa="vacancy-response-letter-toggle"]',
+    ];
+
+    for (const sel of coverDataQaSelectors) {
+      const count = await commander.count({ selector: sel });
+      if (count > 0) {
+        coverToggleSelector = sel;
+        coverToggleCount = count;
+        break;
+      }
+    }
+
+    // Fallback to text search
+    if (coverToggleCount === 0) {
+      const elementTypes = ['button', 'a'];
+      for (const elementType of elementTypes) {
+        coverToggleSelector = await commander.findByText({
+          text: 'сопроводительное',
+          selector: elementType,
+        });
+        coverToggleCount = await commander.count({ selector: coverToggleSelector });
+        if (coverToggleCount > 0) {
+          break;
+        }
+      }
+    }
 
     if (coverToggleCount > 0) {
       if (argv.verbose) {
