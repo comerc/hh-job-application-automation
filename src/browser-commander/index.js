@@ -788,20 +788,46 @@ export function makeBrowserCommander(options = {}) {
   }
 
   /**
+   * Focus page content to prevent address bar from being selected
+   * Fixes the annoying issue where address bar is focused after navigation
+   * @returns {Promise<void>}
+   */
+  async function focusPageContent() {
+    try {
+      await evaluate({
+        fn: () => {
+          // Focus the body element to remove focus from address bar
+          document.body?.focus();
+          // Also click on the body to ensure focus
+          document.body?.click();
+        },
+      });
+    } catch {
+      // Ignore errors - this is just a UX improvement
+    }
+  }
+
+  /**
    * Navigate to URL
    * @param {Object} options - Configuration options
    * @param {string} options.url - URL to navigate to
    * @param {string} options.waitUntil - Wait until condition (default: 'domcontentloaded')
+   * @param {boolean} options.focusContent - Focus page content after navigation (default: true)
    * @returns {Promise<void>}
    */
   async function goto(options = {}) {
-    const { url, waitUntil = 'domcontentloaded' } = options;
+    const { url, waitUntil = 'domcontentloaded', focusContent = true } = options;
 
     if (!url) {
       throw new Error('url is required in options');
     }
 
     await page.goto(url, { waitUntil });
+
+    // Focus page content by default to prevent address bar selection
+    if (focusContent) {
+      await focusPageContent();
+    }
   }
 
   /**
@@ -1171,6 +1197,7 @@ export function makeBrowserCommander(options = {}) {
     waitForVisible,
     clickElement,
     getInputValue,
+    focusPageContent,
 
     // Main API functions
     wait,
