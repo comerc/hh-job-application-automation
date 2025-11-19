@@ -9,10 +9,38 @@ import os from 'os';
 import fs from 'fs/promises';
 
 /**
- * Disables Chrome translate feature by modifying the Preferences file
- * @param {string} userDataDir - Path to Chrome user data directory
+ * Common Chrome arguments used across both Playwright and Puppeteer
  */
-async function disableTranslateInPreferences(userDataDir) {
+const CHROME_ARGS = [
+  '--disable-session-crashed-bubble',
+  '--hide-crash-restore-bubble',
+  '--disable-infobars',
+  '--no-first-run',
+  '--no-default-browser-check',
+  '--disable-crash-restore',
+];
+
+/**
+ * Timing constants for browser operations
+ */
+const TIMING = {
+  SCROLL_ANIMATION_WAIT: 300,      // Wait time for scroll animations to complete
+  DEFAULT_WAIT_AFTER_SCROLL: 1000, // Default wait after scrolling to element
+  VISIBILITY_CHECK_TIMEOUT: 100,   // Timeout for quick visibility checks
+  DEFAULT_TIMEOUT: 5000,           // Default timeout for most operations
+};
+
+/**
+ * Disables Chrome translate feature by modifying the Preferences file
+ * @param {Object} options - Configuration options
+ * @param {string} options.userDataDir - Path to Chrome user data directory
+ */
+async function disableTranslateInPreferences(options = {}) {
+  const { userDataDir } = options;
+
+  if (!userDataDir) {
+    throw new Error('userDataDir is required in options');
+  }
   const preferencesPath = path.join(userDataDir, 'Default', 'Preferences');
   const defaultDir = path.join(userDataDir, 'Default');
 
@@ -40,6 +68,14 @@ async function disableTranslateInPreferences(userDataDir) {
 }
 
 /**
+ * Check if verbose logging is enabled via environment or CLI args
+ * @returns {boolean} - True if verbose mode is enabled
+ */
+function isVerboseEnabled() {
+  return !!(process.env.VERBOSE || process.argv.includes('--verbose'));
+}
+
+/**
  * Detect which browser automation engine is being used
  * @param {Object} pageOrContext - Page or context object from Playwright or Puppeteer
  * @returns {string} - 'playwright' or 'puppeteer'
@@ -52,7 +88,7 @@ function detectEngine(pageOrContext) {
   const hasContext = contextType === 'function' || contextType === 'object';
 
   // Debug logging
-  if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+  if (isVerboseEnabled()) {
     console.log('🔍 [ENGINE DETECTION]', {
       hasEval,
       hasEvalAll,
@@ -66,7 +102,7 @@ function detectEngine(pageOrContext) {
   // Playwright has locator as a function and context() method
   // Both engines have $eval and $$eval, so we check for unique Playwright features first
   if (locatorType === 'function' && hasContext) {
-    if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+    if (isVerboseEnabled()) {
       console.log('🔍 [ENGINE DETECTION] Detected: playwright');
     }
     return 'playwright';
@@ -74,12 +110,12 @@ function detectEngine(pageOrContext) {
   // Check for Puppeteer-specific methods
   // Puppeteer has $eval, $$eval but no context() method
   if (hasEval && hasEvalAll && !hasContext) {
-    if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+    if (isVerboseEnabled()) {
       console.log('🔍 [ENGINE DETECTION] Detected: puppeteer');
     }
     return 'puppeteer';
   }
-  if (process.env.VERBOSE || process.argv.includes('--verbose')) {
+  if (isVerboseEnabled()) {
     console.log('🔍 [ENGINE DETECTION] Could not detect engine!');
   }
   throw new Error('Unknown browser automation engine. Expected Playwright or Puppeteer page object.');
@@ -114,7 +150,7 @@ export async function launchBrowser(options = {}) {
   process.env.GOOGLE_DEFAULT_CLIENT_SECRET = 'no';
 
   // Disable translate in Preferences
-  await disableTranslateInPreferences(userDataDir);
+  await disableTranslateInPreferences({ userDataDir });
 
   if (verbose) {
     console.log(`🚀 Launching browser with ${engine} engine...`);
@@ -130,14 +166,7 @@ export async function launchBrowser(options = {}) {
       slowMo,
       chromiumSandbox: true,
       viewport: null,
-      args: [
-        '--disable-session-crashed-bubble',
-        '--hide-crash-restore-bubble',
-        '--disable-infobars',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-crash-restore',
-      ],
+      args: CHROME_ARGS,
       ignoreDefaultArgs: ['--enable-automation'],
     });
     page = browser.pages()[0];
@@ -146,15 +175,7 @@ export async function launchBrowser(options = {}) {
     browser = await puppeteer.default.launch({
       headless,
       defaultViewport: null,
-      args: [
-        '--start-maximized',
-        '--disable-session-crashed-bubble',
-        '--hide-crash-restore-bubble',
-        '--disable-infobars',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-crash-restore',
-      ],
+      args: ['--start-maximized', ...CHROME_ARGS],
       userDataDir,
     });
     const pages = await browser.pages();
@@ -185,12 +206,36 @@ export function makeBrowserCommander(options = {}) {
   const engine = detectEngine(page);
 
   /**
+   * Log verbose message if verbose mode is enabled
+   * @param {Object} options - Configuration options
+   * @param {string} options.message - Message to log
+   * @param {string} options.prefix - Prefix for the message (default: 'VERBOSE')
+   */
+  function logVerbose(options = {}) {
+    const { message, prefix = 'VERBOSE' } = options;
+
+    if (!message) {
+      throw new Error('message is required in options');
+    }
+
+    if (verbose) {
+      console.log(`🔍 [${prefix}] ${message}`);
+    }
+  }
+
+  /**
    * Helper to create Playwright locator from selector string
    * Handles :nth-of-type() pseudo-selectors which don't work in Playwright locators
-   * @param {string} selector - CSS selector
+   * @param {Object} options - Configuration options
+   * @param {string} options.selector - CSS selector
    * @returns {Object} - Playwright locator
    */
-  function createPlaywrightLocator(selector) {
+  function createPlaywrightLocator(options = {}) {
+    const { selector } = options;
+
+    if (!selector) {
+      throw new Error('selector is required in options');
+    }
     // Check if selector has :nth-of-type(n) pattern
     const nthOfTypeMatch = selector.match(/^(.+):nth-of-type\((\d+)\)$/);
 
@@ -206,19 +251,115 @@ export function makeBrowserCommander(options = {}) {
   /**
    * Get locator/element from selector (unified helper for both engines)
    * Reduces code duplication across functions
-   * @param {string|Object} selector - CSS selector or element/locator
-   * @returns {Object|Promise<Object|null>} - Locator for Playwright (sync), Element for Puppeteer (async)
+   * @param {Object} options - Configuration options
+   * @param {string|Object} options.selector - CSS selector or element/locator
+   * @returns {Promise<Object|null>} - Locator for Playwright, Element for Puppeteer
    */
-  function getLocatorOrElement(selector) {
+  async function getLocatorOrElement(options = {}) {
+    const { selector } = options;
+
+    if (!selector) {
+      throw new Error('selector is required in options');
+    }
     if (typeof selector !== 'string') {
       return selector; // Already a locator/element
     }
 
     if (engine === 'playwright') {
-      return createPlaywrightLocator(selector);
+      return createPlaywrightLocator({ selector });
     } else {
-      // For Puppeteer, return a promise
-      return page.$(selector);
+      // For Puppeteer, return element
+      return await page.$(selector);
+    }
+  }
+
+  /**
+   * Check if an input element is empty
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Element or locator to check
+   * @param {string} options.selector - CSS selector (for Puppeteer fallback)
+   * @returns {Promise<boolean>} - True if empty, false if has content
+   */
+  async function checkIfElementEmpty(options = {}) {
+    const { locatorOrElement, selector } = options;
+
+    if (engine === 'playwright') {
+      if (!locatorOrElement) {
+        throw new Error('locatorOrElement is required for Playwright');
+      }
+      const currentValue = await locatorOrElement.inputValue();
+      return !currentValue || currentValue.trim() === '';
+    } else {
+      if (!selector) {
+        throw new Error('selector is required for Puppeteer');
+      }
+      const currentValue = await page.$eval(selector, el => el.value);
+      return !currentValue || currentValue.trim() === '';
+    }
+  }
+
+  /**
+   * Perform fill/type operation on an element
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Element or locator to fill
+   * @param {string} options.selector - CSS selector (for Puppeteer)
+   * @param {string} options.text - Text to fill
+   * @param {boolean} options.simulateTyping - Whether to simulate typing (default: true)
+   * @returns {Promise<void>}
+   */
+  async function performFill(options = {}) {
+    const { locatorOrElement, selector, text, simulateTyping = true } = options;
+
+    if (!text) {
+      throw new Error('text is required in options');
+    }
+
+    if (engine === 'playwright') {
+      if (!locatorOrElement) {
+        throw new Error('locatorOrElement is required for Playwright');
+      }
+      if (simulateTyping) {
+        await locatorOrElement.type(text);
+      } else {
+        await locatorOrElement.fill(text);
+      }
+    } else {
+      if (!selector) {
+        throw new Error('selector is required for Puppeteer');
+      }
+      if (simulateTyping) {
+        await page.type(selector, text);
+      } else {
+        await page.$eval(selector, (el, value) => {
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }, text);
+      }
+    }
+  }
+
+  /**
+   * Log element information for verbose debugging
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Element or locator to log
+   * @returns {Promise<void>}
+   */
+  async function logElementInfo(options = {}) {
+    const { locatorOrElement } = options;
+
+    if (!locatorOrElement) {
+      return;
+    }
+
+    if (engine === 'playwright') {
+      const tagName = await locatorOrElement.evaluate(el => el.tagName);
+      const text = await locatorOrElement.textContent();
+      logVerbose({ message: `About to scroll to ${tagName}: "${text?.trim().substring(0, 30)}..."` });
+    } else {
+      const tagName = await page.evaluate(el => el.tagName, locatorOrElement);
+      const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), locatorOrElement);
+      logVerbose({ message: `About to scroll to ${tagName}: "${text}..."` });
     }
   }
 
@@ -236,14 +377,14 @@ export function makeBrowserCommander(options = {}) {
       throw new Error('ms is required in options');
     }
 
-    if (verbose && reason) {
-      console.log(`🔍 [VERBOSE] Waiting ${ms}ms: ${reason}`);
+    if (reason) {
+      logVerbose({ message: `Waiting ${ms}ms: ${reason}` });
     }
 
     await new Promise(r => setTimeout(r, ms));
 
-    if (verbose && reason) {
-      console.log(`🔍 [VERBOSE] Wait complete (${ms}ms)`);
+    if (reason) {
+      logVerbose({ message: `Wait complete (${ms}ms)` });
     }
   }
 
@@ -279,10 +420,17 @@ export function makeBrowserCommander(options = {}) {
 
   /**
    * Scroll element into view
-   * @param {Object} locatorOrElement - Playwright locator or Puppeteer element
-   * @param {string} behavior - 'smooth' or 'instant'
+   * @param {Object} options - Configuration options
+   * @param {Object} options.locatorOrElement - Playwright locator or Puppeteer element
+   * @param {string} options.behavior - 'smooth' or 'instant' (default: 'smooth')
    */
-  async function scrollIntoView(locatorOrElement, behavior = 'smooth') {
+  async function scrollIntoView(options = {}) {
+    const { locatorOrElement, behavior = 'smooth' } = options;
+
+    if (!locatorOrElement) {
+      throw new Error('locatorOrElement is required in options');
+    }
+
     if (engine === 'playwright') {
       await locatorOrElement.evaluate((el, scrollBehavior) => {
         el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
@@ -302,7 +450,7 @@ export function makeBrowserCommander(options = {}) {
    * @param {boolean} options.checkEmpty - Only fill if empty (default: true)
    * @param {boolean} options.scrollIntoView - Scroll into view (default: true)
    * @param {boolean} options.simulateTyping - Simulate typing vs direct fill (default: true)
-   * @param {number} options.timeout - Timeout in ms (default: 5000)
+   * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
    * @returns {Promise<boolean>} - True if filled, false if skipped
    */
   async function fillTextArea(options = {}) {
@@ -312,7 +460,7 @@ export function makeBrowserCommander(options = {}) {
       checkEmpty = true,
       scrollIntoView: shouldScroll = true,
       simulateTyping = true,
-      timeout = 5000,
+      timeout = TIMING.DEFAULT_TIMEOUT,
     } = options;
 
     if (!selector || !text) {
@@ -322,35 +470,26 @@ export function makeBrowserCommander(options = {}) {
 
     try {
       if (engine === 'playwright') {
-        const locator = getLocatorOrElement(selector);
+        const locator = await getLocatorOrElement({ selector });
         await locator.waitFor({ state: 'visible', timeout });
 
         if (checkEmpty) {
-          const currentValue = await locator.inputValue();
-          if (currentValue && currentValue.trim() !== '') {
-            if (verbose) {
-              console.log(`🔍 [VERBOSE] Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."`);
-            }
+          const isEmpty = await checkIfElementEmpty({ locatorOrElement: locator });
+          if (!isEmpty) {
+            const currentValue = await locator.inputValue();
+            logVerbose({ message: `Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."` });
             return false;
           }
         }
 
         if (shouldScroll) {
-          await scrollIntoView(locator, 'smooth');
-          await wait({ ms: 300, reason: 'scroll animation to complete' });
+          await scrollIntoView({ locatorOrElement: locator, behavior: 'smooth' });
+          await wait({ ms: TIMING.SCROLL_ANIMATION_WAIT, reason: 'scroll animation to complete' });
         }
 
         await locator.click();
-
-        if (simulateTyping) {
-          await locator.type(text);
-        } else {
-          await locator.fill(text);
-        }
-
-        if (verbose) {
-          console.log(`🔍 [VERBOSE] Filled textarea with text: "${text.substring(0, 50)}..."`);
-        }
+        await performFill({ locatorOrElement: locator, text, simulateTyping });
+        logVerbose({ message: `Filled textarea with text: "${text.substring(0, 50)}..."` });
 
         return true;
       } else {
@@ -358,37 +497,23 @@ export function makeBrowserCommander(options = {}) {
         await page.waitForSelector(selector, { visible: true, timeout });
 
         if (checkEmpty) {
-          const currentValue = await page.$eval(selector, el => el.value);
-          if (currentValue && currentValue.trim() !== '') {
-            if (verbose) {
-              console.log(`🔍 [VERBOSE] Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."`);
-            }
+          const isEmpty = await checkIfElementEmpty({ selector });
+          if (!isEmpty) {
+            const currentValue = await page.$eval(selector, el => el.value);
+            logVerbose({ message: `Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."` });
             return false;
           }
         }
 
+        const element = await page.$(selector);
         if (shouldScroll) {
-          await page.$eval(selector, (el) => {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-          });
-          await wait({ ms: 300, reason: 'scroll animation to complete' });
+          await scrollIntoView({ locatorOrElement: element, behavior: 'smooth' });
+          await wait({ ms: TIMING.SCROLL_ANIMATION_WAIT, reason: 'scroll animation to complete' });
         }
 
         await page.click(selector);
-
-        if (simulateTyping) {
-          await page.type(selector, text);
-        } else {
-          await page.$eval(selector, (el, value) => {
-            el.value = value;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }, text);
-        }
-
-        if (verbose) {
-          console.log(`🔍 [VERBOSE] Filled textarea with text: "${text.substring(0, 50)}..."`);
-        }
+        await performFill({ selector, text, simulateTyping });
+        logVerbose({ message: `Filled textarea with text: "${text.substring(0, 50)}..."` });
 
         return true;
       }
@@ -403,18 +528,18 @@ export function makeBrowserCommander(options = {}) {
    * @param {Object} options - Configuration options
    * @param {string|Object} options.selector - CSS selector, ElementHandle, or Playwright Locator
    * @param {boolean} options.scrollIntoView - Scroll into view (default: true)
-   * @param {number} options.waitAfterScroll - Wait time after scroll in ms (default: 1000)
+   * @param {number} options.waitAfterScroll - Wait time after scroll in ms (default: TIMING.DEFAULT_WAIT_AFTER_SCROLL)
    * @param {boolean} options.smoothScroll - Use smooth scroll animation (default: true)
-   * @param {number} options.timeout - Timeout in ms (default: 5000)
+   * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
    * @returns {Promise<boolean>} - True if clicked, false if failed
    */
   async function clickButton(options = {}) {
     const {
       selector,
       scrollIntoView: shouldScroll = true,
-      waitAfterScroll = 1000,
+      waitAfterScroll = TIMING.DEFAULT_WAIT_AFTER_SCROLL,
       smoothScroll = true,
-      timeout = 5000,
+      timeout = TIMING.DEFAULT_TIMEOUT,
     } = options;
 
     if (!selector) {
@@ -423,74 +548,37 @@ export function makeBrowserCommander(options = {}) {
     }
 
     try {
+      const locatorOrElement = await getLocatorOrElement({ selector });
+
       if (engine === 'playwright') {
-        const locator = getLocatorOrElement(selector);
-        await locator.waitFor({ state: 'visible', timeout });
-
-        if (verbose) {
-          const tagName = await locator.evaluate(el => el.tagName);
-          const text = await locator.textContent();
-          console.log(`🔍 [VERBOSE] About to scroll to ${tagName}: "${text?.trim().substring(0, 30)}..."`);
-        }
-
-        if (shouldScroll) {
-          const behavior = smoothScroll ? 'smooth' : 'instant';
-          if (verbose) {
-            console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
-          }
-
-          await scrollIntoView(locator, behavior);
-          await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
-        }
-
-        if (verbose) {
-          console.log('🔍 [VERBOSE] About to click element');
-        }
-
-        await locator.click();
-
-        if (verbose) {
-          console.log('🔍 [VERBOSE] Click completed');
-        }
-
-        return true;
+        await locatorOrElement.waitFor({ state: 'visible', timeout });
       } else {
-        // Puppeteer implementation
-        const element = await getLocatorOrElement(selector);
-
-        if (!element) {
+        // Puppeteer - check element exists
+        if (!locatorOrElement) {
           console.error(`⚠️  clickButton: Element not found for selector "${selector}"`);
           return false;
         }
-
-        if (verbose) {
-          const tagName = await page.evaluate(el => el.tagName, element);
-          const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), element);
-          console.log(`🔍 [VERBOSE] About to scroll to ${tagName}: "${text}..."`);
-        }
-
-        if (shouldScroll) {
-          const behavior = smoothScroll ? 'smooth' : 'instant';
-          if (verbose) {
-            console.log(`🔍 [VERBOSE] Scrolling with behavior: ${behavior}`);
-          }
-
-          await scrollIntoView(element, behavior);
-          await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
-        }
-
-        if (verbose) {
-          console.log('🔍 [VERBOSE] About to click element');
-        }
-
-        await element.click();
-
-        if (verbose) {
-          console.log('🔍 [VERBOSE] Click completed');
-        }
-
-        return true;
       }
+
+      // Log element info if verbose
+      if (verbose) {
+        await logElementInfo({ locatorOrElement });
+      }
+
+      // Scroll if needed
+      if (shouldScroll) {
+        const behavior = smoothScroll ? 'smooth' : 'instant';
+        logVerbose({ message: `Scrolling with behavior: ${behavior}` });
+        await scrollIntoView({ locatorOrElement, behavior });
+        await wait({ ms: waitAfterScroll, reason: `${behavior} scroll animation to complete` });
+      }
+
+      // Perform click
+      logVerbose({ message: 'About to click element' });
+      await locatorOrElement.click();
+      logVerbose({ message: 'Click completed' });
+
+      return true;
     } catch (error) {
       console.error('⚠️  Error in clickButton:', error.message);
       return false;
@@ -502,18 +590,18 @@ export function makeBrowserCommander(options = {}) {
    * @param {Object} options - Configuration options
    * @param {string} options.selector - CSS selector
    * @param {boolean} options.visible - Wait for visibility (default: true)
-   * @param {number} options.timeout - Timeout in ms (default: 5000)
+   * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
    * @returns {Promise<void>}
    */
   async function waitForSelector(options = {}) {
-    const { selector, visible = true, timeout = 5000 } = options;
+    const { selector, visible = true, timeout = TIMING.DEFAULT_TIMEOUT } = options;
 
     if (!selector) {
       throw new Error('selector is required in options');
     }
 
     if (engine === 'playwright') {
-      const locator = createPlaywrightLocator(selector);
+      const locator = createPlaywrightLocator({ selector });
       await locator.waitFor({ state: visible ? 'visible' : 'attached', timeout });
     } else {
       await page.waitForSelector(selector, { visible, timeout });
@@ -534,7 +622,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = createPlaywrightLocator(selector).first();
+      const locator = createPlaywrightLocator({ selector }).first();
       const count = await locator.count();
       return count > 0 ? locator : null;
     } else {
@@ -556,7 +644,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = createPlaywrightLocator(selector);
+      const locator = createPlaywrightLocator({ selector });
       const count = await locator.count();
       const elements = [];
       for (let i = 0; i < count; i++) {
@@ -619,10 +707,10 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = getLocatorOrElement(selector);
+      const locator = await getLocatorOrElement({ selector });
       return await locator.getAttribute(attribute);
     } else {
-      const element = await getLocatorOrElement(selector);
+      const element = await getLocatorOrElement({ selector });
       if (!element) return null;
       return await page.evaluate((el, attr) => el.getAttribute(attr), element, attribute);
     }
@@ -642,15 +730,15 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = getLocatorOrElement(selector);
+      const locator = await getLocatorOrElement({ selector });
       try {
-        await locator.waitFor({ state: 'visible', timeout: 100 });
+        await locator.waitFor({ state: 'visible', timeout: TIMING.VISIBILITY_CHECK_TIMEOUT });
         return true;
       } catch {
         return false;
       }
     } else {
-      const element = await getLocatorOrElement(selector);
+      const element = await getLocatorOrElement({ selector });
       if (!element) return false;
       return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, element);
     }
@@ -670,7 +758,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      return await createPlaywrightLocator(selector).count();
+      return await createPlaywrightLocator({ selector }).count();
     } else {
       const elements = await page.$$(selector);
       return elements.length;
@@ -691,10 +779,10 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = getLocatorOrElement(selector);
+      const locator = await getLocatorOrElement({ selector });
       return await locator.textContent();
     } else {
-      const element = await getLocatorOrElement(selector);
+      const element = await getLocatorOrElement({ selector });
       if (!element) return null;
       return await page.evaluate(el => el.textContent, element);
     }
@@ -714,10 +802,10 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      const locator = getLocatorOrElement(selector);
+      const locator = await getLocatorOrElement({ selector });
       return await locator.inputValue();
     } else {
-      const element = await getLocatorOrElement(selector);
+      const element = await getLocatorOrElement({ selector });
       if (!element) return '';
       return await page.evaluate(el => el.value, element);
     }
@@ -737,7 +825,7 @@ export function makeBrowserCommander(options = {}) {
     }
 
     if (engine === 'playwright') {
-      return createPlaywrightLocator(selector);
+      return createPlaywrightLocator({ selector });
     } else {
       // Return a wrapper that mimics Playwright locator API
       return {
@@ -899,8 +987,22 @@ export function makeBrowserCommander(options = {}) {
   }
 
   return {
+    // Core properties
     engine,
     page,
+
+    // Helper functions (now public)
+    logVerbose,
+    createPlaywrightLocator,
+    getLocatorOrElement,
+    scrollIntoView,
+    checkIfElementEmpty,
+    performFill,
+    logElementInfo,
+    normalizeSelector,
+    withTextSelectorSupport,
+
+    // Main API functions
     wait,
     fillTextArea,
     clickButton: withTextSelectorSupport(clickButton),
