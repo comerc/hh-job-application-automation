@@ -370,7 +370,8 @@ github.com/link-foundation`;
         console.log(`🔍 [VERBOSE] Processing textarea ${i} with selector: ${selector}`);
         const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
         const visible = await commander.isVisible({ selector });
-        console.log(`🔍 Initial textarea ${i}: data-qa="${dataQa}", visible=${visible}`);
+        const dataQaDisplay = dataQa || '(none)';
+        console.log(`🔍 Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
       }
       console.log('🔍 [VERBOSE] Finished inspecting textareas');
     }
@@ -516,6 +517,7 @@ github.com/link-foundation`;
           console.log('🔍 [VERBOSE] Alternative selector timed out after 2000ms, trying any textarea');
         }
         textareaSelector = 'textarea';
+        console.log('⚠️  Warning: Using generic textarea selector (no data-qa found). This may be fragile.');
         try {
           if (argv.verbose) {
             console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
@@ -534,6 +536,9 @@ github.com/link-foundation`;
     }
 
     // Fill cover letter
+    if (argv.verbose) {
+      console.log(`🔍 [VERBOSE] About to fill textarea with selector: ${textareaSelector}`);
+    }
     const filled = await commander.fillTextArea({
       selector: textareaSelector,
       text: MESSAGE,
@@ -542,7 +547,7 @@ github.com/link-foundation`;
       simulateTyping: true,
     });
     if (filled) {
-      console.log('✅ Prefilled cover letter message');
+      console.log(`✅ Prefilled cover letter message into: ${textareaSelector}`);
     } else {
       console.log('⏭️  Cover letter already contains text, skipping prefill');
     }
