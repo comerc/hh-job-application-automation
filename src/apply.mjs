@@ -130,8 +130,18 @@ github.com/link-foundation`;
     process.exit(0);
   });
 
+  // Declare patterns and tracking variables early (used by waitForUrlCondition and other functions)
+  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy/;
+  const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
+  const vacancyPagePattern = /^https:\/\/hh\.ru\/vacancy\/(\d+)/;
+  const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000;
+  let isOnVacancyPageFromResponse = false;
+  let clickListenerInstalled = false;
+  let lastVacancyPageUrl = '';
+
   /**
    * Robust waiting function that waits indefinitely for a URL condition
+   * Also checks for redirect flag if we're on a vacancy page from vacancy_response
    */
   async function waitForUrlCondition(targetUrl, description) {
     const pollingInterval = 1000;
@@ -143,6 +153,24 @@ github.com/link-foundation`;
       }
 
       try {
+        // Check if we should redirect (button was clicked on vacancy page)
+        const currentUrl = commander.getUrl();
+        if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
+          const shouldRedirect = await commander.evaluate({
+            fn: () => {
+              const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
+              return flag === 'true';
+            },
+          });
+
+          if (shouldRedirect) {
+            console.log('✅ Detected "Откликнуться" button click during wait!');
+            // Trigger redirect by returning and letting the caller handle it
+            return 'redirect_needed';
+          }
+        }
+
+        // Check if target URL reached
         const result = await commander.evaluate({
           fn: (url) => window.location.href.startsWith(url),
           args: [targetUrl],
@@ -187,14 +215,6 @@ github.com/link-foundation`;
     await commander.goto({ url: START_URL });
     await commander.focusPageContent();
   }
-
-  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy/;
-  const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
-  const vacancyPagePattern = /^https:\/\/hh\.ru\/vacancy\/(\d+)/;
-  const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000;
-
-  // Track vacancy page flow: vacancy_response -> vacancy details -> click button -> back to START_URL
-  let isOnVacancyPageFromResponse = false;
 
   /**
    * Setup Q&A auto-fill and auto-save for all textareas on the page
@@ -648,6 +668,11 @@ github.com/link-foundation`;
   // Setup navigation listener (engine-specific)
   const handleNavigation = async (currentUrl) => {
     try {
+      // Log all URL changes for debugging
+      if (currentUrl !== lastUrl) {
+        console.log(`🔗 [URL CHANGE] ${lastUrl} → ${currentUrl}`);
+      }
+
       const wasOnVacancyResponse = vacancyResponsePattern.test(lastUrl);
       const isOnVacancyResponse = vacancyResponsePattern.test(currentUrl);
       const vacancyPageMatch = currentUrl.match(vacancyPagePattern);
@@ -662,6 +687,7 @@ github.com/link-foundation`;
           // Check if vacancyId matches
           if (responseVacancyId === pageVacancyId) {
             console.log(`📄 Navigated to vacancy details page (ID: ${pageVacancyId}) from vacancy_response`);
+            console.log('🎯 Setting flag isOnVacancyPageFromResponse = true');
             isOnVacancyPageFromResponse = true;
           }
         }
@@ -678,6 +704,9 @@ github.com/link-foundation`;
 
       // Reset flag when leaving vacancy page
       if (!vacancyPageMatch) {
+        if (isOnVacancyPageFromResponse) {
+          console.log('🔄 Leaving vacancy page, resetting isOnVacancyPageFromResponse flag');
+        }
         isOnVacancyPageFromResponse = false;
       }
 
@@ -706,6 +735,7 @@ github.com/link-foundation`;
    */
   async function setupVacancyPageClickListener() {
     try {
+      console.log('🎧 Setting up click listener for "Откликнуться" button on vacancy page');
       await commander.evaluate({
         fn: () => {
           // Add click listener to all links
@@ -718,6 +748,7 @@ github.com/link-foundation`;
           }, true);
         },
       });
+      console.log('✅ Click listener setup completed');
     } catch (error) {
       console.log('⚠️  Error setting up vacancy page click listener:', error.message);
     }
@@ -729,6 +760,14 @@ github.com/link-foundation`;
    */
   async function checkAndRedirectIfNeeded() {
     try {
+      const currentUrl = commander.getUrl();
+
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] checkAndRedirectIfNeeded called');
+        console.log(`🔍 [VERBOSE] Current URL: ${currentUrl}`);
+        console.log(`🔍 [VERBOSE] isOnVacancyPageFromResponse: ${isOnVacancyPageFromResponse}`);
+      }
+
       const shouldRedirect = await commander.evaluate({
         fn: () => {
           const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
@@ -740,13 +779,24 @@ github.com/link-foundation`;
         },
       });
 
-      if (shouldRedirect && isOnVacancyPageFromResponse) {
-        console.log('✅ Response submitted from vacancy page, redirecting back to search page...');
-        await commander.goto({ url: START_URL });
-        await commander.wait({ ms: 1000, reason: 'page to load after redirect' });
-        // Reset the tracking flag
-        isOnVacancyPageFromResponse = false;
-        return true;
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] shouldRedirect from sessionStorage: ${shouldRedirect}`);
+      }
+
+      if (shouldRedirect) {
+        console.log('✅ Detected "Откликнуться" button was clicked on vacancy page!');
+        if (isOnVacancyPageFromResponse) {
+          console.log('✅ Response submitted from vacancy page, redirecting back to search page...');
+          await commander.goto({ url: START_URL });
+          await commander.wait({ ms: 1000, reason: 'page to load after redirect' });
+          // Reset the tracking flag
+          isOnVacancyPageFromResponse = false;
+          clickListenerInstalled = false;
+          lastVacancyPageUrl = '';
+          return true;
+        } else {
+          console.log('⚠️  shouldRedirect=true but isOnVacancyPageFromResponse=false - this should not happen');
+        }
       }
 
       return false;
@@ -761,16 +811,48 @@ github.com/link-foundation`;
     page.on('framenavigated', async (frame) => {
       if (frame !== page.mainFrame()) return;
       const currentUrl = frame.url();
-      if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
-        await setupVacancyPageClickListener();
+
+      // Check if this is a new vacancy page (not just parameter change)
+      const vacancyMatch = currentUrl.match(vacancyPagePattern);
+      const currentVacancyId = vacancyMatch ? vacancyMatch[1] : null;
+      const lastVacancyId = lastVacancyPageUrl.match(vacancyPagePattern)?.[1];
+
+      if (isOnVacancyPageFromResponse && vacancyMatch) {
+        // Only install listener once per vacancy page
+        if (!clickListenerInstalled || currentVacancyId !== lastVacancyId) {
+          console.log(`🔧 Detected NEW vacancy page (ID: ${currentVacancyId}) with isOnVacancyPageFromResponse=true, setting up click listener...`);
+          await setupVacancyPageClickListener();
+          clickListenerInstalled = true;
+          lastVacancyPageUrl = currentUrl;
+        }
+      } else {
+        // Reset when leaving vacancy page
+        clickListenerInstalled = false;
+        lastVacancyPageUrl = '';
       }
     });
   } else {
     page.on('framenavigated', async (frame) => {
       if (frame !== page.mainFrame()) return;
       const currentUrl = frame.url();
-      if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
-        await setupVacancyPageClickListener();
+
+      // Check if this is a new vacancy page (not just parameter change)
+      const vacancyMatch = currentUrl.match(vacancyPagePattern);
+      const currentVacancyId = vacancyMatch ? vacancyMatch[1] : null;
+      const lastVacancyId = lastVacancyPageUrl.match(vacancyPagePattern)?.[1];
+
+      if (isOnVacancyPageFromResponse && vacancyMatch) {
+        // Only install listener once per vacancy page
+        if (!clickListenerInstalled || currentVacancyId !== lastVacancyId) {
+          console.log(`🔧 Detected NEW vacancy page (ID: ${currentVacancyId}) with isOnVacancyPageFromResponse=true, setting up click listener...`);
+          await setupVacancyPageClickListener();
+          clickListenerInstalled = true;
+          lastVacancyPageUrl = currentUrl;
+        }
+      } else {
+        // Reset when leaving vacancy page
+        clickListenerInstalled = false;
+        lastVacancyPageUrl = '';
       }
     });
   }
@@ -833,11 +915,21 @@ github.com/link-foundation`;
             console.log(`💾 Saved ${savedCount} Q&A pair(s) before waiting for navigation`);
           }
 
-          await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
+          const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
           if (pageClosedByUser) {
             return;
           }
-          console.log('✅ Returned to target page! Continuing with button loop...');
+
+          // Check if button was clicked and redirect if needed
+          if (waitResult === 'redirect_needed') {
+            const didRedirect = await checkAndRedirectIfNeeded();
+            if (didRedirect) {
+              console.log('✅ Redirected back to search page after detecting button click');
+            }
+          } else {
+            console.log('✅ Returned to target page! Continuing with button loop...');
+          }
+
           await commander.wait({ ms: 1000, reason: 'page to fully load after navigation' });
           continue;
         }
