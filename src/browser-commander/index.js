@@ -1176,6 +1176,45 @@ export function makeBrowserCommander(options = {}) {
     return count(options);
   }
 
+  /**
+   * Check if element is enabled (not disabled, not loading)
+   * @param {Object} options - Configuration options
+   * @param {string|Object} options.selector - CSS selector or locator
+   * @returns {Promise<boolean>} - True if enabled
+   */
+  async function isEnabled(options = {}) {
+    const { selector } = options;
+
+    if (!selector) {
+      throw new Error('selector is required in options');
+    }
+
+    try {
+      if (engine === 'playwright') {
+        // For Playwright, use locator API
+        const locator = typeof selector === 'string' ? page.locator(selector).first() : selector;
+        return await locator.evaluate(el => {
+          const isDisabled = el.hasAttribute('disabled') ||
+                            el.getAttribute('aria-disabled') === 'true' ||
+                            el.classList.contains('magritte-button_loading');
+          return !isDisabled;
+        });
+      } else {
+        // For Puppeteer
+        const element = await getLocatorOrElement({ selector });
+        if (!element) return false;
+        return await page.evaluate(el => {
+          const isDisabled = el.hasAttribute('disabled') ||
+                            el.getAttribute('aria-disabled') === 'true' ||
+                            el.classList.contains('magritte-button_loading');
+          return !isDisabled;
+        }, element);
+      }
+    } catch {
+      return false;
+    }
+  }
+
   return {
     // Core properties
     engine,
@@ -1212,6 +1251,7 @@ export function makeBrowserCommander(options = {}) {
     waitForNavigation,
     getAttribute: withTextSelectorSupport(getAttribute),
     isVisible: withTextSelectorSupport(isVisible),
+    isEnabled: withTextSelectorSupport(isEnabled),
     count: countEnhanced,
     textContent: withTextSelectorSupport(textContent),
     inputValue: withTextSelectorSupport(inputValue),

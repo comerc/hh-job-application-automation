@@ -156,15 +156,49 @@ github.com/link-foundation`;
         // Check if we should redirect (button was clicked on vacancy page)
         const currentUrl = commander.getUrl();
         if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
-          const shouldRedirect = await commander.evaluate({
+          // Check both sessionStorage flag AND page content for "Вы откликнулись"
+          const redirectInfo = await commander.evaluate({
             fn: () => {
               const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
-              return flag === 'true';
+              // Normalize whitespace (including nbsp) for matching
+              const bodyText = document.body.textContent.replace(/\s+/g, ' ');
+
+              // Check for various response texts (handle nbsp and multiple spaces)
+              const hasResponseText = bodyText.includes('Вы откликнулись');
+              const hasAlreadyResponded = bodyText.includes('Вы уже откликались');
+              const hasResponseSent = bodyText.includes('Отклик отправлен');
+
+              // Find button with "Откликнуться" text
+              const buttons = Array.from(document.querySelectorAll('a, button'));
+              const respondButton = buttons.find(b => b.textContent.trim() === 'Откликнуться');
+
+              return {
+                hasFlag: flag === 'true',
+                hasResponseText,
+                hasAlreadyResponded,
+                hasResponseSent,
+                hasRespondButton: !!respondButton,
+                // Only redirect if flag is set (button was clicked during this session)
+                needsRedirect: flag === 'true',
+              };
             },
           });
 
-          if (shouldRedirect) {
-            console.log('✅ Detected "Откликнуться" button click during wait!');
+          if (argv.verbose && isOnVacancyPageFromResponse) {
+            console.log(`🔍 [VERBOSE] Checking redirect on vacancy page: ${currentUrl}`);
+            console.log(`🔍 [VERBOSE] sessionStorage flag: ${redirectInfo.hasFlag}`);
+            console.log(`🔍 [VERBOSE] "Вы откликнулись": ${redirectInfo.hasResponseText}`);
+            console.log(`🔍 [VERBOSE] "Вы уже откликались": ${redirectInfo.hasAlreadyResponded}`);
+            console.log(`🔍 [VERBOSE] "Отклик отправлен": ${redirectInfo.hasResponseSent}`);
+            console.log(`🔍 [VERBOSE] Has "Откликнуться" button: ${redirectInfo.hasRespondButton}`);
+          }
+
+          if (redirectInfo.needsRedirect) {
+            if (redirectInfo.hasFlag) {
+              console.log('✅ Detected "Откликнуться" button click via sessionStorage flag!');
+            } else {
+              console.log('✅ Detected application submission via "Вы откликнулись" text on page!');
+            }
             // Trigger redirect by returning and letting the caller handle it
             return 'redirect_needed';
           }
@@ -702,6 +736,55 @@ github.com/link-foundation`;
         }
       }
 
+      // Check for redirect after clicking "Откликнуться" button on vacancy page
+      if (isOnVacancyPageFromResponse && vacancyPageMatch) {
+        const wasOnVacancyPage = lastUrl && vacancyPagePattern.test(lastUrl);
+
+        // If we're navigating between different versions of the same vacancy page
+        if (wasOnVacancyPage) {
+          // Check if application was submitted (page shows "Вы откликнулись")
+          // This happens after clicking "Откликнуться" on vacancy_response page and submitting
+          const submissionInfo = await commander.evaluate({
+            fn: () => {
+              // Normalize whitespace (including nbsp) for matching
+              const bodyText = document.body.textContent.replace(/\s+/g, ' ');
+              const hasResponseText = bodyText.includes('Вы откликнулись');
+              const hasAlreadyResponded = bodyText.includes('Вы уже откликались');
+              const hasResponseSent = bodyText.includes('Отклик отправлен');
+
+              return {
+                hasResponseText,
+                hasAlreadyResponded,
+                hasResponseSent,
+                // If we came from vacancy_response and see response confirmation, redirect
+                hasSubmitted: hasResponseText || hasAlreadyResponded || hasResponseSent,
+              };
+            },
+          });
+
+          if (argv.verbose) {
+            console.log(`🔍 [VERBOSE] Navigation handler checking submission on: ${currentUrl}`);
+            console.log(`🔍 [VERBOSE] "Вы откликнулись": ${submissionInfo.hasResponseText}`);
+            console.log(`🔍 [VERBOSE] "Вы уже откликались": ${submissionInfo.hasAlreadyResponded}`);
+            console.log(`🔍 [VERBOSE] "Отклик отправлен": ${submissionInfo.hasResponseSent}`);
+            console.log(`🔍 [VERBOSE] Will redirect: ${submissionInfo.hasSubmitted}`);
+          }
+
+          if (submissionInfo.hasSubmitted) {
+            console.log('✅ Detected application submission completed (user clicked on vacancy_response page), triggering redirect...');
+            // Redirect to START_URL
+            console.log(`🔄 Redirecting to: ${START_URL}`);
+            await commander.goto({ url: START_URL });
+            await commander.wait({ ms: 1000, reason: 'page to load after redirect' });
+            // Reset tracking flags
+            isOnVacancyPageFromResponse = false;
+            clickListenerInstalled = false;
+            lastVacancyPageUrl = '';
+            console.log('✅ Returned to search page! Continuing automation...');
+          }
+        }
+      }
+
       // Reset flag when leaving vacancy page
       if (!vacancyPageMatch) {
         if (isOnVacancyPageFromResponse) {
@@ -738,12 +821,19 @@ github.com/link-foundation`;
       console.log('🎧 Setting up click listener for "Откликнуться" button on vacancy page');
       await commander.evaluate({
         fn: () => {
-          // Add click listener to all links
+          // Add click listener to document (capture phase to catch all clicks)
           document.addEventListener('click', (event) => {
-            const target = event.target.closest('a, button');
-            if (target && target.textContent.trim() === 'Откликнуться') {
-              // Store flag in sessionStorage to trigger redirect after response
-              window.sessionStorage.setItem('shouldRedirectAfterResponse', 'true');
+            // Check if clicked element or any parent contains "Откликнуться" text
+            let element = event.target;
+            while (element && element !== document.body) {
+              const text = element.textContent?.trim() || '';
+              // Check for button text (handles both exact match and contains)
+              if (text === 'Откликнуться' || (element.tagName === 'A' || element.tagName === 'BUTTON') && text.includes('Откликнуться')) {
+                console.log('[Click Listener] Detected click on Откликнуться button!');
+                window.sessionStorage.setItem('shouldRedirectAfterResponse', 'true');
+                break;
+              }
+              element = element.parentElement;
             }
           }, true);
         },
@@ -865,6 +955,21 @@ github.com/link-foundation`;
       continue;
     }
 
+    // Wait for any modals to close before proceeding
+    try {
+      await commander.evaluate({
+        fn: () => {
+          const modal = document.querySelector('[data-qa="modal-overlay"]');
+          if (modal) {
+            console.log('[Main Loop] Waiting for modal to close...');
+          }
+        },
+      });
+      await commander.wait({ ms: 500, reason: 'ensuring no modals are open' });
+    } catch {
+      // Ignore errors
+    }
+
     // Find "Откликнуться" button using text selector
     const buttonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
     const buttonCount = await commander.count({ selector: buttonSelector });
@@ -876,12 +981,28 @@ github.com/link-foundation`;
 
     console.log(`📋 Found ${buttonCount} "Откликнуться" button(s). Processing next button...`);
 
+    // Check if first button is enabled before clicking
+    const isEnabled = await commander.isEnabled({ selector: buttonSelector });
+
+    if (!isEnabled) {
+      console.log('⚠️  First button is disabled or loading, waiting 2 seconds...');
+      await commander.wait({ ms: 2000, reason: 'button to become enabled' });
+      continue;
+    }
+
     // Click first button with smooth scrolling animation
-    await commander.clickButton({
-      selector: buttonSelector,
-      scrollIntoView: true,
-      smoothScroll: true,
-    });
+    try {
+      await commander.clickButton({
+        selector: buttonSelector,
+        scrollIntoView: true,
+        smoothScroll: true,
+      });
+    } catch (error) {
+      console.log(`⚠️  Error clicking button: ${error.message}`);
+      console.log('💡 Button might be disabled or modal is open, waiting 2 seconds and retrying...');
+      await commander.wait({ ms: 2000, reason: 'retry after click error' });
+      continue;
+    }
 
     // Handle navigation or modal
     await Promise.race([
