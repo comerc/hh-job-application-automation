@@ -288,3 +288,21 @@ key: suricata, dpi, pcap, wireshark, zeek"
   github.com/deep-assistant
   github.com/linksplatform
   github.com/link-foundation
+"Укажите, пожалуйста, Ваши зарплатные ожидания (сумма на руки, после вычета всех налогов)"
+  От 450000 рублей в месяц на руки.
+Какими инструментами для мониторинга и логирования Вы пользовались?
+  Sentry, Graphana, Prometheus и другими.
+"Could you please tell us what are your salary expectations? (in USD, NET/ month)"
+  From $5500 net per month.
+"(if you are not located in Belarus*) Are you ready to work as a B2B Contractor/ ИП and pay taxes by yourself?"
+  "I'm located in Goa, India. I'm ready to work as B2B contractor."
+Are you ready to pass technical interviews and have daily interactions in English?
+  "Yes, I'm ready."
+"Подскажите, пожалуйста, от какой суммы зп минимально рассматриваете предложения?
+
+Благодарим за ответы на вопросы!)"
+  От 450000 рублей ежемесячно на руки.
+Подскажите, пожалуйста, где вы проживаете?
+  В данный момент я нахожусь в Гоа, в Индии.
+С какими конкретно компонентами VS Code API вы знакомы больше всего?
+  Monaco Editor, Language Server Protocol
