@@ -248,17 +248,19 @@ github.com/link-foundation`;
   }
 
   /**
-   * Setup Q&A auto-fill and auto-save for all textareas on the page
+   * Setup Q&A auto-fill and auto-save for all textareas and radio buttons on the page
    */
   async function setupQAHandling() {
     try {
       const qaMap = await readQADatabase();
 
+      // Extract all questions from the page (both textareas and radio buttons)
       const pageQuestions = await commander.evaluate({
         fn: () => {
           const questions = [];
-          const textareas = document.querySelectorAll('textarea');
 
+          // Extract textarea questions
+          const textareas = document.querySelectorAll('textarea');
           textareas.forEach((textarea, index) => {
             const taskBody = textarea.closest('[data-qa="task-body"]');
             if (!taskBody) return;
@@ -269,8 +271,68 @@ github.com/link-foundation`;
             const question = questionEl.textContent.trim();
             if (question) {
               const selector = textarea.name ? `textarea[name="${textarea.name}"]` : `textarea:nth-of-type(${index + 1})`;
-              questions.push({ question, selector, index });
+              questions.push({
+                type: 'textarea',
+                question,
+                selector,
+                index,
+                currentValue: textarea.value.trim()
+              });
             }
+          });
+
+          // Extract radio button questions
+          const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
+          taskBodies.forEach((taskBody) => {
+            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
+            if (!questionEl) return;
+
+            const question = questionEl.textContent.trim();
+            if (!question) return;
+
+            // Find radio buttons in this task body
+            const radioInputs = taskBody.querySelectorAll('input[type="radio"]');
+            if (radioInputs.length === 0) return;
+
+            // Group radio buttons by name
+            const radiosByName = {};
+            radioInputs.forEach((radio) => {
+              if (!radio.name) return;
+              if (!radiosByName[radio.name]) {
+                radiosByName[radio.name] = [];
+              }
+
+              // Find the label text for this radio option
+              const cell = radio.closest('[data-qa="cell"]');
+              let optionText = '';
+              if (cell) {
+                const textContent = cell.querySelector('[data-qa="cell-text-content"]');
+                if (textContent) {
+                  optionText = textContent.textContent.trim();
+                }
+              }
+
+              radiosByName[radio.name].push({
+                value: radio.value,
+                optionText,
+                checked: radio.checked
+              });
+            });
+
+            // Add radio question with all options
+            Object.entries(radiosByName).forEach(([name, options]) => {
+              const checkedOption = options.find(opt => opt.checked);
+              const currentAnswer = checkedOption ? checkedOption.optionText : '';
+
+              questions.push({
+                type: 'radio',
+                question,
+                name,
+                options,
+                currentAnswer,
+                selector: `input[name="${name}"]`
+              });
+            });
           });
 
           return questions;
@@ -278,35 +340,97 @@ github.com/link-foundation`;
       });
 
       const questionToAnswer = new Map();
-      for (const { question, selector, index } of pageQuestions) {
-        const match = findBestMatch(question, qaMap);
+
+      // Match questions with answers from database
+      for (const item of pageQuestions) {
+        const match = findBestMatch(item.question, qaMap);
         if (match) {
-          questionToAnswer.set(question, { answer: match.answer, selector, index });
-          console.log(`[QA] Fuzzy match for "${question}" (score: ${match.score.toFixed(3)})`);
+          questionToAnswer.set(item.question, {
+            ...item,
+            answer: match.answer,
+            matchScore: match.score
+          });
+          console.log(`[QA] Fuzzy match for "${item.question}" (score: ${match.score.toFixed(3)})`);
           console.log(`[QA] Matched to: "${match.question}"`);
           console.log(`[QA] Answer: "${match.answer}"`);
         }
       }
 
-      for (const [question, { answer, selector }] of questionToAnswer) {
+      // Auto-fill textareas and select radio buttons
+      for (const [question, data] of questionToAnswer) {
         try {
-          const filled = await commander.fillTextArea({
-            selector,
-            text: answer,
-            checkEmpty: true,
-            scrollIntoView: true,
-            simulateTyping: true,
-          });
-          if (filled) {
-            console.log(`[QA] Prefilled answer for: ${question}`);
-          } else {
-            console.log(`[QA] Textarea already has content for: ${question}`);
+          if (data.type === 'textarea') {
+            // Skip if textarea already has content
+            if (data.currentValue) {
+              console.log(`[QA] Textarea already has content for: ${question}`);
+              continue;
+            }
+
+            const filled = await commander.fillTextArea({
+              selector: data.selector,
+              text: data.answer,
+              checkEmpty: true,
+              scrollIntoView: true,
+              simulateTyping: true,
+            });
+            if (filled) {
+              console.log(`[QA] Prefilled textarea for: ${question}`);
+            }
+          } else if (data.type === 'radio') {
+            // Find matching radio option by comparing option text with answer
+            const matchingOption = data.options.find(opt =>
+              opt.optionText && data.answer &&
+              opt.optionText.toLowerCase().includes(data.answer.toLowerCase().substring(0, 20))
+            );
+
+            if (matchingOption) {
+              // Click the matching radio button
+              const radioSelector = `input[name="${data.name}"][value="${matchingOption.value}"]`;
+              await commander.evaluate({
+                fn: (selector) => {
+                  const radio = document.querySelector(selector);
+                  if (radio && !radio.checked) {
+                    radio.click();
+                    return true;
+                  }
+                  return false;
+                },
+                args: [radioSelector]
+              });
+              console.log(`[QA] Selected radio option "${matchingOption.optionText}" for: ${question}`);
+
+              // If it's a custom answer option (value="open"), fill the associated textarea
+              if (matchingOption.value === 'open') {
+                const customTextarea = await commander.evaluate({
+                  fn: (name) => {
+                    const textareaName = name + '_text';
+                    const textarea = document.querySelector(`textarea[name="${textareaName}"]`);
+                    return textarea ? textareaName : null;
+                  },
+                  args: [data.name]
+                });
+
+                if (customTextarea) {
+                  await commander.fillTextArea({
+                    selector: `textarea[name="${customTextarea}"]`,
+                    text: data.answer,
+                    checkEmpty: true,
+                    scrollIntoView: true,
+                    simulateTyping: true,
+                  });
+                  console.log(`[QA] Filled custom textarea for: ${question}`);
+                }
+              }
+            } else {
+              console.log(`[QA] No matching radio option found for: ${question}`);
+            }
           }
         } catch (error) {
-          console.error(`[QA] Error prefilling textarea for "${question}":`, error.message);
+          console.error(`[QA] Error autofilling for "${question}":`, error.message);
         }
       }
 
+      // Setup auto-save listeners for textareas
       await commander.evaluate({
         fn: (qaData) => {
           const qaObj = Object.fromEntries(qaData);
@@ -364,15 +488,16 @@ github.com/link-foundation`;
   }
 
   /**
-   * Save Q&A pairs from textareas after user interaction
+   * Save Q&A pairs from textareas and radio buttons after user interaction
    */
   async function saveQAPairs() {
     try {
       const qaPairs = await commander.evaluate({
         fn: () => {
           const pairs = [];
-          const textareas = document.querySelectorAll('textarea');
 
+          // Save textarea answers
+          const textareas = document.querySelectorAll('textarea');
           textareas.forEach((textarea) => {
             const taskBody = textarea.closest('[data-qa="task-body"]');
             if (!taskBody) return;
@@ -384,6 +509,41 @@ github.com/link-foundation`;
             const answer = textarea.value.trim();
 
             if (question && answer) {
+              pairs.push({ question, answer });
+            }
+          });
+
+          // Save radio button selections
+          const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
+          taskBodies.forEach((taskBody) => {
+            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
+            if (!questionEl) return;
+
+            const question = questionEl.textContent.trim();
+            if (!question) return;
+
+            // Find checked radio button in this task body
+            const checkedRadio = taskBody.querySelector('input[type="radio"]:checked');
+            if (!checkedRadio) return;
+
+            // Get the option text for the checked radio
+            const cell = checkedRadio.closest('[data-qa="cell"]');
+            if (!cell) return;
+
+            const textContent = cell.querySelector('[data-qa="cell-text-content"]');
+            if (!textContent) return;
+
+            let answer = textContent.textContent.trim();
+
+            // If it's a custom answer (value="open"), get the textarea value
+            if (checkedRadio.value === 'open') {
+              const customTextarea = taskBody.querySelector(`textarea[name="${checkedRadio.name}_text"]`);
+              if (customTextarea && customTextarea.value.trim()) {
+                answer = customTextarea.value.trim();
+              }
+            }
+
+            if (answer) {
               pairs.push({ question, answer });
             }
           });
