@@ -95,15 +95,15 @@ export function createQADatabase(filePath) {
    *
    * IMPORTANT: Links Notation multiline indented format:
    * - Each indented line creates a SEPARATE link with the same question
-   * - We must combine all answers for the same question with newlines
+   * - Multiple short answers (< 150 chars, unquoted) are kept as array (checkbox options)
+   * - Multiple long/quoted answers are combined with newlines (multiline text)
    * - Example file format:
    *     Question
    *       Answer line 1
    *       Answer line 2
    *   Becomes 3 separate links in parser, we combine into 1 Q&A pair
    *
-   * Issue #78: Add better error handling and backup recovery to prevent data loss
-   * @returns {Promise<Map<string, string>>} Map of questions to answers
+   * @returns {Promise<Map<string, string|Array<string>>>} Map of questions to answers
    */
   async function readQADatabase() {
     try {
@@ -119,8 +119,11 @@ export function createQADatabase(filePath) {
 
       // Extract Q&A pairs from parsed links
       // Note: Multiple indented answer lines create multiple links with same question
-      // We need to combine them into a single multiline answer
+      // Strategy:
+      // - If answers look like separate options (short, no internal newlines), keep as array
+      // - Otherwise, treat as multiline text and concatenate with newlines
       const qaMap = new Map();
+      const answersByQuestion = new Map(); // Temporary: collect all answers per question
 
       for (const link of links) {
         if (link._isFromPathCombination && link.values && link.values.length === 2) {
@@ -128,13 +131,34 @@ export function createQADatabase(filePath) {
           const answer = extractText(link.values[1]);
 
           if (question && answer) {
-            // If question already exists, append answer with newline (multiline support)
-            if (qaMap.has(question)) {
-              const existingAnswer = qaMap.get(question);
-              qaMap.set(question, existingAnswer + '\n' + answer);
-            } else {
-              qaMap.set(question, answer);
+            if (!answersByQuestion.has(question)) {
+              answersByQuestion.set(question, []);
             }
+            answersByQuestion.get(question).push(answer);
+          }
+        }
+      }
+
+      // Process collected answers
+      for (const [question, answers] of answersByQuestion.entries()) {
+        if (answers.length === 1) {
+          // Single answer - store as-is
+          qaMap.set(question, answers[0]);
+        } else {
+          // Multiple answers - check if they're checkbox options or multiline text
+          // Heuristic: if all answers are short (< 150 chars) and have no quotes, likely checkboxes
+          const allShort = answers.every(a => a.length < 150);
+          const anyQuoted = answers.some(a =>
+            (a.startsWith('"') && a.endsWith('"')) ||
+            (a.startsWith("'") && a.endsWith("'"))
+          );
+
+          if (allShort && !anyQuoted) {
+            // Likely checkbox options - store as array (join with special delimiter)
+            qaMap.set(question, answers);
+          } else {
+            // Multiline text - concatenate with newlines
+            qaMap.set(question, answers.join('\n'));
           }
         }
       }
@@ -144,40 +168,6 @@ export function createQADatabase(filePath) {
       if (error.code === 'ENOENT') {
         // File doesn't exist yet, return empty map
         return new Map();
-      }
-
-      // Issue #78: If parse error occurs, try to recover from backup
-      if (error.message && error.message.includes('Parse error')) {
-        console.error('Error reading Q&A database:', error);
-        console.error('⚠️  Parse error detected! Attempting to recover from backup...');
-
-        try {
-          const backupPath = `${QA_FILE_PATH}.backup`;
-          const backupContent = await fs.readFile(backupPath, 'utf8');
-          const parser = new Parser();
-          const links = parser.parse(backupContent);
-
-          const qaMap = new Map();
-          for (const link of links) {
-            if (link._isFromPathCombination && link.values && link.values.length === 2) {
-              const question = extractText(link.values[0]);
-              const answer = extractText(link.values[1]);
-              if (question && answer) {
-                qaMap.set(question, answer);
-              }
-            }
-          }
-
-          console.error('✅ Successfully recovered data from backup!');
-          // Restore the corrupted file with the backup
-          await fs.copyFile(backupPath, QA_FILE_PATH);
-          return qaMap;
-        } catch (backupError) {
-          console.error('❌ Could not recover from backup:', backupError.message);
-          console.error('⚠️  WARNING: Q&A database is corrupted and could not be recovered!');
-          console.error(`⚠️  Please manually fix ${QA_FILE_PATH} or restore from backup.`);
-          return new Map();
-        }
       }
 
       console.error('Error reading Q&A database:', error);
@@ -248,13 +238,12 @@ export function createQADatabase(filePath) {
    * - Questions are not indented
    * - Answers are indented with 2 spaces
    * - If answer contains newlines, EVERY line must be indented with 2 spaces
+   * - If answer is an array (checkboxes), each option on separate indented line
    * - This preserves multiline content naturally without \n escaping
    *
-   * Optimization: Skips writing if content is unchanged (no backup, no IO)
+   * Optimization: Skips writing if content is unchanged (no IO)
    *
-   * Issue #78: Properly format multiline content for Links Notation
-   * Creates a backup before writing (only if changes detected)
-   * @param {Map<string, string>} qaMap - Map of questions to answers
+   * @param {Map<string, string|Array<string>>} qaMap - Map of questions to answers (string or array)
    */
   async function writeQADatabase(qaMap) {
     try {
@@ -305,19 +294,28 @@ export function createQADatabase(filePath) {
         lines.push(escapedQuestion);
 
         // Answer handling:
-        // - If answer is quoted (starts with " or '), write as single quoted multiline
+        // - If answer is an array (checkbox options), write each on separate line
+        // - If answer is quoted string, write as single quoted multiline
         // - Otherwise, split by newlines and indent each line with 2 spaces
-        const escapedAnswer = escapeForLinksNotation(answer);
-        const isQuoted = escapedAnswer.startsWith('"') || escapedAnswer.startsWith("'");
-
-        if (isQuoted) {
-          // Quoted answer - write as-is with 2-space indent (quotes preserve newlines)
-          lines.push(`  ${escapedAnswer}`);
+        if (Array.isArray(answer)) {
+          // Array of checkbox options - each on separate line
+          for (const option of answer) {
+            const escapedOption = escapeForLinksNotation(option);
+            lines.push(`  ${escapedOption}`);
+          }
         } else {
-          // Unquoted answer - split by newlines and indent each line
-          const answerLines = escapedAnswer.split('\n');
-          for (const answerLine of answerLines) {
-            lines.push(`  ${answerLine}`);
+          const escapedAnswer = escapeForLinksNotation(answer);
+          const isQuoted = escapedAnswer.startsWith('"') || escapedAnswer.startsWith("'");
+
+          if (isQuoted) {
+            // Quoted answer - write as-is with 2-space indent (quotes preserve newlines)
+            lines.push(`  ${escapedAnswer}`);
+          } else {
+            // Unquoted answer - split by newlines and indent each line
+            const answerLines = escapedAnswer.split('\n');
+            for (const answerLine of answerLines) {
+              lines.push(`  ${answerLine}`);
+            }
           }
         }
       }
@@ -333,14 +331,8 @@ export function createQADatabase(filePath) {
       }
 
       if (existingContent === newContent) {
-        // No changes - skip backup and write operations
+        // No changes - skip write operation
         return;
-      }
-
-      // Content changed - create backup before writing
-      if (existingContent) {
-        const backupPath = `${QA_FILE_PATH}.backup`;
-        await fs.writeFile(backupPath, existingContent, 'utf8');
       }
 
       // Write new content

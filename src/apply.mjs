@@ -292,7 +292,9 @@ github.com/link-foundation`;
 
             // Find radio buttons in this task body
             const radioInputs = taskBody.querySelectorAll('input[type="radio"]');
-            if (radioInputs.length === 0) return;
+            const checkboxInputs = taskBody.querySelectorAll('input[type="checkbox"]');
+
+            if (radioInputs.length === 0 && checkboxInputs.length === 0) return;
 
             // Group radio buttons by name
             const radiosByName = {};
@@ -319,6 +321,31 @@ github.com/link-foundation`;
               });
             });
 
+            // Group checkboxes by name
+            const checkboxesByName = {};
+            checkboxInputs.forEach((checkbox) => {
+              if (!checkbox.name) return;
+              if (!checkboxesByName[checkbox.name]) {
+                checkboxesByName[checkbox.name] = [];
+              }
+
+              // Find the label text for this checkbox option
+              const cell = checkbox.closest('[data-qa="cell"]');
+              let optionText = '';
+              if (cell) {
+                const textContent = cell.querySelector('[data-qa="cell-text-content"]');
+                if (textContent) {
+                  optionText = textContent.textContent.trim();
+                }
+              }
+
+              checkboxesByName[checkbox.name].push({
+                value: checkbox.value,
+                optionText,
+                checked: checkbox.checked
+              });
+            });
+
             // Add radio question with all options
             Object.entries(radiosByName).forEach(([name, options]) => {
               const checkedOption = options.find(opt => opt.checked);
@@ -330,6 +357,21 @@ github.com/link-foundation`;
                 name,
                 options,
                 currentAnswer,
+                selector: `input[name="${name}"]`
+              });
+            });
+
+            // Add checkbox question with all options
+            Object.entries(checkboxesByName).forEach(([name, options]) => {
+              const checkedOptions = options.filter(opt => opt.checked);
+              const currentAnswers = checkedOptions.map(opt => opt.optionText);
+
+              questions.push({
+                type: 'checkbox',
+                question,
+                name,
+                options,
+                currentAnswers, // Array of checked options
                 selector: `input[name="${name}"]`
               });
             });
@@ -377,11 +419,19 @@ github.com/link-foundation`;
               console.log(`[QA] Prefilled textarea for: ${question}`);
             }
           } else if (data.type === 'radio') {
-            // Find matching radio option by comparing option text with answer
-            const matchingOption = data.options.find(opt =>
-              opt.optionText && data.answer &&
-              opt.optionText.toLowerCase().includes(data.answer.toLowerCase().substring(0, 20))
-            );
+            // Answer could be a string or array of options
+            const answers = Array.isArray(data.answer) ? data.answer : [data.answer];
+
+            // Find matching radio option by comparing option text with any answer
+            let matchingOption = null;
+            for (const ans of answers) {
+              matchingOption = data.options.find(opt =>
+                opt.optionText && ans &&
+                (opt.optionText.toLowerCase().includes(ans.toLowerCase().substring(0, 20)) ||
+                 ans.toLowerCase().includes(opt.optionText.toLowerCase()))
+              );
+              if (matchingOption) break;
+            }
 
             if (matchingOption) {
               // Click the matching radio button
@@ -411,9 +461,11 @@ github.com/link-foundation`;
                 });
 
                 if (customTextarea) {
+                  // Use the first answer if it's an array
+                  const textToFill = Array.isArray(data.answer) ? data.answer[0] : data.answer;
                   await commander.fillTextArea({
                     selector: `textarea[name="${customTextarea}"]`,
-                    text: data.answer,
+                    text: textToFill,
                     checkEmpty: true,
                     scrollIntoView: true,
                     simulateTyping: true,
@@ -423,6 +475,56 @@ github.com/link-foundation`;
               }
             } else {
               console.log(`[QA] No matching radio option found for: ${question}`);
+            }
+          } else if (data.type === 'checkbox') {
+            // Handle multi-select checkboxes
+            const answers = Array.isArray(data.answer) ? data.answer : [data.answer];
+
+            for (const ans of answers) {
+              const matchingOption = data.options.find(opt =>
+                opt.optionText && ans &&
+                (opt.optionText.toLowerCase().includes(ans.toLowerCase().substring(0, 20)) ||
+                 ans.toLowerCase().includes(opt.optionText.toLowerCase()))
+              );
+
+              if (matchingOption) {
+                const checkboxSelector = `input[name="${data.name}"][value="${matchingOption.value}"]`;
+                await commander.evaluate({
+                  fn: (selector) => {
+                    const checkbox = document.querySelector(selector);
+                    if (checkbox && !checkbox.checked) {
+                      checkbox.click();
+                      return true;
+                    }
+                    return false;
+                  },
+                  args: [checkboxSelector]
+                });
+                console.log(`[QA] Checked option "${matchingOption.optionText}" for: ${question}`);
+
+                // Handle custom text option for checkboxes
+                if (matchingOption.value === 'open') {
+                  const customTextarea = await commander.evaluate({
+                    fn: (name) => {
+                      const textareaName = name + '_text';
+                      const textarea = document.querySelector(`textarea[name="${textareaName}"]`);
+                      return textarea ? textareaName : null;
+                    },
+                    args: [data.name]
+                  });
+
+                  if (customTextarea) {
+                    await commander.fillTextArea({
+                      selector: `textarea[name="${customTextarea}"]`,
+                      text: ans,
+                      checkEmpty: true,
+                      scrollIntoView: true,
+                      simulateTyping: true,
+                    });
+                    console.log(`[QA] Filled custom textarea for checkbox: ${question}`);
+                  }
+                }
+              }
             }
           }
         } catch (error) {
@@ -513,7 +615,7 @@ github.com/link-foundation`;
             }
           });
 
-          // Save radio button selections
+          // Save radio button and checkbox selections
           const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
           taskBodies.forEach((taskBody) => {
             const questionEl = taskBody.querySelector('[data-qa="task-question"]');
@@ -524,27 +626,61 @@ github.com/link-foundation`;
 
             // Find checked radio button in this task body
             const checkedRadio = taskBody.querySelector('input[type="radio"]:checked');
-            if (!checkedRadio) return;
+            if (checkedRadio) {
+              // Get the option text for the checked radio
+              const cell = checkedRadio.closest('[data-qa="cell"]');
+              if (!cell) return;
 
-            // Get the option text for the checked radio
-            const cell = checkedRadio.closest('[data-qa="cell"]');
-            if (!cell) return;
+              const textContent = cell.querySelector('[data-qa="cell-text-content"]');
+              if (!textContent) return;
 
-            const textContent = cell.querySelector('[data-qa="cell-text-content"]');
-            if (!textContent) return;
+              let answer = textContent.textContent.trim();
 
-            let answer = textContent.textContent.trim();
+              // If it's a custom answer (value="open"), get the textarea value
+              if (checkedRadio.value === 'open') {
+                const customTextarea = taskBody.querySelector(`textarea[name="${checkedRadio.name}_text"]`);
+                if (customTextarea && customTextarea.value.trim()) {
+                  answer = customTextarea.value.trim();
+                }
+              }
 
-            // If it's a custom answer (value="open"), get the textarea value
-            if (checkedRadio.value === 'open') {
-              const customTextarea = taskBody.querySelector(`textarea[name="${checkedRadio.name}_text"]`);
-              if (customTextarea && customTextarea.value.trim()) {
-                answer = customTextarea.value.trim();
+              if (answer) {
+                pairs.push({ question, answer });
               }
             }
 
-            if (answer) {
-              pairs.push({ question, answer });
+            // Find checked checkboxes in this task body
+            const checkedCheckboxes = taskBody.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkedCheckboxes.length > 0) {
+              const answers = [];
+
+              checkedCheckboxes.forEach((checkbox) => {
+                const cell = checkbox.closest('[data-qa="cell"]');
+                if (!cell) return;
+
+                const textContent = cell.querySelector('[data-qa="cell-text-content"]');
+                if (!textContent) return;
+
+                let answer = textContent.textContent.trim();
+
+                // If it's a custom answer (value="open"), get the textarea value
+                if (checkbox.value === 'open') {
+                  const customTextarea = taskBody.querySelector(`textarea[name="${checkbox.name}_text"]`);
+                  if (customTextarea && customTextarea.value.trim()) {
+                    answer = customTextarea.value.trim();
+                  }
+                }
+
+                if (answer) {
+                  answers.push(answer);
+                }
+              });
+
+              if (answers.length > 0) {
+                // Store as array if multiple, or single string if only one
+                const finalAnswer = answers.length === 1 ? answers[0] : answers;
+                pairs.push({ question, answer: finalAnswer });
+              }
             }
           });
 
