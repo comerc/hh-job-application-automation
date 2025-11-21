@@ -65,7 +65,7 @@ function parseQAFile(content) {
       if (currentQuestion) {
         entries.push({
           question: currentQuestion,
-          answers: currentAnswers
+          answers: currentAnswers,
         });
       }
 
@@ -106,7 +106,7 @@ function parseQAFile(content) {
   if (currentQuestion) {
     entries.push({
       question: currentQuestion,
-      answers: currentAnswers
+      answers: currentAnswers,
     });
   }
 

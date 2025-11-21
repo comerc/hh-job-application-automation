@@ -276,7 +276,7 @@ github.com/link-foundation`;
                 question,
                 selector,
                 index,
-                currentValue: textarea.value.trim()
+                currentValue: textarea.value.trim(),
               });
             }
           });
@@ -317,7 +317,7 @@ github.com/link-foundation`;
               radiosByName[radio.name].push({
                 value: radio.value,
                 optionText,
-                checked: radio.checked
+                checked: radio.checked,
               });
             });
 
@@ -342,7 +342,7 @@ github.com/link-foundation`;
               checkboxesByName[checkbox.name].push({
                 value: checkbox.value,
                 optionText,
-                checked: checkbox.checked
+                checked: checkbox.checked,
               });
             });
 
@@ -357,7 +357,7 @@ github.com/link-foundation`;
                 name,
                 options,
                 currentAnswer,
-                selector: `input[name="${name}"]`
+                selector: `input[name="${name}"]`,
               });
             });
 
@@ -372,7 +372,7 @@ github.com/link-foundation`;
                 name,
                 options,
                 currentAnswers, // Array of checked options
-                selector: `input[name="${name}"]`
+                selector: `input[name="${name}"]`,
               });
             });
           });
@@ -390,7 +390,7 @@ github.com/link-foundation`;
           questionToAnswer.set(item.question, {
             ...item,
             answer: match.answer,
-            matchScore: match.score
+            matchScore: match.score,
           });
           console.log(`[QA] Fuzzy match for "${item.question}" (score: ${match.score.toFixed(3)})`);
           console.log(`[QA] Matched to: "${match.question}"`);
@@ -428,7 +428,7 @@ github.com/link-foundation`;
               matchingOption = data.options.find(opt =>
                 opt.optionText && ans &&
                 (opt.optionText.toLowerCase().includes(ans.toLowerCase().substring(0, 20)) ||
-                 ans.toLowerCase().includes(opt.optionText.toLowerCase()))
+                 ans.toLowerCase().includes(opt.optionText.toLowerCase())),
               );
               if (matchingOption) break;
             }
@@ -445,7 +445,7 @@ github.com/link-foundation`;
                   }
                   return false;
                 },
-                args: [radioSelector]
+                args: [radioSelector],
               });
               console.log(`[QA] Selected radio option "${matchingOption.optionText}" for: ${question}`);
 
@@ -457,7 +457,7 @@ github.com/link-foundation`;
                     const textarea = document.querySelector(`textarea[name="${textareaName}"]`);
                     return textarea ? textareaName : null;
                   },
-                  args: [data.name]
+                  args: [data.name],
                 });
 
                 if (customTextarea) {
@@ -484,7 +484,7 @@ github.com/link-foundation`;
               const matchingOption = data.options.find(opt =>
                 opt.optionText && ans &&
                 (opt.optionText.toLowerCase().includes(ans.toLowerCase().substring(0, 20)) ||
-                 ans.toLowerCase().includes(opt.optionText.toLowerCase()))
+                 ans.toLowerCase().includes(opt.optionText.toLowerCase())),
               );
 
               if (matchingOption) {
@@ -498,7 +498,7 @@ github.com/link-foundation`;
                     }
                     return false;
                   },
-                  args: [checkboxSelector]
+                  args: [checkboxSelector],
                 });
                 console.log(`[QA] Checked option "${matchingOption.optionText}" for: ${question}`);
 
@@ -510,7 +510,7 @@ github.com/link-foundation`;
                       const textarea = document.querySelector(`textarea[name="${textareaName}"]`);
                       return textarea ? textareaName : null;
                     },
-                    args: [data.name]
+                    args: [data.name],
                   });
 
                   if (customTextarea) {
@@ -917,12 +917,35 @@ github.com/link-foundation`;
     const textareaCount = await commander.count({ selector: 'textarea' });
     console.log(`📊 Found ${textareaCount} textarea(s) on the page`);
 
+    // Check for test questions (checkboxes/radio buttons in task-body)
+    const testQuestionCount = await commander.evaluate({
+      fn: () => {
+        const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
+        let count = 0;
+        taskBodies.forEach((taskBody) => {
+          const hasRadio = taskBody.querySelector('input[type="radio"]');
+          const hasCheckbox = taskBody.querySelector('input[type="checkbox"]');
+          if (hasRadio || hasCheckbox) {
+            count++;
+          }
+        });
+        return count;
+      },
+    });
+
+    if (testQuestionCount > 0) {
+      console.log(`⚠️  Found ${testQuestionCount} test question(s) that require manual answers`);
+      console.log('💡 Cannot auto-submit when test questions are present - manual submission required');
+      console.log('💡 Please answer the questions and submit the form manually when ready');
+      return;
+    }
+
     // Setup Q&A handling
     await setupQAHandling();
 
-    // Auto-submit if only 1 textarea
+    // Auto-submit if only 1 textarea and no test questions
     if (textareaCount === 1) {
-      console.log('✅ Only one textarea found, safe to auto-submit');
+      console.log('✅ Only one textarea found and no test questions, safe to auto-submit');
 
       const submitSelector = '[data-qa="vacancy-response-submit-popup"]';
       const submitCount = await commander.count({ selector: submitSelector });
@@ -1474,6 +1497,40 @@ github.com/link-foundation`;
       console.error(`❌ ${commander.engine}: textarea value does not match expected message`);
       console.error('Expected:', MESSAGE);
       console.error('Actual:', textareaValue);
+    }
+
+    // Check for test questions in modal
+    const modalTestQuestionCount = await commander.evaluate({
+      fn: () => {
+        const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
+        if (!form) return 0;
+
+        const taskBodies = form.querySelectorAll('[data-qa="task-body"]');
+        let count = 0;
+        taskBodies.forEach((taskBody) => {
+          const hasRadio = taskBody.querySelector('input[type="radio"]');
+          const hasCheckbox = taskBody.querySelector('input[type="checkbox"]');
+          if (hasRadio || hasCheckbox) {
+            count++;
+          }
+        });
+        return count;
+      },
+    });
+
+    if (modalTestQuestionCount > 0) {
+      console.log(`⚠️  Found ${modalTestQuestionCount} test question(s) in modal that require manual answers`);
+      console.log('💡 Skipping this vacancy - cannot auto-submit when test questions are present');
+
+      // Close the modal
+      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
+      if (closeButtonCount > 0) {
+        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+        console.log('✅ Closed the application modal');
+      }
+
+      await commander.wait({ ms: 1000, reason: 'modal to close' });
+      continue;
     }
 
     // Check if submit button is disabled

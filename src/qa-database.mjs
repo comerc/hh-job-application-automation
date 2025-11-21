@@ -150,7 +150,7 @@ export function createQADatabase(filePath) {
           const allShort = answers.every(a => a.length < 150);
           const anyQuoted = answers.some(a =>
             (a.startsWith('"') && a.endsWith('"')) ||
-            (a.startsWith("'") && a.endsWith("'"))
+            (a.startsWith("'") && a.endsWith("'")),
           );
 
           if (allShort && !anyQuoted) {
