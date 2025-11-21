@@ -80,6 +80,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
       description: 'Enable verbose logging for debugging',
       default: false,
     })
+    .option('auto-submit-vacancy-response-form', {
+      type: 'boolean',
+      description: 'Auto-submit vacancy response forms when all questions are answered (default: false for safety)',
+      default: false,
+    })
     .help()
     .argv;
 
@@ -434,20 +439,30 @@ github.com/link-foundation`;
             }
 
             if (matchingOption) {
-              // Click the matching radio button
+              // Click the matching radio button with smooth scroll animation
               const radioSelector = `input[name="${data.name}"][value="${matchingOption.value}"]`;
-              await commander.evaluate({
+
+              // Check if already checked before clicking
+              const alreadyChecked = await commander.evaluate({
                 fn: (selector) => {
                   const radio = document.querySelector(selector);
-                  if (radio && !radio.checked) {
-                    radio.click();
-                    return true;
-                  }
-                  return false;
+                  return radio ? radio.checked : false;
                 },
                 args: [radioSelector],
               });
-              console.log(`[QA] Selected radio option "${matchingOption.optionText}" for: ${question}`);
+
+              if (!alreadyChecked) {
+                // Use clickButton for smooth scroll animation
+                await commander.clickButton({
+                  selector: radioSelector,
+                  scrollIntoView: true,
+                  smoothScroll: true,
+                });
+                console.log(`[QA] Selected radio option "${matchingOption.optionText}" for: ${question}`);
+                await commander.wait({ ms: 300, reason: 'visual feedback after radio selection' });
+              } else {
+                console.log(`[QA] Radio option "${matchingOption.optionText}" already selected for: ${question}`);
+              }
 
               // If it's a custom answer option (value="open"), fill the associated textarea
               if (matchingOption.value === 'open') {
@@ -489,18 +504,28 @@ github.com/link-foundation`;
 
               if (matchingOption) {
                 const checkboxSelector = `input[name="${data.name}"][value="${matchingOption.value}"]`;
-                await commander.evaluate({
+
+                // Check if already checked before clicking
+                const alreadyChecked = await commander.evaluate({
                   fn: (selector) => {
                     const checkbox = document.querySelector(selector);
-                    if (checkbox && !checkbox.checked) {
-                      checkbox.click();
-                      return true;
-                    }
-                    return false;
+                    return checkbox ? checkbox.checked : false;
                   },
                   args: [checkboxSelector],
                 });
-                console.log(`[QA] Checked option "${matchingOption.optionText}" for: ${question}`);
+
+                if (!alreadyChecked) {
+                  // Use clickButton for smooth scroll animation
+                  await commander.clickButton({
+                    selector: checkboxSelector,
+                    scrollIntoView: true,
+                    smoothScroll: true,
+                  });
+                  console.log(`[QA] Checked option "${matchingOption.optionText}" for: ${question}`);
+                  await commander.wait({ ms: 300, reason: 'visual feedback after checkbox selection' });
+                } else {
+                  console.log(`[QA] Option "${matchingOption.optionText}" already checked for: ${question}`);
+                }
 
                 // Handle custom text option for checkboxes
                 if (matchingOption.value === 'open') {
@@ -917,35 +942,74 @@ github.com/link-foundation`;
     const textareaCount = await commander.count({ selector: 'textarea' });
     console.log(`📊 Found ${textareaCount} textarea(s) on the page`);
 
-    // Check for test questions (checkboxes/radio buttons in task-body)
-    const testQuestionCount = await commander.evaluate({
+    // Setup Q&A handling first (this will auto-fill answers from database)
+    await setupQAHandling();
+
+    // Count total test questions and unanswered test questions
+    const testQuestionStats = await commander.evaluate({
       fn: () => {
         const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
-        let count = 0;
+        let totalCount = 0;
+        let unansweredCount = 0;
+
         taskBodies.forEach((taskBody) => {
-          const hasRadio = taskBody.querySelector('input[type="radio"]');
-          const hasCheckbox = taskBody.querySelector('input[type="checkbox"]');
-          if (hasRadio || hasCheckbox) {
-            count++;
+          const radios = taskBody.querySelectorAll('input[type="radio"]');
+          const checkboxes = taskBody.querySelectorAll('input[type="checkbox"]');
+
+          // Check if it's a radio question
+          if (radios.length > 0) {
+            totalCount++;
+            const hasSelection = Array.from(radios).some(radio => radio.checked);
+            if (!hasSelection) {
+              unansweredCount++;
+            }
+          }
+
+          // Check if it's a checkbox question
+          if (checkboxes.length > 0 && radios.length === 0) {
+            totalCount++;
+            const hasSelection = Array.from(checkboxes).some(checkbox => checkbox.checked);
+            if (!hasSelection) {
+              unansweredCount++;
+            }
           }
         });
-        return count;
+        return { totalCount, unansweredCount };
       },
     });
 
-    if (testQuestionCount > 0) {
-      console.log(`⚠️  Found ${testQuestionCount} test question(s) that require manual answers`);
-      console.log('💡 Cannot auto-submit when test questions are present - manual submission required');
-      console.log('💡 Please answer the questions and submit the form manually when ready');
+    const hasTestQuestions = testQuestionStats.totalCount > 0;
+    const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
+
+    if (hasUnansweredQuestions) {
+      console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} test question(s) UNANSWERED`);
+      console.log('💡 Cannot auto-submit when test questions remain unanswered - manual submission required');
+      console.log('💡 Please answer the remaining questions and submit the form manually when ready');
       return;
     }
 
-    // Setup Q&A handling
-    await setupQAHandling();
+    // Decide whether to auto-submit based on configuration and question presence
+    let shouldAutoSubmit = false;
 
-    // Auto-submit if only 1 textarea and no test questions
-    if (textareaCount === 1) {
-      console.log('✅ Only one textarea found and no test questions, safe to auto-submit');
+    if (!hasTestQuestions) {
+      // No test questions - always auto-submit (only cover letter)
+      shouldAutoSubmit = true;
+      console.log('✅ No test questions found, only cover letter - will auto-submit');
+    } else if (argv['auto-submit-vacancy-response-form']) {
+      // Has test questions but all answered and flag is enabled
+      shouldAutoSubmit = true;
+      console.log(`✅ All ${testQuestionStats.totalCount} test question(s) answered and --auto-submit-vacancy-response-form enabled - will auto-submit`);
+    } else {
+      // Has test questions, all answered, but flag is disabled
+      shouldAutoSubmit = false;
+      console.log(`💡 All ${testQuestionStats.totalCount} test question(s) answered, but --auto-submit-vacancy-response-form is disabled`);
+      console.log('💡 Please review the answers and submit the form manually when ready');
+      return;
+    }
+
+    // Auto-submit if only 1 textarea and decided to auto-submit
+    if (textareaCount === 1 && shouldAutoSubmit) {
+      console.log('✅ Proceeding with auto-submit');
 
       const submitSelector = '[data-qa="vacancy-response-submit-popup"]';
       const submitCount = await commander.count({ selector: submitSelector });
@@ -1499,8 +1563,8 @@ github.com/link-foundation`;
       console.error('Actual:', textareaValue);
     }
 
-    // Check for test questions in modal
-    const modalTestQuestionCount = await commander.evaluate({
+    // Check for UNANSWERED test questions in modal (after potential auto-fill)
+    const modalUnansweredTestQuestionCount = await commander.evaluate({
       fn: () => {
         const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
         if (!form) return 0;
@@ -1508,19 +1572,32 @@ github.com/link-foundation`;
         const taskBodies = form.querySelectorAll('[data-qa="task-body"]');
         let count = 0;
         taskBodies.forEach((taskBody) => {
-          const hasRadio = taskBody.querySelector('input[type="radio"]');
-          const hasCheckbox = taskBody.querySelector('input[type="checkbox"]');
-          if (hasRadio || hasCheckbox) {
-            count++;
+          const radios = taskBody.querySelectorAll('input[type="radio"]');
+          const checkboxes = taskBody.querySelectorAll('input[type="checkbox"]');
+
+          // Check if it's a radio question without any selection
+          if (radios.length > 0) {
+            const hasSelection = Array.from(radios).some(radio => radio.checked);
+            if (!hasSelection) {
+              count++;
+            }
+          }
+
+          // Check if it's a checkbox question without any selection
+          if (checkboxes.length > 0 && radios.length === 0) {
+            const hasSelection = Array.from(checkboxes).some(checkbox => checkbox.checked);
+            if (!hasSelection) {
+              count++;
+            }
           }
         });
         return count;
       },
     });
 
-    if (modalTestQuestionCount > 0) {
-      console.log(`⚠️  Found ${modalTestQuestionCount} test question(s) in modal that require manual answers`);
-      console.log('💡 Skipping this vacancy - cannot auto-submit when test questions are present');
+    if (modalUnansweredTestQuestionCount > 0) {
+      console.log(`⚠️  Found ${modalUnansweredTestQuestionCount} UNANSWERED test question(s) in modal`);
+      console.log('💡 Skipping this vacancy - cannot auto-submit when test questions remain unanswered');
 
       // Close the modal
       const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });

@@ -24,6 +24,20 @@ github.com/link-foundation
 
 The application now supports both Playwright and Puppeteer through a single unified command. Use the `--engine` flag to choose between them (default: playwright).
 
+### Auto-Submit Behavior
+
+By default, the script will:
+- **Auto-submit** if the form has ONLY a cover letter (no test questions)
+- **Wait for manual review** if the form has test questions, even if all answers are auto-filled from the QA database
+
+To enable auto-submission for forms with test questions (when all answers are auto-filled), use the `--auto-submit-vacancy-response-form` flag:
+
+```bash
+npm run apply -- --auto-submit-vacancy-response-form --verbose
+```
+
+**Safety Note:** The default behavior (manual review) is recommended to ensure test answers are correct before submission.
+
 ### Using Playwright (default)
 
 Using npm script (with verbose logging for debugging):
