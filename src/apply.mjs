@@ -565,18 +565,51 @@ github.com/link-foundation`;
     // Setup Q&A handling first (this will auto-fill answers from database)
     await setupQAHandling();
 
+    // Wait for form validation and give user time to review auto-filled answers
+    await commander.wait({ ms: 30000, reason: 'form validation and user review after auto-fill' });
+
     // Count total test questions and unanswered test questions using qa.mjs
     const testQuestionStats = await countUnansweredQuestions({
       evaluate: commander.evaluate,
     });
 
-    const hasTestQuestions = testQuestionStats.totalCount > 0;
+    // Check if there are test questions:
+    // - Radio/checkbox questions counted by countUnansweredQuestions
+    // - OR multiple textareas (more than just the cover letter)
+    const hasTestQuestions = testQuestionStats.totalCount > 0 || textareaCount > 1;
     const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
 
+    // Check if any test textareas are empty (beyond just the cover letter)
+    const hasEmptyTestTextareas = await commander.evaluate({
+      fn: () => {
+        const textareas = document.querySelectorAll('textarea');
+        let emptyCount = 0;
+
+        textareas.forEach((textarea) => {
+          // Skip the cover letter textarea
+          const isCoverLetter = textarea.getAttribute('data-qa') === 'vacancy-response-popup-form-letter-input' ||
+                                textarea.getAttribute('data-qa') === 'vacancy-response-form-letter-input';
+
+          if (!isCoverLetter && !textarea.value.trim()) {
+            emptyCount++;
+          }
+        });
+
+        return emptyCount > 0;
+      },
+    });
+
     if (hasUnansweredQuestions) {
-      console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} test question(s) UNANSWERED`);
+      console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} radio/checkbox test question(s) UNANSWERED`);
       console.log('💡 Cannot auto-submit when test questions remain unanswered - manual submission required');
       console.log('💡 Please answer the remaining questions and submit the form manually when ready');
+      return;
+    }
+
+    if (hasEmptyTestTextareas) {
+      console.log('⚠️  Found EMPTY test question textarea(s)');
+      console.log('💡 Cannot auto-submit when test textareas are empty - manual submission required');
+      console.log('💡 Please fill the empty textarea(s) and submit the form manually when ready');
       return;
     }
 
@@ -599,8 +632,8 @@ github.com/link-foundation`;
       return;
     }
 
-    // Auto-submit if only 1 textarea and decided to auto-submit
-    if (textareaCount === 1 && shouldAutoSubmit) {
+    // Auto-submit if decided to auto-submit
+    if (shouldAutoSubmit) {
       console.log('✅ Proceeding with auto-submit');
 
       const submitSelector = '[data-qa="vacancy-response-submit-popup"]';
@@ -611,31 +644,47 @@ github.com/link-foundation`;
         return;
       }
 
-      const isButtonDisabled = await commander.evaluate({
+      // Check button state with detailed logging
+      const buttonState = await commander.evaluate({
         fn: (sel) => {
           const el = document.querySelector(sel);
-          return el && (el.hasAttribute('disabled') || el.classList.contains('disabled'));
+          if (!el) return { found: false };
+
+          return {
+            found: true,
+            disabled: el.hasAttribute('disabled') || el.classList.contains('disabled'),
+            hasDisabledAttr: el.hasAttribute('disabled'),
+            hasDisabledClass: el.classList.contains('disabled'),
+            classList: Array.from(el.classList),
+            textContent: el.textContent?.trim(),
+          };
         },
         args: [submitSelector],
       });
 
-      if (isButtonDisabled) {
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Submit button state:', JSON.stringify(buttonState, null, 2));
+      }
+
+      if (!buttonState.found) {
+        console.log('⚠️  Submit button not found in DOM');
+        return;
+      }
+
+      if (buttonState.disabled) {
         console.log('⚠️  Submit button is disabled, manual action required');
+        console.log(`   Button text: "${buttonState.textContent}"`);
+        console.log(`   Has disabled attribute: ${buttonState.hasDisabledAttr}`);
+        console.log(`   Has disabled class: ${buttonState.hasDisabledClass}`);
+        console.log('💡 The form may require additional validation. Please check manually.');
       } else {
         await commander.clickButton({
           selector: submitSelector,
           scrollIntoView: true,
+          smoothScroll: true,
         });
         console.log('✅ Clicked submit button');
         await commander.wait({ ms: 2000, reason: 'submission to complete' });
-      }
-    } else {
-      console.log('⚠️  Multiple textareas found, manual submission required to avoid errors');
-      console.log('💡 Please review and submit the form manually when ready');
-
-      const savedCount = await saveQAPairs();
-      if (savedCount > 0) {
-        console.log(`💾 Saved ${savedCount} Q&A pair(s) to database`);
       }
     }
   }
