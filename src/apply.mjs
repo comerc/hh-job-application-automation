@@ -11,6 +11,16 @@ import path from 'path';
 import os from 'os';
 import { createQADatabase, findBestMatch } from './qa-database.mjs';
 import { launchBrowser, makeBrowserCommander } from './browser-commander/index.js';
+import {
+  extractPageQuestions,
+  extractQAPairs,
+  countUnansweredQuestions,
+  fillTextareaQuestion,
+  fillRadioQuestion,
+  fillCheckboxQuestion,
+  setupAutoSaveListeners,
+  collectMarkedQAPairs,
+} from './qa.mjs';
 
 // Create QA database instance with explicit production file path
 const QA_DB_PATH = path.join(process.cwd(), 'data', 'qa.lino');
@@ -259,132 +269,8 @@ github.com/link-foundation`;
     try {
       const qaMap = await readQADatabase();
 
-      // Extract all questions from the page (both textareas and radio buttons)
-      const pageQuestions = await commander.evaluate({
-        fn: () => {
-          const questions = [];
-
-          // Extract textarea questions
-          const textareas = document.querySelectorAll('textarea');
-          textareas.forEach((textarea, index) => {
-            const taskBody = textarea.closest('[data-qa="task-body"]');
-            if (!taskBody) return;
-
-            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
-            if (!questionEl) return;
-
-            const question = questionEl.textContent.trim();
-            if (question) {
-              const selector = textarea.name ? `textarea[name="${textarea.name}"]` : `textarea:nth-of-type(${index + 1})`;
-              questions.push({
-                type: 'textarea',
-                question,
-                selector,
-                index,
-                currentValue: textarea.value.trim(),
-              });
-            }
-          });
-
-          // Extract radio button questions
-          const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
-          taskBodies.forEach((taskBody) => {
-            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
-            if (!questionEl) return;
-
-            const question = questionEl.textContent.trim();
-            if (!question) return;
-
-            // Find radio buttons in this task body
-            const radioInputs = taskBody.querySelectorAll('input[type="radio"]');
-            const checkboxInputs = taskBody.querySelectorAll('input[type="checkbox"]');
-
-            if (radioInputs.length === 0 && checkboxInputs.length === 0) return;
-
-            // Group radio buttons by name
-            const radiosByName = {};
-            radioInputs.forEach((radio) => {
-              if (!radio.name) return;
-              if (!radiosByName[radio.name]) {
-                radiosByName[radio.name] = [];
-              }
-
-              // Find the label text for this radio option
-              const cell = radio.closest('[data-qa="cell"]');
-              let optionText = '';
-              if (cell) {
-                const textContent = cell.querySelector('[data-qa="cell-text-content"]');
-                if (textContent) {
-                  optionText = textContent.textContent.trim();
-                }
-              }
-
-              radiosByName[radio.name].push({
-                value: radio.value,
-                optionText,
-                checked: radio.checked,
-              });
-            });
-
-            // Group checkboxes by name
-            const checkboxesByName = {};
-            checkboxInputs.forEach((checkbox) => {
-              if (!checkbox.name) return;
-              if (!checkboxesByName[checkbox.name]) {
-                checkboxesByName[checkbox.name] = [];
-              }
-
-              // Find the label text for this checkbox option
-              const cell = checkbox.closest('[data-qa="cell"]');
-              let optionText = '';
-              if (cell) {
-                const textContent = cell.querySelector('[data-qa="cell-text-content"]');
-                if (textContent) {
-                  optionText = textContent.textContent.trim();
-                }
-              }
-
-              checkboxesByName[checkbox.name].push({
-                value: checkbox.value,
-                optionText,
-                checked: checkbox.checked,
-              });
-            });
-
-            // Add radio question with all options
-            Object.entries(radiosByName).forEach(([name, options]) => {
-              const checkedOption = options.find(opt => opt.checked);
-              const currentAnswer = checkedOption ? checkedOption.optionText : '';
-
-              questions.push({
-                type: 'radio',
-                question,
-                name,
-                options,
-                currentAnswer,
-                selector: `input[name="${name}"]`,
-              });
-            });
-
-            // Add checkbox question with all options
-            Object.entries(checkboxesByName).forEach(([name, options]) => {
-              const checkedOptions = options.filter(opt => opt.checked);
-              const currentAnswers = checkedOptions.map(opt => opt.optionText);
-
-              questions.push({
-                type: 'checkbox',
-                question,
-                name,
-                options,
-                currentAnswers, // Array of checked options
-                selector: `input[name="${name}"]`,
-              });
-            });
-          });
-
-          return questions;
-        },
-      });
+      // Extract all questions from the page using qa.mjs
+      const pageQuestions = await extractPageQuestions({ evaluate: commander.evaluate });
 
       const questionToAnswer = new Map();
 
@@ -403,203 +289,29 @@ github.com/link-foundation`;
         }
       }
 
-      // Auto-fill textareas and select radio buttons
+      // Auto-fill textareas and select radio buttons using qa.mjs functions
       for (const [question, data] of questionToAnswer) {
         try {
           if (data.type === 'textarea') {
-            // Skip if textarea already has content
-            if (data.currentValue) {
-              console.log(`[QA] Textarea already has content for: ${question}`);
-              continue;
-            }
-
-            const filled = await commander.fillTextArea({
-              selector: data.selector,
-              text: data.answer,
-              checkEmpty: true,
-              scrollIntoView: true,
-              simulateTyping: true,
-            });
-            if (filled) {
-              console.log(`[QA] Prefilled textarea for: ${question}`);
-            }
+            await fillTextareaQuestion({ commander, questionData: data, verbose: argv.verbose });
           } else if (data.type === 'radio') {
-            // Answer could be a string or array of options
-            const answers = Array.isArray(data.answer) ? data.answer : [data.answer];
-
-            // Find matching radio option by comparing option text with any answer
-            let matchingOption = null;
-            for (const ans of answers) {
-              matchingOption = data.options.find(opt =>
-                opt.optionText && ans &&
-                (opt.optionText.toLowerCase().includes(ans.toLowerCase().substring(0, 20)) ||
-                 ans.toLowerCase().includes(opt.optionText.toLowerCase())),
-              );
-              if (matchingOption) break;
-            }
-
-            if (matchingOption) {
-              // Click the matching radio button with smooth scroll animation
-              const radioSelector = `input[name="${data.name}"][value="${matchingOption.value}"]`;
-
-              // Check if already checked before clicking
-              const alreadyChecked = await commander.evaluate({
-                fn: (selector) => {
-                  const radio = document.querySelector(selector);
-                  return radio ? radio.checked : false;
-                },
-                args: [radioSelector],
-              });
-
-              if (!alreadyChecked) {
-                // Use clickButton for smooth scroll animation
-                await commander.clickButton({
-                  selector: radioSelector,
-                  scrollIntoView: true,
-                  smoothScroll: true,
-                });
-                console.log(`[QA] Selected radio option "${matchingOption.optionText}" for: ${question}`);
-                await commander.wait({ ms: 300, reason: 'visual feedback after radio selection' });
-              } else {
-                console.log(`[QA] Radio option "${matchingOption.optionText}" already selected for: ${question}`);
-              }
-
-              // If it's a custom answer option (value="open"), fill the associated textarea
-              if (matchingOption.value === 'open') {
-                const customTextarea = await commander.evaluate({
-                  fn: (name) => {
-                    const textareaName = name + '_text';
-                    const textarea = document.querySelector(`textarea[name="${textareaName}"]`);
-                    return textarea ? textareaName : null;
-                  },
-                  args: [data.name],
-                });
-
-                if (customTextarea) {
-                  // Use the first answer if it's an array
-                  const textToFill = Array.isArray(data.answer) ? data.answer[0] : data.answer;
-                  await commander.fillTextArea({
-                    selector: `textarea[name="${customTextarea}"]`,
-                    text: textToFill,
-                    checkEmpty: true,
-                    scrollIntoView: true,
-                    simulateTyping: true,
-                  });
-                  console.log(`[QA] Filled custom textarea for: ${question}`);
-                }
-              }
-            } else {
-              console.log(`[QA] No matching radio option found for: ${question}`);
-            }
+            await fillRadioQuestion({ commander, questionData: data, verbose: argv.verbose });
           } else if (data.type === 'checkbox') {
-            // Handle multi-select checkboxes
-            const answers = Array.isArray(data.answer) ? data.answer : [data.answer];
-
-            for (const ans of answers) {
-              const matchingOption = data.options.find(opt =>
-                opt.optionText && ans &&
-                (opt.optionText.toLowerCase().includes(ans.toLowerCase().substring(0, 20)) ||
-                 ans.toLowerCase().includes(opt.optionText.toLowerCase())),
-              );
-
-              if (matchingOption) {
-                const checkboxSelector = `input[name="${data.name}"][value="${matchingOption.value}"]`;
-
-                // Check if already checked before clicking
-                const alreadyChecked = await commander.evaluate({
-                  fn: (selector) => {
-                    const checkbox = document.querySelector(selector);
-                    return checkbox ? checkbox.checked : false;
-                  },
-                  args: [checkboxSelector],
-                });
-
-                if (!alreadyChecked) {
-                  // Use clickButton for smooth scroll animation
-                  await commander.clickButton({
-                    selector: checkboxSelector,
-                    scrollIntoView: true,
-                    smoothScroll: true,
-                  });
-                  console.log(`[QA] Checked option "${matchingOption.optionText}" for: ${question}`);
-                  await commander.wait({ ms: 300, reason: 'visual feedback after checkbox selection' });
-                } else {
-                  console.log(`[QA] Option "${matchingOption.optionText}" already checked for: ${question}`);
-                }
-
-                // Handle custom text option for checkboxes
-                if (matchingOption.value === 'open') {
-                  const customTextarea = await commander.evaluate({
-                    fn: (name) => {
-                      const textareaName = name + '_text';
-                      const textarea = document.querySelector(`textarea[name="${textareaName}"]`);
-                      return textarea ? textareaName : null;
-                    },
-                    args: [data.name],
-                  });
-
-                  if (customTextarea) {
-                    await commander.fillTextArea({
-                      selector: `textarea[name="${customTextarea}"]`,
-                      text: ans,
-                      checkEmpty: true,
-                      scrollIntoView: true,
-                      simulateTyping: true,
-                    });
-                    console.log(`[QA] Filled custom textarea for checkbox: ${question}`);
-                  }
-                }
-              }
-            }
+            await fillCheckboxQuestion({ commander, questionData: data, verbose: argv.verbose });
           }
         } catch (error) {
           console.error(`[QA] Error autofilling for "${question}":`, error.message);
         }
       }
 
-      // Setup auto-save listeners for textareas
-      await commander.evaluate({
-        fn: (qaData) => {
-          const qaObj = Object.fromEntries(qaData);
-          const textareas = document.querySelectorAll('textarea');
-
-          textareas.forEach((textarea) => {
-            const taskBody = textarea.closest('[data-qa="task-body"]');
-            if (!taskBody) return;
-
-            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
-            if (!questionEl) return;
-
-            const question = questionEl.textContent.trim();
-            if (!question) return;
-
-            const knownAnswer = qaObj[question]?.answer;
-
-            textarea.addEventListener('blur', async () => {
-              const answer = textarea.value.trim();
-              if (answer && answer !== knownAnswer) {
-                textarea.dataset.qaQuestion = question;
-                textarea.dataset.qaAnswer = answer;
-                console.log('[QA] Marked for saving:', question, '->', answer);
-              }
-            });
-          });
-        },
-        args: [Array.from(questionToAnswer.entries())],
+      // Setup auto-save listeners for textareas using qa.mjs
+      await setupAutoSaveListeners({
+        evaluate: commander.evaluate,
+        questionToAnswer,
       });
 
-      const qaPairsToSave = await commander.evaluate({
-        fn: () => {
-          const pairs = [];
-          const textareas = document.querySelectorAll('textarea[data-qa-question][data-qa-answer]');
-          textareas.forEach((textarea) => {
-            pairs.push({
-              question: textarea.dataset.qaQuestion,
-              answer: textarea.dataset.qaAnswer,
-            });
-          });
-          return pairs;
-        },
+      const qaPairsToSave = await collectMarkedQAPairs({
+        evaluate: commander.evaluate,
       });
 
       for (const { question, answer } of qaPairsToSave) {
@@ -619,99 +331,7 @@ github.com/link-foundation`;
    */
   async function saveQAPairs() {
     try {
-      const qaPairs = await commander.evaluate({
-        fn: () => {
-          const pairs = [];
-
-          // Save textarea answers
-          const textareas = document.querySelectorAll('textarea');
-          textareas.forEach((textarea) => {
-            const taskBody = textarea.closest('[data-qa="task-body"]');
-            if (!taskBody) return;
-
-            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
-            if (!questionEl) return;
-
-            const question = questionEl.textContent.trim();
-            const answer = textarea.value.trim();
-
-            if (question && answer) {
-              pairs.push({ question, answer });
-            }
-          });
-
-          // Save radio button and checkbox selections
-          const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
-          taskBodies.forEach((taskBody) => {
-            const questionEl = taskBody.querySelector('[data-qa="task-question"]');
-            if (!questionEl) return;
-
-            const question = questionEl.textContent.trim();
-            if (!question) return;
-
-            // Find checked radio button in this task body
-            const checkedRadio = taskBody.querySelector('input[type="radio"]:checked');
-            if (checkedRadio) {
-              // Get the option text for the checked radio
-              const cell = checkedRadio.closest('[data-qa="cell"]');
-              if (!cell) return;
-
-              const textContent = cell.querySelector('[data-qa="cell-text-content"]');
-              if (!textContent) return;
-
-              let answer = textContent.textContent.trim();
-
-              // If it's a custom answer (value="open"), get the textarea value
-              if (checkedRadio.value === 'open') {
-                const customTextarea = taskBody.querySelector(`textarea[name="${checkedRadio.name}_text"]`);
-                if (customTextarea && customTextarea.value.trim()) {
-                  answer = customTextarea.value.trim();
-                }
-              }
-
-              if (answer) {
-                pairs.push({ question, answer });
-              }
-            }
-
-            // Find checked checkboxes in this task body
-            const checkedCheckboxes = taskBody.querySelectorAll('input[type="checkbox"]:checked');
-            if (checkedCheckboxes.length > 0) {
-              const answers = [];
-
-              checkedCheckboxes.forEach((checkbox) => {
-                const cell = checkbox.closest('[data-qa="cell"]');
-                if (!cell) return;
-
-                const textContent = cell.querySelector('[data-qa="cell-text-content"]');
-                if (!textContent) return;
-
-                let answer = textContent.textContent.trim();
-
-                // If it's a custom answer (value="open"), get the textarea value
-                if (checkbox.value === 'open') {
-                  const customTextarea = taskBody.querySelector(`textarea[name="${checkbox.name}_text"]`);
-                  if (customTextarea && customTextarea.value.trim()) {
-                    answer = customTextarea.value.trim();
-                  }
-                }
-
-                if (answer) {
-                  answers.push(answer);
-                }
-              });
-
-              if (answers.length > 0) {
-                // Store as array if multiple, or single string if only one
-                const finalAnswer = answers.length === 1 ? answers[0] : answers;
-                pairs.push({ question, answer: finalAnswer });
-              }
-            }
-          });
-
-          return pairs;
-        },
-      });
+      const qaPairs = await extractQAPairs({ evaluate: commander.evaluate });
 
       for (const { question, answer } of qaPairs) {
         await addOrUpdateQA(question, answer);
@@ -945,37 +565,9 @@ github.com/link-foundation`;
     // Setup Q&A handling first (this will auto-fill answers from database)
     await setupQAHandling();
 
-    // Count total test questions and unanswered test questions
-    const testQuestionStats = await commander.evaluate({
-      fn: () => {
-        const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
-        let totalCount = 0;
-        let unansweredCount = 0;
-
-        taskBodies.forEach((taskBody) => {
-          const radios = taskBody.querySelectorAll('input[type="radio"]');
-          const checkboxes = taskBody.querySelectorAll('input[type="checkbox"]');
-
-          // Check if it's a radio question
-          if (radios.length > 0) {
-            totalCount++;
-            const hasSelection = Array.from(radios).some(radio => radio.checked);
-            if (!hasSelection) {
-              unansweredCount++;
-            }
-          }
-
-          // Check if it's a checkbox question
-          if (checkboxes.length > 0 && radios.length === 0) {
-            totalCount++;
-            const hasSelection = Array.from(checkboxes).some(checkbox => checkbox.checked);
-            if (!hasSelection) {
-              unansweredCount++;
-            }
-          }
-        });
-        return { totalCount, unansweredCount };
-      },
+    // Count total test questions and unanswered test questions using qa.mjs
+    const testQuestionStats = await countUnansweredQuestions({
+      evaluate: commander.evaluate,
     });
 
     const hasTestQuestions = testQuestionStats.totalCount > 0;
@@ -1564,36 +1156,12 @@ github.com/link-foundation`;
     }
 
     // Check for UNANSWERED test questions in modal (after potential auto-fill)
-    const modalUnansweredTestQuestionCount = await commander.evaluate({
-      fn: () => {
-        const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
-        if (!form) return 0;
-
-        const taskBodies = form.querySelectorAll('[data-qa="task-body"]');
-        let count = 0;
-        taskBodies.forEach((taskBody) => {
-          const radios = taskBody.querySelectorAll('input[type="radio"]');
-          const checkboxes = taskBody.querySelectorAll('input[type="checkbox"]');
-
-          // Check if it's a radio question without any selection
-          if (radios.length > 0) {
-            const hasSelection = Array.from(radios).some(radio => radio.checked);
-            if (!hasSelection) {
-              count++;
-            }
-          }
-
-          // Check if it's a checkbox question without any selection
-          if (checkboxes.length > 0 && radios.length === 0) {
-            const hasSelection = Array.from(checkboxes).some(checkbox => checkbox.checked);
-            if (!hasSelection) {
-              count++;
-            }
-          }
-        });
-        return count;
-      },
+    // Count unanswered questions in modal using qa.mjs
+    const modalStats = await countUnansweredQuestions({
+      evaluate: commander.evaluate,
+      containerSelector: 'form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]',
     });
+    const modalUnansweredTestQuestionCount = modalStats.unansweredCount;
 
     if (modalUnansweredTestQuestionCount > 0) {
       console.log(`⚠️  Found ${modalUnansweredTestQuestionCount} UNANSWERED test question(s) in modal`);
