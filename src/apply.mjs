@@ -1272,6 +1272,30 @@ github.com/link-foundation`;
 
     await commander.wait({ ms: 2000, reason: 'modal to close after submission' });
 
+    // Check if submission was successful or if limit error appeared
+    const limitErrorAfterSubmit = await commander.count({
+      selector: '[data-qa-popup-error-code="negotiations-limit-exceeded"]',
+    });
+
+    if (limitErrorAfterSubmit > 0) {
+      console.log('⚠️  Limit reached: 200 applications in 24 hours');
+      console.log('💤 Waiting 1 hour before retrying...');
+
+      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
+      if (closeButtonCount > 0) {
+        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+        console.log('✅ Closed the application modal');
+      }
+
+      const oneHourInMs = 60 * 60 * 1000;
+      await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
+
+      console.log('🔄 Refreshing the page after wait period...');
+      await commander.goto({ url: START_URL });
+      await commander.wait({ ms: 2000, reason: 'page to load after refresh' });
+      continue;
+    }
+
     console.log(`⏳ Waiting ${BUTTON_CLICK_INTERVAL / 1000} seconds before processing next button...`);
     await commander.wait({ ms: BUTTON_CLICK_INTERVAL, reason: 'interval before next application' });
   }
