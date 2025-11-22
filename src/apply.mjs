@@ -866,6 +866,28 @@ github.com/link-foundation`;
   }
 
   /**
+   * Handle limit error when detected
+   * Closes modal, waits 1 hour, and refreshes the page
+   */
+  async function handleLimitError() {
+    console.log('⚠️  Limit reached: 200 applications in 24 hours');
+    console.log('💤 Waiting 1 hour before retrying...');
+
+    const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
+    if (closeButtonCount > 0) {
+      await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+      console.log('✅ Closed the application modal');
+    }
+
+    const oneHourInMs = 60 * 60 * 1000;
+    await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
+
+    console.log('🔄 Refreshing the page after wait period...');
+    await commander.goto({ url: START_URL });
+    await commander.wait({ ms: 2000, reason: 'page to load after refresh' });
+  }
+
+  /**
    * Check if we should redirect after vacancy response
    * This is checked after clicking "Откликнуться" on vacancy page from vacancy_response flow
    */
@@ -1117,21 +1139,7 @@ github.com/link-foundation`;
     });
 
     if (limitErrorCount > 0) {
-      console.log('⚠️  Limit reached: 200 applications in 24 hours');
-      console.log('💤 Waiting 1 hour before retrying...');
-
-      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-      if (closeButtonCount > 0) {
-        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-        console.log('✅ Closed the application modal');
-      }
-
-      const oneHourInMs = 60 * 60 * 1000;
-      await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
-
-      console.log('🔄 Refreshing the page after wait period...');
-      await commander.goto({ url: START_URL });
-      await commander.wait({ ms: 2000, reason: 'page to load after refresh' });
+      await handleLimitError();
       continue;
     }
 
@@ -1278,21 +1286,7 @@ github.com/link-foundation`;
     });
 
     if (limitErrorAfterSubmit > 0) {
-      console.log('⚠️  Limit reached: 200 applications in 24 hours');
-      console.log('💤 Waiting 1 hour before retrying...');
-
-      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-      if (closeButtonCount > 0) {
-        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-        console.log('✅ Closed the application modal');
-      }
-
-      const oneHourInMs = 60 * 60 * 1000;
-      await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
-
-      console.log('🔄 Refreshing the page after wait period...');
-      await commander.goto({ url: START_URL });
-      await commander.wait({ ms: 2000, reason: 'page to load after refresh' });
+      await handleLimitError();
       continue;
     }
 
