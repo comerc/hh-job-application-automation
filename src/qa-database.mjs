@@ -1,5 +1,5 @@
 /**
- * Q&A Database module using links-notation parser
+ * Q&A Database module using Links Notation parser
  * Manages reading and writing Q&A pairs from qa.lino file
  *
  * IMPORTANT: This module REQUIRES explicit file path configuration!
@@ -113,7 +113,7 @@ export function createQADatabase(filePath) {
       // Try to read the file
       const content = await fs.readFile(QA_FILE_PATH, 'utf8');
 
-      // Parse using links-notation
+      // Parse using Links Notation
       const parser = new Parser();
       const links = parser.parse(content);
 
@@ -176,29 +176,33 @@ export function createQADatabase(filePath) {
   }
 
   /**
-   * Escapes a string for safe use in links-notation format
+   * Escapes a link reference for safe use in Links Notation format
    *
-   * IMPORTANT: Links Notation Features:
-   * - Multiline strings are NATIVELY supported through indentation
-   * - DO NOT escape \n - Links Notation handles multiline content naturally!
-   * - Simple quoting rules:
+   * IMPORTANT: Link references cannot contain certain characters unquoted:
+   * - Newlines (\n) - must be quoted to preserve as single reference
+   * - Quotes (" or ') - must be wrapped and escaped
+   * - Colons (:) - delimiter for self-reference, must be quoted in content
+   * - Parentheses (()) - borders of nested links, must be quoted in content
+   *
+   * Simple quoting rules:
    *   - Has " but not ' → wrap with '...'
    *   - Has ' but not " → wrap with "..."
    *   - Has both " and ' → wrap with "..." and use "" to escape "
-   *   - Has colon/parens but no quotes → wrap with "..."
+   *   - Has colon/parens/newlines but no quotes → wrap with "..."
    *
    * Issue #78: Quote strings with special chars to preserve literal text
    * @param {string} str - String to format (preserves newlines as-is)
-   * @returns {string} String ready for Links Notation (may be quoted if needed)
+   * @returns {string} Escaped link reference (may be quoted if needed)
    */
-  function escapeForLinksNotation(str) {
+  function escapeReference(str) {
     // Check for characters that need quoting
     const hasColon = str.includes(':');
     const hasDoubleQuotes = str.includes('"');
     const hasSingleQuotes = str.includes("'");
     const hasParens = str.includes('(') || str.includes(')');
+    const hasNewline = str.includes('\n');
 
-    const needsQuoting = hasColon || hasDoubleQuotes || hasSingleQuotes || hasParens;
+    const needsQuoting = hasColon || hasDoubleQuotes || hasSingleQuotes || hasParens || hasNewline;
 
     if (needsQuoting) {
       if (hasDoubleQuotes && !hasSingleQuotes) {
@@ -222,7 +226,7 @@ export function createQADatabase(filePath) {
           return `'${escaped}'`;
         }
       } else {
-        // Has colon or parentheses but no quotes → use double quotes
+        // Has colon, parentheses, or newlines but no quotes → use double quotes
         return `"${str}"`;
       }
     }
@@ -253,44 +257,8 @@ export function createQADatabase(filePath) {
       // Format as indented Q&A pairs with proper multiline handling
       const lines = [];
       for (const [question, answer] of qaMap.entries()) {
-        // Question handling:
-        // - If question has newlines, MUST quote it (otherwise each line becomes separate Q&A)
-        // - Use same escaping logic as single-line, but force quoting
-        const hasNewline = question.includes('\n');
-        let escapedQuestion;
-        if (hasNewline) {
-          // Multiline questions must be quoted
-          const hasDoubleQuotes = question.includes('"');
-          const hasSingleQuotes = question.includes("'");
-
-          if (hasDoubleQuotes && !hasSingleQuotes) {
-            // Has " but not ' → use single quotes
-            escapedQuestion = `'${question}'`;
-          } else if (hasSingleQuotes && !hasDoubleQuotes) {
-            // Has ' but not " → use double quotes
-            escapedQuestion = `"${question}"`;
-          } else if (hasDoubleQuotes && hasSingleQuotes) {
-            // Has both → choose wrapper with fewer escapes
-            const doubleQuoteCount = (question.match(/"/g) || []).length;
-            const singleQuoteCount = (question.match(/'/g) || []).length;
-
-            if (singleQuoteCount < doubleQuoteCount) {
-              // Fewer single quotes → wrap with " and escape ' as ''
-              const escaped = question.replace(/'/g, "''");
-              escapedQuestion = `"${escaped}"`;
-            } else {
-              // Fewer or equal double quotes → wrap with ' and escape " as ""
-              const escaped = question.replace(/"/g, '""');
-              escapedQuestion = `'${escaped}'`;
-            }
-          } else {
-            // No quotes → use double quotes
-            escapedQuestion = `"${question}"`;
-          }
-        } else {
-          // Single-line question - use normal escaping
-          escapedQuestion = escapeForLinksNotation(question);
-        }
+        // Question handling: escapeReference handles all cases including multiline
+        const escapedQuestion = escapeReference(question);
         lines.push(escapedQuestion);
 
         // Answer handling:
@@ -300,11 +268,11 @@ export function createQADatabase(filePath) {
         if (Array.isArray(answer)) {
           // Array of checkbox options - each on separate line
           for (const option of answer) {
-            const escapedOption = escapeForLinksNotation(option);
+            const escapedOption = escapeReference(option);
             lines.push(`  ${escapedOption}`);
           }
         } else {
-          const escapedAnswer = escapeForLinksNotation(answer);
+          const escapedAnswer = escapeReference(answer);
           const isQuoted = escapedAnswer.startsWith('"') || escapedAnswer.startsWith("'");
 
           if (isQuoted) {
@@ -373,17 +341,17 @@ export function createQADatabase(filePath) {
   }
 
   /**
-   * Unescapes a string from links-notation format
+   * Unescapes a link reference from Links Notation format
    *
    * IMPORTANT: Links Notation naturally preserves newlines!
    * - Multiline content is already in the string as actual newlines
    * - Unescape doubled quotes: "" → " and '' → '
    * - DO NOT process \n sequences - they should not exist in properly formatted files
    *
-   * @param {string} str - String to unescape (already contains real newlines)
-   * @returns {string} Unescaped string (only quotes unescaped)
+   * @param {string} str - Link reference to unescape (already contains real newlines)
+   * @returns {string} Unescaped link reference (only quotes unescaped)
    */
-  function unescapeFromLinksNotation(str) {
+  function unescapeReference(str) {
     if (!str) return str;
 
     // Unescape doubled quotes (Links Notation escape sequences)
@@ -421,7 +389,7 @@ export function createQADatabase(filePath) {
     }
 
     // Unescape the text before returning
-    return unescapeFromLinksNotation(text);
+    return unescapeReference(text);
   }
 
   // Return the public API
