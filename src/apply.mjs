@@ -153,6 +153,7 @@ github.com/link-foundation`;
   let isOnVacancyPageFromResponse = false;
   let clickListenerInstalled = false;
   let lastVacancyPageUrl = '';
+  let isNavigating = false; // Prevent recursive navigation handler calls
 
   /**
    * Robust waiting function that waits indefinitely for a URL condition
@@ -249,7 +250,8 @@ github.com/link-foundation`;
     console.log('🔐 Opening login page for manual authentication...');
     console.log('📍 Login URL:', loginUrl);
 
-    await commander.goto({ url: loginUrl });
+    // Initial navigation - no need to wait for stabilization before
+    await commander.goto({ url: loginUrl, waitForStableUrlBefore: false });
 
     console.log('💡 The browser will automatically continue once you are redirected to:', START_URL);
 
@@ -259,7 +261,8 @@ github.com/link-foundation`;
       console.log('✅ Login successful! Proceeding with automation...');
     }
   } else {
-    await commander.goto({ url: START_URL });
+    // Initial navigation - no need to wait for stabilization before
+    await commander.goto({ url: START_URL, waitForStableUrlBefore: false });
   }
 
   /**
@@ -568,10 +571,26 @@ github.com/link-foundation`;
     // Wait for form validation and give user time to review auto-filled answers
     await commander.wait({ ms: 30000, reason: 'form validation and user review after auto-fill' });
 
+    // Check if we're still on the vacancy_response page (may have navigated away)
+    const currentUrl = commander.getUrl();
+    if (!vacancyResponsePattern.test(currentUrl)) {
+      console.log('💡 Page navigated away from vacancy_response, skipping auto-submit');
+      return;
+    }
+
     // Count total test questions and unanswered test questions using qa.mjs
-    const testQuestionStats = await countUnansweredQuestions({
-      evaluate: commander.evaluate,
-    });
+    let testQuestionStats;
+    try {
+      testQuestionStats = await countUnansweredQuestions({
+        evaluate: commander.evaluate,
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('Execution context was destroyed')) {
+        console.log('💡 Page navigated away during question counting, skipping auto-submit');
+        return;
+      }
+      throw error;
+    }
 
     // Check if there are test questions:
     // - Radio/checkbox questions counted by countUnansweredQuestions
@@ -580,24 +599,33 @@ github.com/link-foundation`;
     const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
 
     // Check if any test textareas are empty (beyond just the cover letter)
-    const hasEmptyTestTextareas = await commander.evaluate({
-      fn: () => {
-        const textareas = document.querySelectorAll('textarea');
-        let emptyCount = 0;
+    let hasEmptyTestTextareas;
+    try {
+      hasEmptyTestTextareas = await commander.evaluate({
+        fn: () => {
+          const textareas = document.querySelectorAll('textarea');
+          let emptyCount = 0;
 
-        textareas.forEach((textarea) => {
-          // Skip the cover letter textarea
-          const isCoverLetter = textarea.getAttribute('data-qa') === 'vacancy-response-popup-form-letter-input' ||
-                                textarea.getAttribute('data-qa') === 'vacancy-response-form-letter-input';
+          textareas.forEach((textarea) => {
+            // Skip the cover letter textarea
+            const isCoverLetter = textarea.getAttribute('data-qa') === 'vacancy-response-popup-form-letter-input' ||
+                                  textarea.getAttribute('data-qa') === 'vacancy-response-form-letter-input';
 
-          if (!isCoverLetter && !textarea.value.trim()) {
-            emptyCount++;
-          }
-        });
+            if (!isCoverLetter && !textarea.value.trim()) {
+              emptyCount++;
+            }
+          });
 
-        return emptyCount > 0;
-      },
-    });
+          return emptyCount > 0;
+        },
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('Execution context was destroyed')) {
+        console.log('💡 Page navigated away during textarea check, skipping auto-submit');
+        return;
+      }
+      throw error;
+    }
 
     if (hasUnansweredQuestions) {
       console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} radio/checkbox test question(s) UNANSWERED`);
@@ -636,11 +664,25 @@ github.com/link-foundation`;
     if (shouldAutoSubmit) {
       console.log('✅ Proceeding with auto-submit');
 
-      const submitSelector = '[data-qa="vacancy-response-submit-popup"]';
-      const submitCount = await commander.count({ selector: submitSelector });
+      // Try multiple selectors for submit button (modal vs full-page form)
+      const possibleSelectors = [
+        '[data-qa="vacancy-response-submit-popup"]',  // Modal form
+        '[data-qa="vacancy-response-letter-submit"]', // Full-page form
+        'button[type="submit"]',                       // Generic fallback
+      ];
 
-      if (submitCount === 0) {
-        console.log('⚠️  Submit button not found');
+      let submitSelector = null;
+      for (const sel of possibleSelectors) {
+        const count = await commander.count({ selector: sel });
+        if (count > 0) {
+          submitSelector = sel;
+          console.log(`Found submit button with selector: ${sel}`);
+          break;
+        }
+      }
+
+      if (!submitSelector) {
+        console.log('⚠️  Submit button not found (tried multiple selectors)');
         return;
       }
 
@@ -723,6 +765,14 @@ github.com/link-foundation`;
   // Setup navigation listener (engine-specific)
   const handleNavigation = async (currentUrl) => {
     try {
+      // Prevent recursive calls while navigating
+      if (isNavigating) {
+        if (argv.verbose) {
+          console.log(`🔍 [VERBOSE] Skipping navigation handler (already navigating): ${currentUrl}`);
+        }
+        return;
+      }
+
       // Log all URL changes for debugging
       if (currentUrl !== lastUrl) {
         console.log(`🔗 [URL CHANGE] ${lastUrl} → ${currentUrl}`);
@@ -758,7 +808,7 @@ github.com/link-foundation`;
       }
 
       // Check for redirect after clicking "Откликнуться" button on vacancy page
-      if (isOnVacancyPageFromResponse && vacancyPageMatch) {
+      if (isOnVacancyPageFromResponse && vacancyPageMatch && !isNavigating) {
         const wasOnVacancyPage = lastUrl && vacancyPagePattern.test(lastUrl);
 
         // If we're navigating between different versions of the same vacancy page
@@ -791,17 +841,31 @@ github.com/link-foundation`;
             console.log(`🔍 [VERBOSE] Will redirect: ${submissionInfo.hasSubmitted}`);
           }
 
-          if (submissionInfo.hasSubmitted) {
+          if (submissionInfo.hasSubmitted && !isNavigating) {
             console.log('✅ Detected application submission completed (user clicked on vacancy_response page), triggering redirect...');
-            // Redirect to START_URL
             console.log(`🔄 Redirecting to: ${START_URL}`);
-            await commander.goto({ url: START_URL });
-            await commander.wait({ ms: 1000, reason: 'page to load after redirect' });
-            // Reset tracking flags
-            isOnVacancyPageFromResponse = false;
-            clickListenerInstalled = false;
-            lastVacancyPageUrl = '';
-            console.log('✅ Returned to search page! Continuing automation...');
+
+            // Set navigation lock to prevent recursive calls
+            isNavigating = true;
+
+            try {
+              // Don't wait for stabilization BEFORE navigation here - we're already in a navigation handler
+              // Just navigate and wait for stabilization AFTER
+              await commander.goto({
+                url: START_URL,
+                waitForStableUrlBefore: false, // Skip "before" stabilization to avoid infinite loop
+                waitForStableUrlAfter: true,   // Still wait after navigation
+              });
+
+              // Reset tracking flags
+              isOnVacancyPageFromResponse = false;
+              clickListenerInstalled = false;
+              lastVacancyPageUrl = '';
+              console.log('✅ Returned to search page! Continuing automation...');
+            } finally {
+              // Always release the lock
+              isNavigating = false;
+            }
           }
         }
       }
@@ -883,8 +947,8 @@ github.com/link-foundation`;
     await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
 
     console.log('🔄 Refreshing the page after wait period...');
+    // goto() will automatically stabilize before and after navigation
     await commander.goto({ url: START_URL });
-    await commander.wait({ ms: 2000, reason: 'page to load after refresh' });
   }
 
   /**
@@ -918,17 +982,30 @@ github.com/link-foundation`;
 
       if (shouldRedirect) {
         console.log('✅ Detected "Откликнуться" button was clicked on vacancy page!');
-        if (isOnVacancyPageFromResponse) {
+        if (isOnVacancyPageFromResponse && !isNavigating) {
           console.log('✅ Response submitted from vacancy page, redirecting back to search page...');
-          await commander.goto({ url: START_URL });
-          await commander.wait({ ms: 1000, reason: 'page to load after redirect' });
-          // Reset the tracking flag
-          isOnVacancyPageFromResponse = false;
-          clickListenerInstalled = false;
-          lastVacancyPageUrl = '';
-          return true;
+
+          // Set navigation lock
+          isNavigating = true;
+
+          try {
+            // goto() will automatically stabilize before and after navigation
+            await commander.goto({ url: START_URL });
+
+            // Reset the tracking flag
+            isOnVacancyPageFromResponse = false;
+            clickListenerInstalled = false;
+            lastVacancyPageUrl = '';
+            return true;
+          } finally {
+            isNavigating = false;
+          }
         } else {
-          console.log('⚠️  shouldRedirect=true but isOnVacancyPageFromResponse=false - this should not happen');
+          if (!isOnVacancyPageFromResponse) {
+            console.log('⚠️  shouldRedirect=true but isOnVacancyPageFromResponse=false - this should not happen');
+          } else {
+            console.log('⚠️  Already navigating, skipping redirect');
+          }
         }
       }
 
