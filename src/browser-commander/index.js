@@ -705,6 +705,7 @@ export function makeBrowserCommander(options = {}) {
    * @param {boolean} options.scrollIntoView - Scroll into view (default: true)
    * @param {number} options.waitAfterScroll - Wait time after scroll in ms (default: TIMING.DEFAULT_WAIT_AFTER_SCROLL)
    * @param {boolean} options.smoothScroll - Use smooth scroll animation (default: true)
+   * @param {number} options.waitAfterClick - Wait time after click in ms (default: 1000). Gives modals time to capture scroll position before opening
    * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
    * @returns {Promise<void>}
    * @throws {Error} - If selector is missing, element not found, or click operation fails
@@ -715,6 +716,7 @@ export function makeBrowserCommander(options = {}) {
       scrollIntoView: shouldScroll = true,
       waitAfterScroll = TIMING.DEFAULT_WAIT_AFTER_SCROLL,
       smoothScroll = true,
+      waitAfterClick = 1000,
       timeout = TIMING.DEFAULT_TIMEOUT,
     } = options;
 
@@ -743,6 +745,11 @@ export function makeBrowserCommander(options = {}) {
     // If scrollIntoView is disabled, also prevent Playwright's automatic scrolling
     await clickElement({ locatorOrElement, noAutoScroll: !shouldScroll });
     log.debug(() => `🔍 [VERBOSE] Click completed`);
+
+    // Wait after click if specified (useful for modals that need time to capture scroll position)
+    if (waitAfterClick > 0) {
+      await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
+    }
   }
 
   /**

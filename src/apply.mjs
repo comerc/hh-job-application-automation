@@ -1127,20 +1127,11 @@ github.com/link-foundation`;
         selector: buttonSelector,
         scrollIntoView: true,
         smoothScroll: true,
+        // waitAfterClick defaults to 1000ms in browser-commander
       });
 
       if (argv.verbose) {
-        const scrollAfterClick = await commander.evaluate({
-          fn: () => ({ x: window.scrollX, y: window.scrollY }),
-        });
-        console.log(`🔍 [VERBOSE] 2.5 Scroll IMMEDIATELY after click (before 1s wait): x=${scrollAfterClick.x}, y=${scrollAfterClick.y}`);
-      }
-
-      // CRITICAL: Wait after click to give HH.ru's modal JavaScript time to capture scroll position
-      await commander.wait({ ms: 1000, reason: 'critical wait after click for HH.ru modal to capture scroll position' });
-
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] 3. Button click completed + 1s wait after click');
+        console.log('🔍 [VERBOSE] 3. Button click completed + 1s wait after click (via waitAfterClick)');
 
         // Check state immediately after click
         const stateAfterClick = await commander.evaluate({
