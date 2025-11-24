@@ -1110,13 +1110,60 @@ github.com/link-foundation`;
       continue;
     }
 
+    // Log scroll position before any interaction
+    if (argv.verbose) {
+      const scrollBefore = await commander.evaluate({
+        fn: () => ({ x: window.scrollX, y: window.scrollY }),
+      });
+      console.log(`🔍 [VERBOSE] 1. Scroll BEFORE button click: x=${scrollBefore.x}, y=${scrollBefore.y}`);
+    }
+
     // Click first button with smooth scrolling animation
     try {
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] 2. About to click button in list (scrollIntoView: true, smoothScroll: true)');
+      }
       await commander.clickButton({
         selector: buttonSelector,
         scrollIntoView: true,
         smoothScroll: true,
       });
+
+      if (argv.verbose) {
+        const scrollAfterClick = await commander.evaluate({
+          fn: () => ({ x: window.scrollX, y: window.scrollY }),
+        });
+        console.log(`🔍 [VERBOSE] 2.5 Scroll IMMEDIATELY after click (before 1s wait): x=${scrollAfterClick.x}, y=${scrollAfterClick.y}`);
+      }
+
+      // CRITICAL: Wait after click to give HH.ru's modal JavaScript time to capture scroll position
+      await commander.wait({ ms: 1000, reason: 'critical wait after click for HH.ru modal to capture scroll position' });
+
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] 3. Button click completed + 1s wait after click');
+
+        // Check state immediately after click
+        const stateAfterClick = await commander.evaluate({
+          fn: () => ({
+            scrollX: window.scrollX,
+            scrollY: window.scrollY,
+            bodyPosition: document.body ? window.getComputedStyle(document.body).position : 'unknown',
+            bodyTop: document.body ? document.body.style.top : 'unknown',
+            bodyOverflow: document.body ? window.getComputedStyle(document.body).overflow : 'unknown',
+            htmlOverflow: document.documentElement ? window.getComputedStyle(document.documentElement).overflow : 'unknown',
+            hasModal: !!document.querySelector('[data-qa="modal-overlay"]'),
+            hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
+          }),
+        });
+        console.log(`🔍 [VERBOSE] 4. State immediately after click:`);
+        console.log(`   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
+        console.log(`   - body.position: ${stateAfterClick.bodyPosition}`);
+        console.log(`   - body.top: "${stateAfterClick.bodyTop}"`);
+        console.log(`   - body.overflow: ${stateAfterClick.bodyOverflow}`);
+        console.log(`   - html.overflow: ${stateAfterClick.htmlOverflow}`);
+        console.log(`   - modal overlay exists: ${stateAfterClick.hasModal}`);
+        console.log(`   - form exists: ${stateAfterClick.hasForm}`);
+      }
     } catch (error) {
       console.log(`⚠️  Error clicking button: ${error.message}`);
       console.log('💡 Button might be disabled or modal is open, waiting 2 seconds and retrying...');
@@ -1124,13 +1171,37 @@ github.com/link-foundation`;
       continue;
     }
 
-    // Handle navigation or modal
-    await Promise.race([
-      commander.wait({ ms: 2000, reason: 'navigation or modal to appear' }),
-      commander.waitForNavigation({ timeout: 2000 }).catch(() => {}),
-    ]);
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] 5. Waiting for modal to appear (or navigation to complete, 2 seconds)...');
+    }
+
+    // Just wait for modal to appear (or navigation to complete)
+    await commander.wait({ ms: 2000, reason: 'modal to appear' });
+
+    if (argv.verbose) {
+      try {
+        const scrollAfterWait = await commander.evaluate({
+          fn: () => ({ x: window.scrollX, y: window.scrollY }),
+        });
+        console.log(`🔍 [VERBOSE] 6. Scroll AFTER 2s wait: x=${scrollAfterWait.x}, y=${scrollAfterWait.y}`);
+      } catch (e) {
+        console.log(`🔍 [VERBOSE] 6. Could not check scroll (page may have navigated): ${e.message}`);
+      }
+      console.log('🔍 [VERBOSE] 7. Waiting for delayed redirects (2 more seconds)...');
+    }
 
     await commander.wait({ ms: 2000, reason: 'delayed redirects to complete' });
+
+    if (argv.verbose) {
+      try {
+        const scrollFinal = await commander.evaluate({
+          fn: () => ({ x: window.scrollX, y: window.scrollY }),
+        });
+        console.log(`🔍 [VERBOSE] 8. Scroll AFTER 4s total wait: x=${scrollFinal.x}, y=${scrollFinal.y}`);
+      } catch (e) {
+        console.log(`🔍 [VERBOSE] 8. Could not check scroll (page may have navigated): ${e.message}`);
+      }
+    }
 
     const currentUrl = commander.getUrl();
 
@@ -1194,12 +1265,34 @@ github.com/link-foundation`;
     // Wait for modal
     let modalAppeared = false;
     try {
+      if (argv.verbose) {
+        try {
+          const scrollBeforeModal = await commander.evaluate({
+            fn: () => ({ x: window.scrollX, y: window.scrollY }),
+          });
+          console.log(`🔍 [VERBOSE] 9. Scroll BEFORE waiting for modal selector: x=${scrollBeforeModal.x}, y=${scrollBeforeModal.y}`);
+        } catch (e) {
+          console.log(`🔍 [VERBOSE] 9. Could not check scroll: ${e.message}`);
+        }
+        console.log('🔍 [VERBOSE] 10. Waiting for modal selector: form#RESPONSE_MODAL_FORM_ID...');
+      }
       await commander.waitForSelector({
         selector: 'form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]',
         visible: true,
         timeout: 10000,
       });
       modalAppeared = true;
+      if (argv.verbose) {
+        try {
+          const scrollAfterModal = await commander.evaluate({
+            fn: () => ({ x: window.scrollX, y: window.scrollY }),
+          });
+          console.log('🔍 [VERBOSE] 11. Modal selector found');
+          console.log(`🔍 [VERBOSE] 12. Scroll AFTER modal appeared: x=${scrollAfterModal.x}, y=${scrollAfterModal.y}`);
+        } catch (e) {
+          console.log(`🔍 [VERBOSE] 11-12. Modal found but could not check scroll: ${e.message}`);
+        }
+      }
     } catch {
       console.log('⚠️  Modal did not appear within timeout. This may be a different type of vacancy response.');
       console.log('💡 Skipping this button and moving to the next one...');
@@ -1277,7 +1370,7 @@ github.com/link-foundation`;
           console.log(`🔍 [VERBOSE] Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
         }
         try {
-          await commander.clickButton({ selector: coverToggleSelector, scrollIntoView: true });
+          await commander.clickButton({ selector: coverToggleSelector, scrollIntoView: false });
           console.log('✅ Clicked cover letter toggle');
         } catch (error) {
           console.log(`⚠️  Could not click toggle: ${error.message}`);
@@ -1295,7 +1388,7 @@ github.com/link-foundation`;
       selector: 'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
       text: MESSAGE,
       checkEmpty: true,
-      scrollIntoView: true,
+      scrollIntoView: false,
       simulateTyping: true,
     });
     if (filled) {
@@ -1425,7 +1518,7 @@ github.com/link-foundation`;
     try {
       await commander.clickButton({
         selector: submitButtonSelector,
-        scrollIntoView: true,
+        scrollIntoView: false,
         timeout: 10000,
       });
       console.log(`✅ ${commander.engine}: clicked submit button`);

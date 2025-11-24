@@ -413,16 +413,23 @@ export function makeBrowserCommander(options = {}) {
    * Click an element
    * @param {Object} options - Configuration options
    * @param {Object} options.locatorOrElement - Element or locator to click
+   * @param {boolean} options.noAutoScroll - Prevent Playwright's automatic scrolling (default: false)
    * @returns {Promise<void>}
    */
   async function clickElement(options = {}) {
-    const { locatorOrElement } = options;
+    const { locatorOrElement, noAutoScroll = false } = options;
 
     if (!locatorOrElement) {
       throw new Error('locatorOrElement is required in options');
     }
 
-    await locatorOrElement.click();
+    if (engine === 'playwright' && noAutoScroll) {
+      // Prevent Playwright's automatic scrolling by using force option
+      log.debug(() => `🔍 [VERBOSE] Clicking with noAutoScroll (force: true)`);
+      await locatorOrElement.click({ force: true });
+    } else {
+      await locatorOrElement.click();
+    }
   }
 
   /**
@@ -461,11 +468,11 @@ export function makeBrowserCommander(options = {}) {
     if (engine === 'playwright') {
       const tagName = await locatorOrElement.evaluate(el => el.tagName);
       const text = await locatorOrElement.textContent();
-      log.debug(() => `🔍 [VERBOSE] About to scroll to ${tagName}: "${text?.trim().substring(0, 30)}..."`);
+      log.debug(() => `🔍 [VERBOSE] Target element: ${tagName}: "${text?.trim().substring(0, 30)}..."`);
     } else {
       const tagName = await page.evaluate(el => el.tagName, locatorOrElement);
       const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), locatorOrElement);
-      log.debug(() => `🔍 [VERBOSE] About to scroll to ${tagName}: "${text}..."`);
+      log.debug(() => `🔍 [VERBOSE] Target element: ${tagName}: "${text}..."`);
     }
   }
 
@@ -681,8 +688,8 @@ export function makeBrowserCommander(options = {}) {
       await scrollIntoViewIfNeeded({ locatorOrElement, behavior: 'smooth' });
     }
 
-    // Click the element
-    await clickElement({ locatorOrElement });
+    // Click the element (prevent auto-scroll if scrollIntoView is disabled)
+    await clickElement({ locatorOrElement, noAutoScroll: !shouldScroll });
 
     // Fill the text
     await performFill({ locatorOrElement, text, simulateTyping });
@@ -727,11 +734,14 @@ export function makeBrowserCommander(options = {}) {
     if (shouldScroll) {
       const behavior = smoothScroll ? 'smooth' : 'instant';
       await scrollIntoViewIfNeeded({ locatorOrElement, behavior, waitAfterScroll });
+    } else {
+      log.debug(() => `🔍 [VERBOSE] Skipping scroll (scrollIntoView: false)`);
     }
 
     // Perform click
     log.debug(() => `🔍 [VERBOSE] About to click element`);
-    await clickElement({ locatorOrElement });
+    // If scrollIntoView is disabled, also prevent Playwright's automatic scrolling
+    await clickElement({ locatorOrElement, noAutoScroll: !shouldScroll });
     log.debug(() => `🔍 [VERBOSE] Click completed`);
   }
 
