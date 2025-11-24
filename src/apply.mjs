@@ -1220,47 +1220,74 @@ github.com/link-foundation`;
       continue;
     }
 
-    // Click cover letter toggle
-    let coverToggleSelector = null;
-    let coverToggleCount = 0;
-
-    // Try data-qa selectors first
-    const coverDataQaSelectors = [
-      '[data-qa="add-cover-letter"]',
-      '[data-qa="vacancy-response-letter-toggle"]',
-    ];
-
-    for (const sel of coverDataQaSelectors) {
-      const count = await commander.count({ selector: sel });
+    // Check if textarea is already visible (cover letter might be mandatory)
+    const modalTextareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
+    let textareaVisible = false;
+    try {
+      const count = await commander.count({ selector: modalTextareaSelector });
       if (count > 0) {
-        coverToggleSelector = sel;
-        coverToggleCount = count;
-        break;
+        textareaVisible = await commander.isVisible({ selector: modalTextareaSelector });
+      }
+    } catch (error) {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Error checking textarea visibility: ${error.message}`);
       }
     }
 
-    // Fallback to text search
-    if (coverToggleCount === 0) {
-      const elementTypes = ['button', 'a'];
-      for (const elementType of elementTypes) {
-        coverToggleSelector = await commander.findByText({
-          text: 'сопроводительное',
-          selector: elementType,
-        });
-        coverToggleCount = await commander.count({ selector: coverToggleSelector });
-        if (coverToggleCount > 0) {
+    // Only click toggle if textarea is not visible
+    if (!textareaVisible) {
+      // Click cover letter toggle
+      let coverToggleSelector = null;
+      let coverToggleCount = 0;
+
+      // Try data-qa selectors first
+      const coverDataQaSelectors = [
+        '[data-qa="add-cover-letter"]',
+        '[data-qa="vacancy-response-letter-toggle"]',
+      ];
+
+      for (const sel of coverDataQaSelectors) {
+        const count = await commander.count({ selector: sel });
+        if (count > 0) {
+          coverToggleSelector = sel;
+          coverToggleCount = count;
           break;
         }
       }
-    }
 
-    if (coverToggleCount > 0) {
-      if (argv.verbose) {
-        const text = await commander.textContent({ selector: coverToggleSelector });
-        const dataQa = await commander.getAttribute({ selector: coverToggleSelector, attribute: 'data-qa' });
-        console.log(`🔍 [VERBOSE] Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
+      // Fallback to text search
+      if (coverToggleCount === 0) {
+        const elementTypes = ['button', 'a'];
+        for (const elementType of elementTypes) {
+          coverToggleSelector = await commander.findByText({
+            text: 'сопроводительное',
+            selector: elementType,
+          });
+          coverToggleCount = await commander.count({ selector: coverToggleSelector });
+          if (coverToggleCount > 0) {
+            break;
+          }
+        }
       }
-      await commander.clickButton({ selector: coverToggleSelector });
+
+      if (coverToggleCount > 0) {
+        if (argv.verbose) {
+          const text = await commander.textContent({ selector: coverToggleSelector });
+          const dataQa = await commander.getAttribute({ selector: coverToggleSelector, attribute: 'data-qa' });
+          console.log(`🔍 [VERBOSE] Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
+        }
+        try {
+          await commander.clickButton({ selector: coverToggleSelector, scrollIntoView: true });
+          console.log('✅ Clicked cover letter toggle');
+        } catch (error) {
+          console.log(`⚠️  Could not click toggle: ${error.message}`);
+          console.log('💡 Cover letter section may already be expanded');
+        }
+      } else {
+        console.log('💡 Cover letter toggle not found, section may already be expanded');
+      }
+    } else {
+      console.log('💡 Cover letter textarea already visible, skipping toggle click');
     }
 
     // Fill cover letter in modal
@@ -1312,18 +1339,59 @@ github.com/link-foundation`;
       continue;
     }
 
-    // Check if submit button is disabled
+    // Check if submit button exists and its state
     const submitButtonSelector = '[data-qa="vacancy-response-submit-popup"]';
-    const isButtonDisabled = await commander.evaluate({
+    const buttonState = await commander.evaluate({
       fn: (sel) => {
         const el = document.querySelector(sel);
-        return el && (el.hasAttribute('disabled') || el.classList.contains('disabled'));
+        if (!el) return { found: false };
+        return {
+          found: true,
+          disabled: el.hasAttribute('disabled') || el.classList.contains('disabled'),
+          visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+          text: el.textContent?.trim(),
+        };
       },
       args: [submitButtonSelector],
     });
 
-    if (isButtonDisabled) {
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Submit button state:', JSON.stringify(buttonState, null, 2));
+    }
+
+    if (!buttonState.found) {
+      console.error('❌ Submit button not found in modal!');
+      console.error(`   Tried selector: ${submitButtonSelector}`);
+
+      try {
+        const modalText = await commander.evaluate({
+          fn: () => {
+            const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
+            return form ? form.innerText : 'Could not find modal';
+          },
+        });
+        console.error('📋 Modal content:');
+        console.error(modalText);
+      } catch {
+        console.error('⚠️  Could not extract modal content');
+      }
+
+      console.error('💡 Closing modal and skipping this vacancy...');
+
+      // Close the modal
+      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
+      if (closeButtonCount > 0) {
+        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+        console.log('✅ Closed the application modal');
+      }
+
+      await commander.wait({ ms: 1000, reason: 'modal to close' });
+      continue;
+    }
+
+    if (buttonState.disabled) {
       console.error('❌ Application button is still disabled after entering the message!');
+      console.error(`   Button text: "${buttonState.text}"`);
 
       try {
         const modalText = await commander.evaluate({
@@ -1340,20 +1408,41 @@ github.com/link-foundation`;
       }
 
       console.error('');
-      console.error('💡 Please resolve this issue and try again.');
+      console.error('💡 Closing modal and skipping this vacancy...');
 
-      if (browser) {
-        await browser.close();
+      // Close the modal
+      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
+      if (closeButtonCount > 0) {
+        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+        console.log('✅ Closed the application modal');
       }
-      process.exit(1);
+
+      await commander.wait({ ms: 1000, reason: 'modal to close' });
+      continue;
     }
 
-    // Click submit button
-    await commander.clickButton({
-      selector: submitButtonSelector,
-      scrollIntoView: true,
-    });
-    console.log(`✅ ${commander.engine}: clicked submit button`);
+    // Click submit button with timeout handling
+    try {
+      await commander.clickButton({
+        selector: submitButtonSelector,
+        scrollIntoView: true,
+        timeout: 10000,
+      });
+      console.log(`✅ ${commander.engine}: clicked submit button`);
+    } catch (error) {
+      console.error(`❌ Failed to click submit button: ${error.message}`);
+      console.error('💡 Closing modal and skipping this vacancy...');
+
+      // Close the modal
+      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
+      if (closeButtonCount > 0) {
+        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+        console.log('✅ Closed the application modal');
+      }
+
+      await commander.wait({ ms: 1000, reason: 'modal to close' });
+      continue;
+    }
 
     await commander.wait({ ms: 2000, reason: 'modal to close after submission' });
 
