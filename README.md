@@ -8,6 +8,10 @@ https://github.com/user-attachments/assets/6884b2fe-e322-4358-aab8-7f3c20ccdc46
 ## Application message example
 
 ```
+Здравствуйте,
+
+Мне понравилась ваша компания, я думаю моя кандидатура будет вам полезна и я смогу привнести ценность в работу компании.
+
 В какой форме предлагается юридическое оформление удалённой работы?
 
 Посмотреть мой код на GitHub можно тут:
@@ -16,6 +20,9 @@ github.com/konard
 github.com/deep-assistant
 github.com/linksplatform
 github.com/link-foundation
+
+С уважением,
+Константин Дьяченко
 ```
 
 ## Run

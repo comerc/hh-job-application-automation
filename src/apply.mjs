@@ -103,14 +103,21 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     argv['user-data-dir'] = path.join(os.homedir(), '.hh-apply', `${argv.engine}-data`);
   }
 
-  const MESSAGE = argv.message || process.env.MESSAGE || `В какой форме предлагается юридическое оформление удалённой работы?
+  const MESSAGE = argv.message || process.env.MESSAGE || `Здравствуйте,
+
+Мне понравилась ваша компания, я думаю моя кандидатура будет вам полезна и я смогу привнести ценность в работу компании.
+
+В какой форме предлагается юридическое оформление удалённой работы?
 
 Посмотреть мой код на GitHub можно тут:
 
 github.com/konard
 github.com/deep-assistant
 github.com/linksplatform
-github.com/link-foundation`;
+github.com/link-foundation
+
+С уважением,
+Константин Дьяченко`;
   const START_URL = argv.url;
 
   // Launch browser with default configuration from browser-commander
