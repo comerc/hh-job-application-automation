@@ -146,7 +146,9 @@ github.com/link-foundation`;
   });
 
   // Declare patterns and tracking variables early (used by waitForUrlCondition and other functions)
-  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy/;
+  // Match hh.ru/search/vacancy URLs that contain the resume parameter
+  // This allows the automation to continue when user manually navigates between pages
+  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy.*[?&]resume=/;
   const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
   const vacancyPagePattern = /^https:\/\/hh\.ru\/vacancy\/(\d+)/;
   const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000;
@@ -1090,13 +1092,91 @@ github.com/link-foundation`;
       // Ignore errors
     }
 
+    // Check if we're still on a valid target page
+    let currentPageUrl = commander.getUrl();
+    if (!targetPagePattern.test(currentPageUrl)) {
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Not on target page, waiting for navigation: ${currentPageUrl}`);
+      }
+      await commander.wait({ ms: 2000, reason: 'waiting for navigation to target page' });
+      continue;
+    }
+
     // Find "Откликнуться" button using text selector
     const buttonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
     const buttonCount = await commander.count({ selector: buttonSelector });
 
     if (buttonCount === 0) {
-      console.log('✅ No more "Откликнуться" buttons found. Automation completed successfully.');
-      break;
+      // Double-check: maybe page is still loading
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] No buttons found, waiting for page to fully load...');
+      }
+      await commander.wait({ ms: 2000, reason: 'page to fully load' });
+
+      // Try one more time
+      const buttonSelector2 = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
+      const buttonCount2 = await commander.count({ selector: buttonSelector2 });
+
+      if (buttonCount2 === 0) {
+        console.log('💡 No more "Откликнуться" buttons on this page.');
+        console.log('💡 You can manually navigate to another page (e.g., change filters, go to next page)');
+        console.log('💡 The automation will continue once buttons are detected on the new page.');
+
+        // Wait and keep checking for URL changes or new buttons
+        const startUrl = commander.getUrl();
+        let checkCount = 0;
+
+        while (true) {
+          if (pageClosedByUser) {
+            return;
+          }
+
+          await commander.wait({ ms: 2000, reason: 'checking for manual navigation or new buttons' });
+
+          const newUrl = commander.getUrl();
+
+          // Check if URL changed (manual navigation)
+          if (newUrl !== startUrl) {
+            if (argv.verbose) {
+              console.log(`🔍 [VERBOSE] URL changed from ${startUrl} to ${newUrl}`);
+            }
+
+            // Check if new page has buttons
+            const newButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
+            const newButtonCount = await commander.count({ selector: newButtonSelector });
+
+            if (newButtonCount > 0) {
+              console.log(`✅ Detected ${newButtonCount} button(s) on new page! Continuing automation...`);
+              break; // Exit the wait loop and continue main loop
+            } else {
+              if (argv.verbose) {
+                console.log('🔍 [VERBOSE] New page has no buttons, continuing to wait...');
+              }
+            }
+          } else {
+            // Same URL, check if buttons appeared (e.g., dynamic content loaded)
+            const samePageButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
+            const samePageButtonCount = await commander.count({ selector: samePageButtonSelector });
+
+            if (samePageButtonCount > 0) {
+              console.log(`✅ Detected ${samePageButtonCount} button(s) appeared on same page! Continuing automation...`);
+              break;
+            }
+          }
+
+          checkCount++;
+          if (checkCount % 5 === 0 && argv.verbose) {
+            console.log(`🔍 [VERBOSE] Still waiting... (checked ${checkCount} times)`);
+          }
+        }
+
+        continue; // Go back to top of main loop to process new buttons
+      }
+
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Found ${buttonCount2} button(s) after waiting`);
+      }
+      continue;
     }
 
     console.log(`📋 Found ${buttonCount} "Откликнуться" button(s). Processing next button...`);
