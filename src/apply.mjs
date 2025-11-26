@@ -34,6 +34,17 @@ let commander = null;
 // Handle graceful shutdown on exit signals
 async function gracefulShutdown(signal) {
   console.log(`\n🛑 Received ${signal}, closing browser gracefully...`);
+
+  // Cleanup browser-commander resources (network tracker, navigation manager)
+  if (commander) {
+    try {
+      commander.destroy();
+      console.log('✅ Browser commander cleaned up');
+    } catch (error) {
+      console.error('⚠️  Error cleaning up commander:', error.message);
+    }
+  }
+
   if (browser) {
     try {
       await browser.close();
@@ -586,79 +597,87 @@ github.com/link-foundation
     }
   };
 
-  if (commander.engine === 'playwright') {
-    page.on('framenavigated', async (frame) => {
-      if (frame !== page.mainFrame()) return;
-      await handleNavigation(frame.url());
-    });
-  } else {
-    // Puppeteer navigation listener
-    page.on('framenavigated', async (frame) => {
-      if (frame !== page.mainFrame()) return;
-      await handleNavigation(frame.url());
-    });
-  }
+  // Use browser-commander's navigation event system (works for both Playwright and Puppeteer)
+  // This is cleaner and automatically handles main frame filtering
+  commander.onUrlChange(async ({ newUrl }) => {
+    await handleNavigation(newUrl);
+  });
 
   // Setup click listener whenever we navigate to a vacancy page from vacancy_response
-  if (commander.engine === 'playwright') {
-    page.on('framenavigated', async (frame) => {
-      if (frame !== page.mainFrame()) return;
-      const currentUrl = frame.url();
+  // Using the unified navigation event system from browser-commander
+  commander.onUrlChange(async ({ newUrl }) => {
+    const currentUrl = newUrl;
 
-      // Check if this is a new vacancy page (not just parameter change)
-      const vacancyMatch = currentUrl.match(vacancyPagePattern);
-      const currentVacancyId = vacancyMatch ? vacancyMatch[1] : null;
-      const lastVacancyId = lastVacancyPageUrl.match(vacancyPagePattern)?.[1];
+    // Check if this is a new vacancy page (not just parameter change)
+    const vacancyMatch = currentUrl.match(vacancyPagePattern);
+    const currentVacancyId = vacancyMatch ? vacancyMatch[1] : null;
+    const lastVacancyId = lastVacancyPageUrl.match(vacancyPagePattern)?.[1];
 
-      if (isOnVacancyPageFromResponse && vacancyMatch) {
-        // Only install listener once per vacancy page
-        if (!clickListenerInstalled || currentVacancyId !== lastVacancyId) {
-          console.log(`🔧 Detected NEW vacancy page (ID: ${currentVacancyId}) with isOnVacancyPageFromResponse=true, setting up click listener...`);
-          await setupVacancyPageClickListener();
-          clickListenerInstalled = true;
-          lastVacancyPageUrl = currentUrl;
-        }
-      } else {
-        // Reset when leaving vacancy page
-        clickListenerInstalled = false;
-        lastVacancyPageUrl = '';
+    if (isOnVacancyPageFromResponse && vacancyMatch) {
+      // Only install listener once per vacancy page
+      if (!clickListenerInstalled || currentVacancyId !== lastVacancyId) {
+        console.log(`🔧 Detected NEW vacancy page (ID: ${currentVacancyId}) with isOnVacancyPageFromResponse=true, setting up click listener...`);
+        await setupVacancyPageClickListener();
+        clickListenerInstalled = true;
+        lastVacancyPageUrl = currentUrl;
       }
-    });
-  } else {
-    page.on('framenavigated', async (frame) => {
-      if (frame !== page.mainFrame()) return;
-      const currentUrl = frame.url();
-
-      // Check if this is a new vacancy page (not just parameter change)
-      const vacancyMatch = currentUrl.match(vacancyPagePattern);
-      const currentVacancyId = vacancyMatch ? vacancyMatch[1] : null;
-      const lastVacancyId = lastVacancyPageUrl.match(vacancyPagePattern)?.[1];
-
-      if (isOnVacancyPageFromResponse && vacancyMatch) {
-        // Only install listener once per vacancy page
-        if (!clickListenerInstalled || currentVacancyId !== lastVacancyId) {
-          console.log(`🔧 Detected NEW vacancy page (ID: ${currentVacancyId}) with isOnVacancyPageFromResponse=true, setting up click listener...`);
-          await setupVacancyPageClickListener();
-          clickListenerInstalled = true;
-          lastVacancyPageUrl = currentUrl;
-        }
-      } else {
-        // Reset when leaving vacancy page
-        clickListenerInstalled = false;
-        lastVacancyPageUrl = '';
-      }
-    });
-  }
+    } else {
+      // Reset when leaving vacancy page
+      clickListenerInstalled = false;
+      lastVacancyPageUrl = '';
+    }
+  });
 
   // Main loop to process all "Откликнуться" buttons
+  // Each iteration represents a "page context" - we wait for page to be ready before any automation
   while (true) {
-    // Check if we should redirect back from vacancy page
+    // ============================================================
+    // STEP 1: Ensure page is fully loaded before ANY automation
+    // ============================================================
+
+    // Check if navigation is in progress or abort signal is set
+    const shouldWaitForPage = (
+      (commander.navigationManager && commander.navigationManager.isNavigating()) ||
+      (commander.shouldAbort && commander.shouldAbort())
+    );
+
+    if (shouldWaitForPage) {
+      console.log('⏳ Page is loading, waiting for it to be fully ready...');
+      await commander.waitForPageReady({ timeout: 120000, reason: 'ensuring page is ready before automation' });
+
+      // After page ready, check URL to log where we are
+      const currentUrl = commander.getUrl();
+      console.log(`✅ Page ready: ${currentUrl.substring(0, 80)}...`);
+    }
+
+    // ============================================================
+    // STEP 2: Check for page-closed condition
+    // ============================================================
+    if (pageClosedByUser) {
+      return;
+    }
+
+    // ============================================================
+    // STEP 3: Handle redirect logic (only if page is ready)
+    // ============================================================
     const didRedirect = await checkAndRedirectIfNeeded();
     if (didRedirect) {
+      // Redirect initiated navigation - wait for new page
+      await commander.waitForPageReady({ timeout: 120000, reason: 'after redirect' });
       continue;
     }
 
-    // Wait for any modals to close before proceeding
+    // ============================================================
+    // STEP 4: Verify we're still on a stable page (no navigation started)
+    // ============================================================
+    if (commander.shouldAbort && commander.shouldAbort()) {
+      // Navigation started while we were checking redirect - go back to step 1
+      continue;
+    }
+
+    // ============================================================
+    // STEP 5: Wait for modals to close (short wait)
+    // ============================================================
     try {
       await commander.evaluate({
         fn: () => {
@@ -668,12 +687,21 @@ github.com/link-foundation
           }
         },
       });
-      await commander.wait({ ms: 500, reason: 'ensuring no modals are open' });
+
+      // Short wait for modal - use non-abortable wait here since it's brief
+      await new Promise(r => setTimeout(r, 500));
     } catch {
-      // Ignore errors
+      // Ignore errors - might happen during navigation
     }
 
-    // Process vacancy button
+    // Check again after modal wait
+    if (commander.shouldAbort && commander.shouldAbort()) {
+      continue; // Go back to step 1
+    }
+
+    // ============================================================
+    // STEP 6: Process vacancy buttons (main automation logic)
+    // ============================================================
     const result = await findAndProcessVacancyButton({
       commander,
       MESSAGE,
@@ -686,11 +714,24 @@ github.com/link-foundation
       pageClosedByUser: () => pageClosedByUser,
     });
 
-    if (result.status === 'not_on_target_page') {
-      await commander.wait({ ms: 2000, reason: 'waiting for navigation to target page' });
+    // ============================================================
+    // STEP 7: Handle result - navigation detection has highest priority
+    // ============================================================
+
+    // Navigation detected - go back to step 1 (wait for page ready)
+    if (result.status === 'navigation_detected') {
+      console.log('🔄 Navigation detected during processing, restarting with new page context...');
       continue;
     }
 
+    // Not on target page - wait and retry
+    if (result.status === 'not_on_target_page') {
+      console.log('📍 Not on target page, waiting for page to be ready...');
+      await commander.waitForPageReady({ timeout: 120000, reason: 'not on target page' });
+      continue;
+    }
+
+    // No buttons found - wait for user navigation or dynamic content
     if (result.status === 'no_buttons_found') {
       const waitResult = await waitForButtonsAfterNavigation({
         commander,
@@ -702,17 +743,36 @@ github.com/link-foundation
         return;
       }
 
+      // Navigation was detected - the wait loop already exited quickly
+      // Now wait for the new page to be fully ready
+      if (waitResult.status === 'navigation_detected') {
+        console.log('🔄 Navigation detected, waiting for new page to be fully loaded...');
+        await commander.waitForPageReady({ timeout: 120000, reason: 'after navigation in button wait' });
+      }
+
       continue;
     }
 
+    // Handle limit errors
     if (result.status === 'limit_error' || result.status === 'limit_error_after_submit') {
       await handleLimitError({ commander, START_URL });
       continue;
     }
 
+    // Success - wait before processing next button
     if (result.status === 'success') {
       console.log(`⏳ Waiting ${BUTTON_CLICK_INTERVAL / 1000} seconds before processing next button...`);
-      await commander.wait({ ms: BUTTON_CLICK_INTERVAL, reason: 'interval before next application' });
+
+      // Use abortable wait so we can respond to navigation during the interval
+      const intervalWait = await commander.wait({
+        ms: BUTTON_CLICK_INTERVAL,
+        reason: 'interval before next application',
+      });
+
+      // If wait was aborted due to navigation, that's fine - next iteration will handle it
+      if (intervalWait && intervalWait.aborted) {
+        console.log('🔄 Interval wait was interrupted by navigation');
+      }
     }
 
     // For other statuses, continue the loop

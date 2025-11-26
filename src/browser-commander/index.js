@@ -2,6 +2,12 @@
  * Browser Commander - Universal browser automation library
  * Supports both Playwright and Puppeteer with a unified API
  * All functions use options objects for easy maintenance
+ *
+ * Key features:
+ * - Automatic network request tracking
+ * - Navigation-aware operations (wait for page ready after navigations)
+ * - Event-based page lifecycle management
+ * - Session management for per-page automation logic
  */
 
 // Import functions needed by makeBrowserCommander
@@ -9,7 +15,7 @@ import { createLogger } from './core/logger.js';
 import { detectEngine } from './core/engine-detection.js';
 import { wait, evaluate, safeEvaluate } from './utilities/wait.js';
 import { getUrl, unfocusAddressBar } from './utilities/url.js';
-import { waitForUrlStabilization, goto, waitForNavigation } from './browser/navigation.js';
+import { waitForUrlStabilization, goto, waitForNavigation, waitForPageReady, waitAfterAction } from './browser/navigation.js';
 import { createPlaywrightLocator, getLocatorOrElement, waitForLocatorOrElement, waitForVisible, locator } from './elements/locators.js';
 import { querySelector, querySelectorAll, findByText, normalizeSelector, withTextSelectorSupport, waitForSelector } from './elements/selectors.js';
 import { isVisible, isEnabled, count } from './elements/visibility.js';
@@ -19,6 +25,11 @@ import { clickElement, clickButton } from './interactions/click.js';
 import { checkIfElementEmpty, performFill, fillTextArea } from './interactions/fill.js';
 import { waitForUrlCondition, installClickListener, checkAndClearFlag, findToggleButton } from './high-level/universal-logic.js';
 
+// Import new core components
+import { createNetworkTracker } from './core/network-tracker.js';
+import { createNavigationManager } from './core/navigation-manager.js';
+import { createPageSessionFactory } from './core/page-session.js';
+
 // Re-export core utilities
 export { CHROME_ARGS, TIMING } from './core/constants.js';
 export { isVerboseEnabled, createLogger } from './core/logger.js';
@@ -26,9 +37,14 @@ export { disableTranslateInPreferences } from './core/preferences.js';
 export { detectEngine } from './core/engine-detection.js';
 export { isNavigationError, safeOperation, makeNavigationSafe, withNavigationSafety } from './core/navigation-safety.js';
 
+// Re-export new core components
+export { createNetworkTracker } from './core/network-tracker.js';
+export { createNavigationManager } from './core/navigation-manager.js';
+export { createPageSessionFactory } from './core/page-session.js';
+
 // Re-export browser management
 export { launchBrowser } from './browser/launcher.js';
-export { waitForUrlStabilization, goto, waitForNavigation } from './browser/navigation.js';
+export { waitForUrlStabilization, goto, waitForNavigation, waitForPageReady, waitAfterAction } from './browser/navigation.js';
 
 // Re-export element operations
 export {
@@ -90,10 +106,17 @@ export {
  * @param {Object} options - Configuration options
  * @param {Object} options.page - Playwright or Puppeteer page object
  * @param {boolean} options.verbose - Enable verbose logging
+ * @param {boolean} options.enableNetworkTracking - Enable network request tracking (default: true)
+ * @param {boolean} options.enableNavigationManager - Enable navigation manager (default: true)
  * @returns {Object} - Browser commander API
  */
 export function makeBrowserCommander(options = {}) {
-  const { page, verbose = false } = options;
+  const {
+    page,
+    verbose = false,
+    enableNetworkTracking = true,
+    enableNavigationManager = true,
+  } = options;
 
   if (!page) {
     throw new Error('page is required in options');
@@ -102,17 +125,80 @@ export function makeBrowserCommander(options = {}) {
   const engine = detectEngine(page);
   const log = createLogger({ verbose });
 
+  // Create NetworkTracker if enabled
+  let networkTracker = null;
+  if (enableNetworkTracking) {
+    networkTracker = createNetworkTracker({ page, engine, log });
+    networkTracker.startTracking();
+  }
+
+  // Create NavigationManager if enabled
+  let navigationManager = null;
+  let sessionFactory = null;
+
+  if (enableNavigationManager) {
+    navigationManager = createNavigationManager({
+      page,
+      engine,
+      log,
+      networkTracker,
+    });
+    navigationManager.startListening();
+
+    // Create PageSession factory
+    sessionFactory = createPageSessionFactory({
+      navigationManager,
+      networkTracker,
+      log,
+    });
+  }
+
   // Create bound helper functions that inject page, engine, log
-  const waitBound = (opts) => wait({ ...opts, log });
+  // Wait function now automatically gets abort signal from navigation manager
+  const waitBound = (opts) => {
+    const abortSignal = navigationManager ? navigationManager.getAbortSignal() : null;
+    return wait({ ...opts, log, abortSignal: opts.abortSignal || abortSignal });
+  };
   const evaluateBound = (opts) => evaluate({ ...opts, page, engine });
   const safeEvaluateBound = (opts) => safeEvaluate({ ...opts, page, engine });
   const getUrlBound = () => getUrl({ page });
   const unfocusAddressBarBound = (opts = {}) => unfocusAddressBar({ ...opts, page });
 
-  // Bound navigation
-  const waitForUrlStabilizationBound = (opts) => waitForUrlStabilization({ ...opts, page, log, wait: waitBound });
-  const gotoBound = (opts) => goto({ ...opts, page, waitForUrlStabilization: waitForUrlStabilizationBound });
-  const waitForNavigationBound = (opts) => waitForNavigation({ ...opts, page });
+  // Bound navigation - with NavigationManager integration
+  const waitForUrlStabilizationBound = (opts) => waitForUrlStabilization({
+    ...opts,
+    page,
+    log,
+    wait: waitBound,
+    navigationManager,
+  });
+  const gotoBound = (opts) => goto({
+    ...opts,
+    page,
+    waitForUrlStabilization: waitForUrlStabilizationBound,
+    navigationManager,
+  });
+  const waitForNavigationBound = (opts) => waitForNavigation({
+    ...opts,
+    page,
+    navigationManager,
+  });
+  const waitForPageReadyBound = (opts) => waitForPageReady({
+    ...opts,
+    page,
+    navigationManager,
+    networkTracker,
+    log,
+    wait: waitBound,
+  });
+  const waitAfterActionBound = (opts) => waitAfterAction({
+    ...opts,
+    page,
+    navigationManager,
+    networkTracker,
+    log,
+    wait: waitBound,
+  });
 
   // Bound locators
   const createPlaywrightLocatorBound = (opts) => createPlaywrightLocator({ ...opts, page });
@@ -145,9 +231,18 @@ export function makeBrowserCommander(options = {}) {
   const needsScrollingBound = (opts) => needsScrolling({ ...opts, page, engine });
   const scrollIntoViewIfNeededBound = (opts) => scrollIntoViewIfNeeded({ ...opts, page, engine, wait: waitBound, log });
 
-  // Bound click
+  // Bound click - now navigation-aware
   const clickElementBound = (opts) => clickElement({ ...opts, engine, log });
-  const clickButtonBound = (opts) => clickButton({ ...opts, page, engine, wait: waitBound, log, verbose });
+  const clickButtonBound = (opts) => clickButton({
+    ...opts,
+    page,
+    engine,
+    wait: waitBound,
+    log,
+    verbose,
+    navigationManager,
+    networkTracker,
+  });
 
   // Bound fill
   const checkIfElementEmptyBound = (opts) => checkIfElementEmpty({ ...opts, page, engine });
@@ -169,11 +264,29 @@ export function makeBrowserCommander(options = {}) {
   const textContentWrapped = withTextSelectorSupport(textContentBound, engine, page);
   const inputValueWrapped = withTextSelectorSupport(inputValueBound, engine, page);
 
+  // Cleanup function
+  const destroy = () => {
+    if (networkTracker) {
+      networkTracker.stopTracking();
+    }
+    if (navigationManager) {
+      navigationManager.stopListening();
+    }
+    if (sessionFactory) {
+      sessionFactory.endAllSessions();
+    }
+  };
+
   return {
     // Core properties
     engine,
     page,
     log,
+
+    // New navigation management components
+    networkTracker,
+    navigationManager,
+    sessionFactory,
 
     // Helper functions (now public)
     createPlaywrightLocator: createPlaywrightLocatorBound,
@@ -205,6 +318,8 @@ export function makeBrowserCommander(options = {}) {
     goto: gotoBound,
     getUrl: getUrlBound,
     waitForNavigation: waitForNavigationBound,
+    waitForPageReady: waitForPageReadyBound,
+    waitAfterAction: waitAfterActionBound,
     getAttribute: getAttributeWrapped,
     isVisible: isVisibleWrapped,
     isEnabled: isEnabledWrapped,
@@ -219,5 +334,22 @@ export function makeBrowserCommander(options = {}) {
     installClickListener: installClickListenerBound,
     checkAndClearFlag: checkAndClearFlagBound,
     findToggleButton: findToggleButtonBound,
+
+    // Lifecycle
+    destroy,
+
+    // Convenience methods for page sessions
+    createSession: sessionFactory ? (opts) => sessionFactory.createSession(opts) : null,
+    getActiveSessions: sessionFactory ? () => sessionFactory.getActiveSessions() : () => [],
+
+    // Subscribe to navigation events
+    onNavigationStart: navigationManager ? (fn) => navigationManager.on('onNavigationStart', fn) : () => {},
+    onNavigationComplete: navigationManager ? (fn) => navigationManager.on('onNavigationComplete', fn) : () => {},
+    onUrlChange: navigationManager ? (fn) => navigationManager.on('onUrlChange', fn) : () => {},
+    onPageReady: navigationManager ? (fn) => navigationManager.on('onPageReady', fn) : () => {},
+
+    // Abort handling - check these to stop operations when navigation occurs
+    shouldAbort: navigationManager ? () => navigationManager.shouldAbort() : () => false,
+    getAbortSignal: navigationManager ? () => navigationManager.getAbortSignal() : () => null,
   };
 }

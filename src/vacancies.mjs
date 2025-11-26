@@ -256,12 +256,19 @@ export async function processModalApplication({
 
   // Click submit button with timeout handling
   try {
-    await commander.clickButton({
+    const clickResult = await commander.clickButton({
       selector: submitButtonSelector,
       scrollIntoView: false,
       timeout: 10000,
     });
-    console.log(`✅ ${commander.engine}: clicked submit button`);
+
+    // Handle new return format {clicked, navigated}
+    const clicked = typeof clickResult === 'object' ? clickResult.clicked : clickResult;
+    if (!clicked) {
+      console.log('⚠️  Click may have triggered navigation, continuing...');
+    } else {
+      console.log(`✅ ${commander.engine}: clicked submit button`);
+    }
   } catch (error) {
     console.error(`❌ Failed to click submit button: ${error.message}`);
     console.error('💡 Closing modal and skipping this vacancy...');
@@ -358,41 +365,59 @@ export async function findAndProcessVacancyButton({
   }
 
   // Click first button with smooth scrolling animation
+  // Note: clickButton now returns {clicked, navigated} and automatically waits for page ready after navigation
   try {
     if (verbose) {
       console.log('🔍 [VERBOSE] 2. About to click button in list (scrollIntoView: true, smoothScroll: true)');
     }
-    await commander.clickButton({
+    const clickResult = await commander.clickButton({
       selector: buttonSelector,
       scrollIntoView: true,
       smoothScroll: true,
       // waitAfterClick defaults to 1000ms in browser-commander
     });
 
+    // Handle new return format {clicked, navigated}
+    const clicked = typeof clickResult === 'object' ? clickResult.clicked : clickResult;
+    const navigated = typeof clickResult === 'object' ? clickResult.navigated : false;
+
+    if (!clicked && navigated) {
+      // Navigation happened during click - page is already ready (clickButton waits for it)
+      console.log('⚠️  Navigation detected during button click, page ready');
+      return { status: 'navigation_detected' };
+    }
+
     if (verbose) {
       console.log('🔍 [VERBOSE] 3. Button click completed + 1s wait after click (via waitAfterClick)');
+      if (navigated) {
+        console.log('🔍 [VERBOSE] Click triggered navigation, page is now ready');
+      }
 
       // Check state immediately after click
-      const stateAfterClick = await commander.evaluate({
-        fn: () => ({
-          scrollX: window.scrollX,
-          scrollY: window.scrollY,
-          bodyPosition: document.body ? window.getComputedStyle(document.body).position : 'unknown',
-          bodyTop: document.body ? document.body.style.top : 'unknown',
-          bodyOverflow: document.body ? window.getComputedStyle(document.body).overflow : 'unknown',
-          htmlOverflow: document.documentElement ? window.getComputedStyle(document.documentElement).overflow : 'unknown',
-          hasModal: !!document.querySelector('[data-qa="modal-overlay"]'),
-          hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
-        }),
-      });
-      console.log('🔍 [VERBOSE] 4. State immediately after click:');
-      console.log(`   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
-      console.log(`   - body.position: ${stateAfterClick.bodyPosition}`);
-      console.log(`   - body.top: "${stateAfterClick.bodyTop}"`);
-      console.log(`   - body.overflow: ${stateAfterClick.bodyOverflow}`);
-      console.log(`   - html.overflow: ${stateAfterClick.htmlOverflow}`);
-      console.log(`   - modal overlay exists: ${stateAfterClick.hasModal}`);
-      console.log(`   - form exists: ${stateAfterClick.hasForm}`);
+      try {
+        const stateAfterClick = await commander.evaluate({
+          fn: () => ({
+            scrollX: window.scrollX,
+            scrollY: window.scrollY,
+            bodyPosition: document.body ? window.getComputedStyle(document.body).position : 'unknown',
+            bodyTop: document.body ? document.body.style.top : 'unknown',
+            bodyOverflow: document.body ? window.getComputedStyle(document.body).overflow : 'unknown',
+            htmlOverflow: document.documentElement ? window.getComputedStyle(document.documentElement).overflow : 'unknown',
+            hasModal: !!document.querySelector('[data-qa="modal-overlay"]'),
+            hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
+          }),
+        });
+        console.log('🔍 [VERBOSE] 4. State immediately after click:');
+        console.log(`   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
+        console.log(`   - body.position: ${stateAfterClick.bodyPosition}`);
+        console.log(`   - body.top: "${stateAfterClick.bodyTop}"`);
+        console.log(`   - body.overflow: ${stateAfterClick.bodyOverflow}`);
+        console.log(`   - html.overflow: ${stateAfterClick.htmlOverflow}`);
+        console.log(`   - modal overlay exists: ${stateAfterClick.hasModal}`);
+        console.log(`   - form exists: ${stateAfterClick.hasForm}`);
+      } catch (e) {
+        console.log(`🔍 [VERBOSE] 4. Could not check state (page may have navigated): ${e.message}`);
+      }
     }
   } catch (error) {
     if (isNavigationError(error)) {
@@ -562,6 +587,8 @@ export async function findAndProcessVacancyButton({
 
 /**
  * Wait for buttons to appear after page navigation
+ * Now respects abort signals - will stop waiting IMMEDIATELY if navigation is detected
+ * The wait() function is now abortable, so we exit as soon as navigation starts
  */
 export async function waitForButtonsAfterNavigation({
   commander,
@@ -581,7 +608,26 @@ export async function waitForButtonsAfterNavigation({
       return { status: 'page_closed' };
     }
 
-    await commander.wait({ ms: 2000, reason: 'checking for manual navigation or new buttons' });
+    // Check if we should abort due to navigation BEFORE waiting
+    if (commander.shouldAbort && commander.shouldAbort()) {
+      console.log('🛑 Navigation detected, stopping button wait immediately');
+      return { status: 'navigation_detected' };
+    }
+
+    // Use abortable wait - will exit immediately if navigation occurs
+    const waitResult = await commander.wait({ ms: 2000, reason: 'checking for manual navigation or new buttons' });
+
+    // Check if wait was aborted due to navigation
+    if (waitResult && waitResult.aborted) {
+      console.log('🛑 Wait was interrupted by navigation, exiting button wait loop');
+      return { status: 'navigation_detected' };
+    }
+
+    // Double-check abort status after wait completes
+    if (commander.shouldAbort && commander.shouldAbort()) {
+      console.log('🛑 Navigation detected after wait, exiting button wait loop');
+      return { status: 'navigation_detected' };
+    }
 
     const newUrl = commander.getUrl();
 
@@ -591,26 +637,33 @@ export async function waitForButtonsAfterNavigation({
         console.log(`🔍 [VERBOSE] URL changed from ${startUrl} to ${newUrl}`);
       }
 
-      // Check if new page has buttons
-      const newButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-      const newButtonCount = await commander.count({ selector: newButtonSelector });
+      // URL changed - we should exit and let the main loop handle page loading
+      // Don't try to wait for page ready here - that's the main loop's job
+      console.log('🔄 URL changed, exiting to let main loop handle new page');
+      return { status: 'navigation_detected' };
+    }
 
-      if (newButtonCount > 0) {
-        console.log(`✅ Detected ${newButtonCount} button(s) on new page! Continuing automation...`);
-        return { status: 'buttons_found' };
-      } else {
-        if (verbose) {
-          console.log('🔍 [VERBOSE] New page has no buttons, continuing to wait...');
+    // Same URL, check if buttons appeared (e.g., dynamic content loaded)
+    // But only if we're not in the middle of navigation
+    if (!commander.shouldAbort || !commander.shouldAbort()) {
+      try {
+        const samePageButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
+        const samePageButtonCount = await commander.count({ selector: samePageButtonSelector });
+
+        if (samePageButtonCount > 0) {
+          console.log(`✅ Detected ${samePageButtonCount} button(s) appeared on same page! Continuing automation...`);
+          return { status: 'buttons_found' };
         }
-      }
-    } else {
-      // Same URL, check if buttons appeared (e.g., dynamic content loaded)
-      const samePageButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-      const samePageButtonCount = await commander.count({ selector: samePageButtonSelector });
-
-      if (samePageButtonCount > 0) {
-        console.log(`✅ Detected ${samePageButtonCount} button(s) appeared on same page! Continuing automation...`);
-        return { status: 'buttons_found' };
+      } catch (error) {
+        // If we get an error during element search, navigation might have occurred
+        if (isNavigationError(error) || (commander.shouldAbort && commander.shouldAbort())) {
+          console.log('🛑 Navigation occurred during button search, exiting');
+          return { status: 'navigation_detected' };
+        }
+        // Log other errors but continue
+        if (verbose) {
+          console.log(`🔍 [VERBOSE] Error during button search: ${error.message}`);
+        }
       }
     }
 
