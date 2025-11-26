@@ -9,18 +9,17 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import os from 'os';
-import { createQADatabase, findBestMatch } from './qa-database.mjs';
+import { createQADatabase } from './qa-database.mjs';
 import { launchBrowser, makeBrowserCommander, isNavigationError } from './browser-commander/index.js';
 import {
-  extractPageQuestions,
-  extractQAPairs,
-  countUnansweredQuestions,
-  fillTextareaQuestion,
-  fillRadioQuestion,
-  fillCheckboxQuestion,
-  setupAutoSaveListeners,
-  collectMarkedQAPairs,
-} from './qa.mjs';
+  handleVacancyResponsePage,
+  saveQAPairs,
+} from './vacancy-response.mjs';
+import {
+  handleLimitError,
+  findAndProcessVacancyButton,
+  waitForButtonsAfterNavigation,
+} from './vacancies.mjs';
 
 // Create QA database instance with explicit production file path
 const QA_DB_PATH = path.join(process.cwd(), 'data', 'qa.lino');
@@ -295,528 +294,134 @@ github.com/link-foundation
     await commander.goto({ url: START_URL, waitForStableUrlBefore: false });
   }
 
-  /**
-   * Setup Q&A auto-fill and auto-save for all textareas and radio buttons on the page
-   */
-  async function setupQAHandling() {
-    try {
-      const qaMap = await readQADatabase();
-
-      // Extract all questions from the page using qa.mjs
-      const pageQuestions = await extractPageQuestions({ evaluate: commander.evaluate });
-
-      const questionToAnswer = new Map();
-
-      // Match questions with answers from database
-      for (const item of pageQuestions) {
-        const match = findBestMatch(item.question, qaMap);
-        if (match) {
-          questionToAnswer.set(item.question, {
-            ...item,
-            answer: match.answer,
-            matchScore: match.score,
-          });
-          console.log(`[QA] Fuzzy match for "${item.question}" (score: ${match.score.toFixed(3)})`);
-          console.log(`[QA] Matched to: "${match.question}"`);
-          console.log(`[QA] Answer: "${match.answer}"`);
-        }
-      }
-
-      // Auto-fill textareas and select radio buttons using qa.mjs functions
-      for (const [question, data] of questionToAnswer) {
-        try {
-          if (data.type === 'textarea') {
-            await fillTextareaQuestion({ commander, questionData: data, verbose: argv.verbose });
-          } else if (data.type === 'radio') {
-            await fillRadioQuestion({ commander, questionData: data, verbose: argv.verbose });
-          } else if (data.type === 'checkbox') {
-            await fillCheckboxQuestion({ commander, questionData: data, verbose: argv.verbose });
-          }
-        } catch (error) {
-          console.error(`[QA] Error autofilling for "${question}":`, error.message);
-        }
-      }
-
-      // Setup auto-save listeners for textareas using qa.mjs
-      await setupAutoSaveListeners({
-        evaluate: commander.evaluate,
-        questionToAnswer,
-      });
-
-      const qaPairsToSave = await collectMarkedQAPairs({
-        evaluate: commander.evaluate,
-      });
-
-      for (const { question, answer } of qaPairsToSave) {
-        await addOrUpdateQA(question, answer);
-        console.log('💾 Saved Q&A:', question);
-      }
-
-      return qaPairsToSave.length;
-    } catch (error) {
-      console.error('⚠️  Error setting up Q&A handling:', error.message);
-      return 0;
-    }
+  // Wrapper function to pass all dependencies to handleVacancyResponsePage
+  async function handleVacancyResponsePageWrapper() {
+    return handleVacancyResponsePage({
+      commander,
+      MESSAGE,
+      vacancyResponsePattern,
+      readQADatabase,
+      addOrUpdateQA,
+      autoSubmitEnabled: argv['auto-submit-vacancy-response-form'],
+      verbose: argv.verbose,
+    });
   }
 
   /**
-   * Save Q&A pairs from textareas and radio buttons after user interaction
+   * Check if we should redirect after vacancy response
+   * This is checked after clicking "Откликнуться" on vacancy page from vacancy_response flow
    */
-  async function saveQAPairs() {
+  async function checkAndRedirectIfNeeded() {
     try {
-      const qaPairs = await extractQAPairs({ evaluate: commander.evaluate });
+      const currentUrl = commander.getUrl();
 
-      for (const { question, answer } of qaPairs) {
-        await addOrUpdateQA(question, answer);
-        console.log('💾 Saved Q&A:', question);
-      }
-
-      return qaPairs.length;
-    } catch (error) {
-      console.error('⚠️  Error saving Q&A pairs:', error.message);
-      return 0;
-    }
-  }
-
-  /**
-   * Handle the vacancy_response page
-   */
-  async function handleVacancyResponsePage() {
-    console.log('📝 Detected vacancy_response page, handling application form...');
-
-    if (argv.verbose) {
-      console.log(`🔍 [VERBOSE] Engine: ${commander.engine}`);
-      console.log('🔍 [VERBOSE] About to wait for body selector');
-    }
-
-    await commander.waitForSelector({ selector: 'body' });
-
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] Body selector found');
-    }
-
-    // Log all textareas for debugging
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] About to count textareas');
-    }
-    const initialCount = await commander.count({ selector: 'textarea' });
-    console.log(`🔍 Initial scan: Found ${initialCount} textarea(s) on page`);
-
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] Starting to inspect each textarea');
-      for (let i = 0; i < initialCount; i++) {
-        const selector = `textarea:nth-of-type(${i + 1})`;
-        console.log(`🔍 [VERBOSE] Processing textarea ${i} with selector: ${selector}`);
-        const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
-        const visible = await commander.isVisible({ selector });
-        const dataQaDisplay = dataQa || '(none)';
-        console.log(`🔍 Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
-      }
-      console.log('🔍 [VERBOSE] Finished inspecting textareas');
-    }
-
-    // Check if textarea is already visible
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] Checking if textarea is already visible');
-    }
-    let textareaAlreadyVisible = false;
-    let textareaSelector = '';
-    const possibleSelectors = [
-      'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
-      'textarea[data-qa="vacancy-response-form-letter-input"]',
-    ];
-
-    for (const sel of possibleSelectors) {
       if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Checking selector: ${sel}`);
+        console.log('🔍 [VERBOSE] checkAndRedirectIfNeeded called');
+        console.log(`🔍 [VERBOSE] Current URL: ${currentUrl}`);
+        console.log(`🔍 [VERBOSE] isOnVacancyPageFromResponse: ${isOnVacancyPageFromResponse}`);
       }
-      const count = await commander.count({ selector: sel });
+
+      const evalResult = await commander.safeEvaluate({
+        fn: () => {
+          const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
+          if (flag === 'true') {
+            window.sessionStorage.removeItem('shouldRedirectAfterResponse');
+            return true;
+          }
+          return false;
+        },
+        defaultValue: false,
+        operationName: 'checkAndRedirectIfNeeded',
+      });
+
+      // If navigation occurred, just return false
+      if (evalResult.navigationError) {
+        return false;
+      }
+
+      const shouldRedirect = evalResult.value;
+
       if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Count for ${sel}: ${count}`);
+        console.log(`🔍 [VERBOSE] shouldRedirect from sessionStorage: ${shouldRedirect}`);
       }
-      if (count > 0) {
-        const visible = await commander.isVisible({ selector: sel });
-        if (argv.verbose) {
-          console.log(`🔍 [VERBOSE] Visible for ${sel}: ${visible}`);
-        }
-        if (visible) {
-          textareaAlreadyVisible = true;
-          textareaSelector = sel;
-          console.log('💡 Cover letter section already expanded, textarea visible');
-          break;
-        }
-      }
-    }
-    if (argv.verbose) {
-      console.log(`🔍 [VERBOSE] textareaAlreadyVisible: ${textareaAlreadyVisible}`);
-    }
 
-    // If textarea not visible, click toggle button
-    if (!textareaAlreadyVisible) {
-      try {
-        let toggleFound = false;
-        let toggleSelector = null;
+      if (shouldRedirect) {
+        console.log('✅ Detected "Откликнуться" button was clicked on vacancy page!');
+        if (isOnVacancyPageFromResponse && !isNavigating) {
+          console.log('✅ Response submitted from vacancy page, redirecting back to search page...');
 
-        // Try data-qa attributes first
-        const dataQaSelectors = [
-          '[data-qa="vacancy-response-letter-toggle"]',
-          '[data-qa="add-cover-letter"]',
-        ];
+          // Set navigation lock
+          isNavigating = true;
 
-        for (const sel of dataQaSelectors) {
-          const count = await commander.count({ selector: sel });
-          if (count > 0) {
-            toggleFound = true;
-            toggleSelector = sel;
-            break;
-          }
-        }
+          try {
+            // goto() will automatically stabilize before and after navigation
+            await commander.goto({ url: START_URL });
 
-        // Fallback to text matching for small elements
-        if (!toggleFound) {
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] data-qa not found, searching by text');
-          }
-
-          // Try each element type separately using findByText
-          const elementTypes = ['button', 'a', 'span'];
-          for (const elementType of elementTypes) {
-            toggleSelector = await commander.findByText({
-              text: 'Сопроводительное письмо',
-              selector: elementType,
-            });
-            const count = await commander.count({ selector: toggleSelector });
-            if (count > 0) {
-              toggleFound = true;
-              break;
-            }
-          }
-        }
-
-        if (toggleFound) {
-          const text = await commander.textContent({ selector: toggleSelector });
-          const dataQa = await commander.getAttribute({ selector: toggleSelector, attribute: 'data-qa' });
-          if (argv.verbose) {
-            console.log(`🔍 [VERBOSE] Found toggle element: text="${text?.trim()}", data-qa="${dataQa}"`);
-          }
-          console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${text?.trim()}", data-qa: "${dataQa}") to expand...`);
-
-          await commander.clickButton({
-            selector: toggleSelector,
-            scrollIntoView: true,
-          });
-
-          console.log('🔍 Toggle click completed');
-
-          await commander.wait({ ms: 1700, reason: 'expand animation to complete' });
-          console.log('✅ Cover letter section expanded');
-
-          // Log textareas after toggle
-          const countAfter = await commander.count({ selector: 'textarea' });
-          if (argv.verbose) {
-            console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
+            // Reset the tracking flag
+            isOnVacancyPageFromResponse = false;
+            clickListenerInstalled = false;
+            lastVacancyPageUrl = '';
+            return true;
+          } finally {
+            isNavigating = false;
           }
         } else {
-          console.log('💡 Toggle button not found, cover letter section may already be expanded');
-        }
-      } catch (error) {
-        console.log('💡 Toggle button not found, cover letter section may already be expanded');
-        console.log(`🔍 Error during toggle: ${error.message}`);
-      }
-    }
-
-    // Wait for textarea
-    if (!textareaAlreadyVisible) {
-      textareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
-    }
-
-    try {
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Waiting for textarea selector: ${textareaSelector}`);
-      }
-      await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Textarea found and visible');
-      }
-    } catch {
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] First selector timed out after 2000ms, trying alternative');
-      }
-      textareaSelector = 'textarea[data-qa="vacancy-response-form-letter-input"]';
-      try {
-        if (argv.verbose) {
-          console.log(`🔍 [VERBOSE] Trying alternative textarea selector: ${textareaSelector}`);
-        }
-        await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
-        if (argv.verbose) {
-          console.log('🔍 [VERBOSE] Alternative textarea found and visible');
-        }
-      } catch {
-        if (argv.verbose) {
-          console.log('🔍 [VERBOSE] Alternative selector timed out after 2000ms, trying any textarea');
-        }
-        textareaSelector = 'textarea';
-        console.log('⚠️  Warning: Using generic textarea selector (no data-qa found). This may be fragile.');
-        try {
-          if (argv.verbose) {
-            console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
+          if (!isOnVacancyPageFromResponse) {
+            console.log('⚠️  shouldRedirect=true but isOnVacancyPageFromResponse=false - this should not happen');
+          } else {
+            console.log('⚠️  Already navigating, skipping redirect');
           }
-          await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
-          if (argv.verbose) {
-            console.log('🔍 [VERBOSE] Any textarea found and visible');
-          }
-        } catch {
-          console.log('⚠️  Cover letter textarea not found on vacancy_response page');
-          const count = await commander.count({ selector: 'textarea' });
-          console.log(`🔍 Found ${count} textarea(s) on page`);
-          return;
         }
       }
-    }
 
-    // Fill cover letter
-    if (argv.verbose) {
-      console.log(`🔍 [VERBOSE] About to fill textarea with selector: ${textareaSelector}`);
-    }
-    const filled = await commander.fillTextArea({
-      selector: textareaSelector,
-      text: MESSAGE,
-      checkEmpty: true,
-      scrollIntoView: true,
-      simulateTyping: true,
-    });
-    if (filled) {
-      console.log(`✅ Prefilled cover letter message into: ${textareaSelector}`);
-    } else {
-      console.log('⏭️  Cover letter already contains text, skipping prefill');
-    }
-
-    // Count textareas
-    const textareaCount = await commander.count({ selector: 'textarea' });
-    console.log(`📊 Found ${textareaCount} textarea(s) on the page`);
-
-    // Setup Q&A handling first (this will auto-fill answers from database)
-    await setupQAHandling();
-
-    // Wait for form validation and give user time to review auto-filled answers
-    await commander.wait({ ms: 30000, reason: 'form validation and user review after auto-fill' });
-
-    // Check if we're still on the vacancy_response page (may have navigated away)
-    const currentUrl = commander.getUrl();
-    if (!vacancyResponsePattern.test(currentUrl)) {
-      console.log('💡 Page navigated away from vacancy_response, skipping auto-submit');
-      return;
-    }
-
-    // Count total test questions and unanswered test questions using qa.mjs
-    let testQuestionStats;
-    try {
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Counting test questions (radio/checkbox)...');
-      }
-      testQuestionStats = await countUnansweredQuestions({
-        evaluate: commander.evaluate,
-      });
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Question stats: total=${testQuestionStats.totalCount}, unanswered=${testQuestionStats.unansweredCount}`);
-      }
+      return false;
     } catch (error) {
-      if (error.message && error.message.includes('Execution context was destroyed')) {
-        console.log('💡 Page navigated away during question counting, skipping auto-submit');
-        return;
-      }
-      throw error;
-    }
-
-    // Check if there are test questions:
-    // - Radio/checkbox questions counted by countUnansweredQuestions
-    // - OR multiple textareas (more than just the cover letter)
-    const hasTestQuestions = testQuestionStats.totalCount > 0 || textareaCount > 1;
-    const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
-
-    if (argv.verbose) {
-      console.log(`🔍 [VERBOSE] hasTestQuestions=${hasTestQuestions} (radioCheckbox=${testQuestionStats.totalCount}, textareas=${textareaCount})`);
-      console.log(`🔍 [VERBOSE] hasUnansweredQuestions=${hasUnansweredQuestions}`);
-    }
-
-    // Check if any test textareas are empty (beyond just the cover letter)
-    let hasEmptyTestTextareas;
-    try {
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Checking for empty test textareas...');
-      }
-      hasEmptyTestTextareas = await commander.evaluate({
-        fn: () => {
-          const textareas = document.querySelectorAll('textarea');
-          let emptyCount = 0;
-          const details = [];
-
-          textareas.forEach((textarea, index) => {
-            // Skip the cover letter textarea
-            const isCoverLetter = textarea.getAttribute('data-qa') === 'vacancy-response-popup-form-letter-input' ||
-                                  textarea.getAttribute('data-qa') === 'vacancy-response-form-letter-input';
-
-            const isEmpty = !textarea.value.trim();
-            details.push({
-              index,
-              isCoverLetter,
-              isEmpty,
-              dataQa: textarea.getAttribute('data-qa'),
-              valueLength: textarea.value.length,
-            });
-
-            if (!isCoverLetter && isEmpty) {
-              emptyCount++;
-            }
-          });
-
-          return { hasEmpty: emptyCount > 0, emptyCount, details };
-        },
-      });
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Textarea check result:`, JSON.stringify(hasEmptyTestTextareas, null, 2));
-      }
-      // For backwards compatibility, extract the boolean
-      const textareaCheckResult = hasEmptyTestTextareas;
-      hasEmptyTestTextareas = textareaCheckResult.hasEmpty;
-    } catch (error) {
-      if (error.message && error.message.includes('Execution context was destroyed')) {
-        console.log('💡 Page navigated away during textarea check, skipping auto-submit');
-        return;
-      }
-      throw error;
-    }
-
-    if (hasUnansweredQuestions) {
-      console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} radio/checkbox test question(s) UNANSWERED`);
-      console.log('💡 Cannot auto-submit when test questions remain unanswered - manual submission required');
-      console.log('💡 Please answer the remaining questions and submit the form manually when ready');
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Returning early due to unanswered radio/checkbox questions');
-      }
-      return;
-    }
-
-    if (hasEmptyTestTextareas) {
-      console.log('⚠️  Found EMPTY test question textarea(s)');
-      console.log('💡 Cannot auto-submit when test textareas are empty - manual submission required');
-      console.log('💡 Please fill the empty textarea(s) and submit the form manually when ready');
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Returning early due to empty test textareas');
-      }
-      return;
-    }
-
-    // Decide whether to auto-submit based on configuration and question presence
-    let shouldAutoSubmit = false;
-
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] Deciding whether to auto-submit...');
-      console.log(`🔍 [VERBOSE]   hasTestQuestions=${hasTestQuestions}`);
-      console.log(`🔍 [VERBOSE]   auto-submit-vacancy-response-form=${argv['auto-submit-vacancy-response-form']}`);
-    }
-
-    if (!hasTestQuestions) {
-      // No test questions - always auto-submit (only cover letter)
-      shouldAutoSubmit = true;
-      console.log('✅ No test questions found, only cover letter - will auto-submit');
-    } else if (argv['auto-submit-vacancy-response-form']) {
-      // Has test questions but all answered and flag is enabled
-      shouldAutoSubmit = true;
-      console.log(`✅ All ${testQuestionStats.totalCount} test question(s) answered and --auto-submit-vacancy-response-form enabled - will auto-submit`);
-    } else {
-      // Has test questions, all answered, but flag is disabled
-      shouldAutoSubmit = false;
-      console.log(`💡 All ${testQuestionStats.totalCount} test question(s) answered, but --auto-submit-vacancy-response-form is disabled`);
-      console.log('💡 Please review the answers and submit the form manually when ready');
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Returning early: flag disabled');
-      }
-      return;
-    }
-
-    // Auto-submit if decided to auto-submit
-    if (shouldAutoSubmit) {
-      console.log('✅ Proceeding with auto-submit');
-
-      // Try multiple selectors for submit button (modal vs full-page form)
-      const possibleSelectors = [
-        '[data-qa="vacancy-response-submit-popup"]',  // Modal form
-        '[data-qa="vacancy-response-letter-submit"]', // Full-page form
-        'button[type="submit"]',                       // Generic fallback
-      ];
-
-      let submitSelector = null;
-      for (const sel of possibleSelectors) {
-        const count = await commander.count({ selector: sel });
-        if (count > 0) {
-          submitSelector = sel;
-          console.log(`Found submit button with selector: ${sel}`);
-          break;
-        }
-      }
-
-      if (!submitSelector) {
-        console.log('⚠️  Submit button not found (tried multiple selectors)');
-        return;
-      }
-
-      // Check button state with detailed logging
-      const buttonState = await commander.evaluate({
-        fn: (sel) => {
-          const el = document.querySelector(sel);
-          if (!el) return { found: false };
-
-          return {
-            found: true,
-            disabled: el.hasAttribute('disabled') || el.classList.contains('disabled'),
-            hasDisabledAttr: el.hasAttribute('disabled'),
-            hasDisabledClass: el.classList.contains('disabled'),
-            classList: Array.from(el.classList),
-            textContent: el.textContent?.trim(),
-          };
-        },
-        args: [submitSelector],
-      });
-
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] Submit button state:', JSON.stringify(buttonState, null, 2));
-      }
-
-      if (!buttonState.found) {
-        console.log('⚠️  Submit button not found in DOM');
-        return;
-      }
-
-      if (buttonState.disabled) {
-        console.log('⚠️  Submit button is disabled, manual action required');
-        console.log(`   Button text: "${buttonState.textContent}"`);
-        console.log(`   Has disabled attribute: ${buttonState.hasDisabledAttr}`);
-        console.log(`   Has disabled class: ${buttonState.hasDisabledClass}`);
-        console.log('💡 The form may require additional validation. Please check manually.');
-        if (argv.verbose) {
-          console.log('🔍 [VERBOSE] NOT clicking disabled submit button, returning early');
-        }
-        return;
+      // Handle navigation errors gracefully
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected during redirect check, continuing...');
       } else {
-        if (argv.verbose) {
-          console.log('🔍 [VERBOSE] Submit button is enabled, clicking...');
-        }
-        await commander.clickButton({
-          selector: submitSelector,
-          scrollIntoView: true,
-          smoothScroll: true,
-        });
-        console.log('✅ Clicked submit button');
-        await commander.wait({ ms: 2000, reason: 'submission to complete' });
+        console.log('⚠️  Error checking redirect condition:', error.message);
       }
+      return false;
+    }
+  }
+
+  /**
+   * Setup click listener on vacancy page to detect "Откликнуться" button clicks
+   * When clicked from vacancy_response flow, redirect back to START_URL
+   */
+  async function setupVacancyPageClickListener() {
+    try {
+      console.log('🎧 Setting up click listener for "Откликнуться" button on vacancy page');
+      await commander.evaluate({
+        fn: () => {
+          // Add click listener to document (capture phase to catch all clicks)
+          document.addEventListener('click', (event) => {
+            // Check if clicked element or any parent contains "Откликнуться" text
+            let element = event.target;
+            while (element && element !== document.body) {
+              const text = element.textContent?.trim() || '';
+              // Check for button text (handles both exact match and contains)
+              if (text === 'Откликнуться' || (element.tagName === 'A' || element.tagName === 'BUTTON') && text.includes('Откликнуться')) {
+                console.log('[Click Listener] Detected click on Откликнуться button!');
+                window.sessionStorage.setItem('shouldRedirectAfterResponse', 'true');
+                break;
+              }
+              element = element.parentElement;
+            }
+          }, true);
+        },
+      });
+      console.log('✅ Click listener setup completed');
+    } catch (error) {
+      console.log('⚠️  Error setting up vacancy page click listener:', error.message);
     }
   }
 
   // Check if already on vacancy_response page
   const currentUrl = commander.getUrl();
   if (vacancyResponsePattern.test(currentUrl)) {
-    await handleVacancyResponsePage();
+    await handleVacancyResponsePageWrapper();
     console.log('✅ Initial vacancy_response page handled. Script will continue monitoring...');
   }
 
@@ -831,7 +436,7 @@ github.com/link-foundation
       const now = Date.now();
 
       if (vacancyResponsePattern.test(currentUrl) && (now - lastSaveTime) >= SAVE_INTERVAL_MS) {
-        const savedCount = await saveQAPairs();
+        const savedCount = await saveQAPairs({ commander, addOrUpdateQA });
         if (savedCount > 0) {
           console.log(`💾 Auto-saved ${savedCount} Q&A pair(s)`);
           lastSaveTime = now;
@@ -883,7 +488,7 @@ github.com/link-foundation
       // Save Q&A when leaving vacancy_response page
       if (wasOnVacancyResponse && !isOnVacancyResponse) {
         console.log('🔄 Navigation detected from vacancy_response page, saving Q&A pairs...');
-        const savedCount = await saveQAPairs();
+        const savedCount = await saveQAPairs({ commander, addOrUpdateQA });
         if (savedCount > 0) {
           console.log(`💾 Saved ${savedCount} Q&A pair(s) before navigation`);
         }
@@ -994,139 +599,6 @@ github.com/link-foundation
     });
   }
 
-  /**
-   * Setup click listener on vacancy page to detect "Откликнуться" button clicks
-   * When clicked from vacancy_response flow, redirect back to START_URL
-   */
-  async function setupVacancyPageClickListener() {
-    try {
-      console.log('🎧 Setting up click listener for "Откликнуться" button on vacancy page');
-      await commander.evaluate({
-        fn: () => {
-          // Add click listener to document (capture phase to catch all clicks)
-          document.addEventListener('click', (event) => {
-            // Check if clicked element or any parent contains "Откликнуться" text
-            let element = event.target;
-            while (element && element !== document.body) {
-              const text = element.textContent?.trim() || '';
-              // Check for button text (handles both exact match and contains)
-              if (text === 'Откликнуться' || (element.tagName === 'A' || element.tagName === 'BUTTON') && text.includes('Откликнуться')) {
-                console.log('[Click Listener] Detected click on Откликнуться button!');
-                window.sessionStorage.setItem('shouldRedirectAfterResponse', 'true');
-                break;
-              }
-              element = element.parentElement;
-            }
-          }, true);
-        },
-      });
-      console.log('✅ Click listener setup completed');
-    } catch (error) {
-      console.log('⚠️  Error setting up vacancy page click listener:', error.message);
-    }
-  }
-
-  /**
-   * Handle limit error when detected
-   * Closes modal, waits 1 hour, and refreshes the page
-   */
-  async function handleLimitError() {
-    console.log('⚠️  Limit reached: 200 applications in 24 hours');
-    console.log('💤 Waiting 1 hour before retrying...');
-
-    const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-    if (closeButtonCount > 0) {
-      await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-      console.log('✅ Closed the application modal');
-    }
-
-    const oneHourInMs = 60 * 60 * 1000;
-    await commander.wait({ ms: oneHourInMs, reason: '200 application limit cooldown (1 hour)' });
-
-    console.log('🔄 Refreshing the page after wait period...');
-    // goto() will automatically stabilize before and after navigation
-    await commander.goto({ url: START_URL });
-  }
-
-  /**
-   * Check if we should redirect after vacancy response
-   * This is checked after clicking "Откликнуться" on vacancy page from vacancy_response flow
-   */
-  async function checkAndRedirectIfNeeded() {
-    try {
-      const currentUrl = commander.getUrl();
-
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] checkAndRedirectIfNeeded called');
-        console.log(`🔍 [VERBOSE] Current URL: ${currentUrl}`);
-        console.log(`🔍 [VERBOSE] isOnVacancyPageFromResponse: ${isOnVacancyPageFromResponse}`);
-      }
-
-      const evalResult = await commander.safeEvaluate({
-        fn: () => {
-          const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
-          if (flag === 'true') {
-            window.sessionStorage.removeItem('shouldRedirectAfterResponse');
-            return true;
-          }
-          return false;
-        },
-        defaultValue: false,
-        operationName: 'checkAndRedirectIfNeeded',
-      });
-
-      // If navigation occurred, just return false
-      if (evalResult.navigationError) {
-        return false;
-      }
-
-      const shouldRedirect = evalResult.value;
-
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] shouldRedirect from sessionStorage: ${shouldRedirect}`);
-      }
-
-      if (shouldRedirect) {
-        console.log('✅ Detected "Откликнуться" button was clicked on vacancy page!');
-        if (isOnVacancyPageFromResponse && !isNavigating) {
-          console.log('✅ Response submitted from vacancy page, redirecting back to search page...');
-
-          // Set navigation lock
-          isNavigating = true;
-
-          try {
-            // goto() will automatically stabilize before and after navigation
-            await commander.goto({ url: START_URL });
-
-            // Reset the tracking flag
-            isOnVacancyPageFromResponse = false;
-            clickListenerInstalled = false;
-            lastVacancyPageUrl = '';
-            return true;
-          } finally {
-            isNavigating = false;
-          }
-        } else {
-          if (!isOnVacancyPageFromResponse) {
-            console.log('⚠️  shouldRedirect=true but isOnVacancyPageFromResponse=false - this should not happen');
-          } else {
-            console.log('⚠️  Already navigating, skipping redirect');
-          }
-        }
-      }
-
-      return false;
-    } catch (error) {
-      // Handle navigation errors gracefully
-      if (isNavigationError(error)) {
-        console.log('⚠️  Navigation detected during redirect check, continuing...');
-      } else {
-        console.log('⚠️  Error checking redirect condition:', error.message);
-      }
-      return false;
-    }
-  }
-
   // Setup click listener whenever we navigate to a vacancy page from vacancy_response
   if (commander.engine === 'playwright') {
     page.on('framenavigated', async (frame) => {
@@ -1201,563 +673,49 @@ github.com/link-foundation
       // Ignore errors
     }
 
-    // Check if we're still on a valid target page
-    let currentPageUrl = commander.getUrl();
-    if (!targetPagePattern.test(currentPageUrl)) {
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Not on target page, waiting for navigation: ${currentPageUrl}`);
-      }
+    // Process vacancy button
+    const result = await findAndProcessVacancyButton({
+      commander,
+      MESSAGE,
+      targetPagePattern,
+      vacancyResponsePattern,
+      handleVacancyResponsePage: handleVacancyResponsePageWrapper,
+      waitForUrlCondition,
+      START_URL,
+      verbose: argv.verbose,
+      pageClosedByUser: () => pageClosedByUser,
+    });
+
+    if (result.status === 'not_on_target_page') {
       await commander.wait({ ms: 2000, reason: 'waiting for navigation to target page' });
       continue;
     }
 
-    // Find "Откликнуться" button using text selector
-    const buttonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-    const buttonCount = await commander.count({ selector: buttonSelector });
-
-    if (buttonCount === 0) {
-      // Double-check: maybe page is still loading
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] No buttons found, waiting for page to fully load...');
-      }
-      await commander.wait({ ms: 2000, reason: 'page to fully load' });
-
-      // Try one more time
-      const buttonSelector2 = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-      const buttonCount2 = await commander.count({ selector: buttonSelector2 });
-
-      if (buttonCount2 === 0) {
-        console.log('💡 No more "Откликнуться" buttons on this page.');
-        console.log('💡 You can manually navigate to another page (e.g., change filters, go to next page)');
-        console.log('💡 The automation will continue once buttons are detected on the new page.');
-
-        // Wait and keep checking for URL changes or new buttons
-        const startUrl = commander.getUrl();
-        let checkCount = 0;
-
-        while (true) {
-          if (pageClosedByUser) {
-            return;
-          }
-
-          await commander.wait({ ms: 2000, reason: 'checking for manual navigation or new buttons' });
-
-          const newUrl = commander.getUrl();
-
-          // Check if URL changed (manual navigation)
-          if (newUrl !== startUrl) {
-            if (argv.verbose) {
-              console.log(`🔍 [VERBOSE] URL changed from ${startUrl} to ${newUrl}`);
-            }
-
-            // Check if new page has buttons
-            const newButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-            const newButtonCount = await commander.count({ selector: newButtonSelector });
-
-            if (newButtonCount > 0) {
-              console.log(`✅ Detected ${newButtonCount} button(s) on new page! Continuing automation...`);
-              break; // Exit the wait loop and continue main loop
-            } else {
-              if (argv.verbose) {
-                console.log('🔍 [VERBOSE] New page has no buttons, continuing to wait...');
-              }
-            }
-          } else {
-            // Same URL, check if buttons appeared (e.g., dynamic content loaded)
-            const samePageButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-            const samePageButtonCount = await commander.count({ selector: samePageButtonSelector });
-
-            if (samePageButtonCount > 0) {
-              console.log(`✅ Detected ${samePageButtonCount} button(s) appeared on same page! Continuing automation...`);
-              break;
-            }
-          }
-
-          checkCount++;
-          if (checkCount % 5 === 0 && argv.verbose) {
-            console.log(`🔍 [VERBOSE] Still waiting... (checked ${checkCount} times)`);
-          }
-        }
-
-        continue; // Go back to top of main loop to process new buttons
-      }
-
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Found ${buttonCount2} button(s) after waiting`);
-      }
-      continue;
-    }
-
-    console.log(`📋 Found ${buttonCount} "Откликнуться" button(s). Processing next button...`);
-
-    // Check if first button is enabled before clicking
-    const isEnabled = await commander.isEnabled({ selector: buttonSelector });
-
-    if (!isEnabled) {
-      console.log('⚠️  First button is disabled or loading, waiting 2 seconds...');
-      await commander.wait({ ms: 2000, reason: 'button to become enabled' });
-      continue;
-    }
-
-    // Log scroll position before any interaction
-    if (argv.verbose) {
-      try {
-        const scrollBefore = await commander.evaluate({
-          fn: () => ({ x: window.scrollX, y: window.scrollY }),
-        });
-        console.log(`🔍 [VERBOSE] 1. Scroll BEFORE button click: x=${scrollBefore.x}, y=${scrollBefore.y}`);
-      } catch (e) {
-        if (isNavigationError(e)) {
-          console.log('🔍 [VERBOSE] 1. Navigation detected during scroll check, continuing...');
-          continue;
-        }
-      }
-    }
-
-    // Click first button with smooth scrolling animation
-    try {
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] 2. About to click button in list (scrollIntoView: true, smoothScroll: true)');
-      }
-      await commander.clickButton({
-        selector: buttonSelector,
-        scrollIntoView: true,
-        smoothScroll: true,
-        // waitAfterClick defaults to 1000ms in browser-commander
+    if (result.status === 'no_buttons_found') {
+      const waitResult = await waitForButtonsAfterNavigation({
+        commander,
+        pageClosedByUser: () => pageClosedByUser,
+        verbose: argv.verbose,
       });
 
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] 3. Button click completed + 1s wait after click (via waitAfterClick)');
+      if (waitResult.status === 'page_closed') {
+        return;
+      }
 
-        // Check state immediately after click
-        const stateAfterClick = await commander.evaluate({
-          fn: () => ({
-            scrollX: window.scrollX,
-            scrollY: window.scrollY,
-            bodyPosition: document.body ? window.getComputedStyle(document.body).position : 'unknown',
-            bodyTop: document.body ? document.body.style.top : 'unknown',
-            bodyOverflow: document.body ? window.getComputedStyle(document.body).overflow : 'unknown',
-            htmlOverflow: document.documentElement ? window.getComputedStyle(document.documentElement).overflow : 'unknown',
-            hasModal: !!document.querySelector('[data-qa="modal-overlay"]'),
-            hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
-          }),
-        });
-        console.log('🔍 [VERBOSE] 4. State immediately after click:');
-        console.log(`   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
-        console.log(`   - body.position: ${stateAfterClick.bodyPosition}`);
-        console.log(`   - body.top: "${stateAfterClick.bodyTop}"`);
-        console.log(`   - body.overflow: ${stateAfterClick.bodyOverflow}`);
-        console.log(`   - html.overflow: ${stateAfterClick.htmlOverflow}`);
-        console.log(`   - modal overlay exists: ${stateAfterClick.hasModal}`);
-        console.log(`   - form exists: ${stateAfterClick.hasForm}`);
-      }
-    } catch (error) {
-      if (isNavigationError(error)) {
-        console.log('⚠️  Navigation detected during button click, continuing...');
-        continue;
-      }
-      console.log(`⚠️  Error clicking button: ${error.message}`);
-      console.log('💡 Button might be disabled or modal is open, waiting 2 seconds and retrying...');
-      await commander.wait({ ms: 2000, reason: 'retry after click error' });
       continue;
     }
 
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] 5. Waiting for modal to appear (or navigation to complete, 2 seconds)...');
-    }
-
-    // Just wait for modal to appear (or navigation to complete)
-    await commander.wait({ ms: 2000, reason: 'modal to appear' });
-
-    if (argv.verbose) {
-      try {
-        const scrollAfterWait = await commander.evaluate({
-          fn: () => ({ x: window.scrollX, y: window.scrollY }),
-        });
-        console.log(`🔍 [VERBOSE] 6. Scroll AFTER 2s wait: x=${scrollAfterWait.x}, y=${scrollAfterWait.y}`);
-      } catch (e) {
-        console.log(`🔍 [VERBOSE] 6. Could not check scroll (page may have navigated): ${e.message}`);
-      }
-      console.log('🔍 [VERBOSE] 7. Waiting for delayed redirects (2 more seconds)...');
-    }
-
-    await commander.wait({ ms: 2000, reason: 'delayed redirects to complete' });
-
-    if (argv.verbose) {
-      try {
-        const scrollFinal = await commander.evaluate({
-          fn: () => ({ x: window.scrollX, y: window.scrollY }),
-        });
-        console.log(`🔍 [VERBOSE] 8. Scroll AFTER 4s total wait: x=${scrollFinal.x}, y=${scrollFinal.y}`);
-      } catch (e) {
-        console.log(`🔍 [VERBOSE] 8. Could not check scroll (page may have navigated): ${e.message}`);
-      }
-    }
-
-    const currentUrl = commander.getUrl();
-
-    if (!targetPagePattern.test(currentUrl)) {
-      console.log('⚠️  Redirected to a different page:', currentUrl);
-
-      if (vacancyResponsePattern.test(currentUrl)) {
-        console.log('💡 This is a vacancy_response page, handling automatically...');
-        await handleVacancyResponsePage();
-
-        await commander.wait({ ms: 2000, reason: 'potential redirect or manual navigation' });
-
-        const newUrl = commander.getUrl();
-        if (targetPagePattern.test(newUrl)) {
-          console.log('✅ Back on search page after submission');
-          await commander.wait({ ms: 1000, reason: 'page to fully load' });
-          continue;
-        } else if (vacancyResponsePattern.test(newUrl)) {
-          console.log('💡 Waiting for you to complete and navigate back to:', START_URL);
-
-          const savedCount = await saveQAPairs();
-          if (savedCount > 0) {
-            console.log(`💾 Saved ${savedCount} Q&A pair(s) before waiting for navigation`);
-          }
-
-          const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
-          if (pageClosedByUser) {
-            return;
-          }
-
-          // Check if button was clicked and redirect if needed
-          if (waitResult === 'redirect_needed') {
-            const didRedirect = await checkAndRedirectIfNeeded();
-            if (didRedirect) {
-              console.log('✅ Redirected back to search page after detecting button click');
-            }
-          } else {
-            console.log('✅ Returned to target page! Continuing with button loop...');
-          }
-
-          await commander.wait({ ms: 1000, reason: 'page to fully load after navigation' });
-          continue;
-        }
-      } else {
-        console.log('💡 This appears to be a separate application form page.');
-        console.log('💡 Please fill out the form manually. Take as much time as you need.');
-        console.log('💡 Once done, navigate back to:', START_URL);
-
-        await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
-
-        if (pageClosedByUser) {
-          return;
-        }
-
-        console.log('✅ Returned to target page! Continuing with button loop...');
-        await commander.wait({ ms: 1000, reason: 'page to fully load after manual navigation' });
-        continue;
-      }
-    }
-
-    // Wait for modal
-    let modalAppeared = false;
-    try {
-      if (argv.verbose) {
-        try {
-          const scrollBeforeModal = await commander.evaluate({
-            fn: () => ({ x: window.scrollX, y: window.scrollY }),
-          });
-          console.log(`🔍 [VERBOSE] 9. Scroll BEFORE waiting for modal selector: x=${scrollBeforeModal.x}, y=${scrollBeforeModal.y}`);
-        } catch (e) {
-          console.log(`🔍 [VERBOSE] 9. Could not check scroll: ${e.message}`);
-        }
-        console.log('🔍 [VERBOSE] 10. Waiting for modal selector: form#RESPONSE_MODAL_FORM_ID...');
-      }
-      await commander.waitForSelector({
-        selector: 'form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]',
-        visible: true,
-        timeout: 10000,
-      });
-      modalAppeared = true;
-      if (argv.verbose) {
-        try {
-          const scrollAfterModal = await commander.evaluate({
-            fn: () => ({ x: window.scrollX, y: window.scrollY }),
-          });
-          console.log('🔍 [VERBOSE] 11. Modal selector found');
-          console.log(`🔍 [VERBOSE] 12. Scroll AFTER modal appeared: x=${scrollAfterModal.x}, y=${scrollAfterModal.y}`);
-        } catch (e) {
-          console.log(`🔍 [VERBOSE] 11-12. Modal found but could not check scroll: ${e.message}`);
-        }
-      }
-    } catch {
-      console.log('⚠️  Modal did not appear within timeout. This may be a different type of vacancy response.');
-      console.log('💡 Skipping this button and moving to the next one...');
+    if (result.status === 'limit_error' || result.status === 'limit_error_after_submit') {
+      await handleLimitError({ commander, START_URL });
       continue;
     }
 
-    if (!modalAppeared) {
-      continue;
+    if (result.status === 'success') {
+      console.log(`⏳ Waiting ${BUTTON_CLICK_INTERVAL / 1000} seconds before processing next button...`);
+      await commander.wait({ ms: BUTTON_CLICK_INTERVAL, reason: 'interval before next application' });
     }
 
-    // Check for limit error
-    const limitErrorCount = await commander.count({
-      selector: '[data-qa-popup-error-code="negotiations-limit-exceeded"]',
-    });
-
-    if (limitErrorCount > 0) {
-      await handleLimitError();
-      continue;
-    }
-
-    // Check if textarea is already visible (cover letter might be mandatory)
-    const modalTextareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
-    let textareaVisible = false;
-    try {
-      const count = await commander.count({ selector: modalTextareaSelector });
-      if (count > 0) {
-        textareaVisible = await commander.isVisible({ selector: modalTextareaSelector });
-      }
-    } catch (error) {
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] Error checking textarea visibility: ${error.message}`);
-      }
-    }
-
-    // Only click toggle if textarea is not visible
-    if (!textareaVisible) {
-      // Click cover letter toggle
-      let coverToggleSelector = null;
-      let coverToggleCount = 0;
-
-      // Try data-qa selectors first
-      const coverDataQaSelectors = [
-        '[data-qa="add-cover-letter"]',
-        '[data-qa="vacancy-response-letter-toggle"]',
-      ];
-
-      for (const sel of coverDataQaSelectors) {
-        const count = await commander.count({ selector: sel });
-        if (count > 0) {
-          coverToggleSelector = sel;
-          coverToggleCount = count;
-          break;
-        }
-      }
-
-      // Fallback to text search
-      if (coverToggleCount === 0) {
-        const elementTypes = ['button', 'a'];
-        for (const elementType of elementTypes) {
-          coverToggleSelector = await commander.findByText({
-            text: 'сопроводительное',
-            selector: elementType,
-          });
-          coverToggleCount = await commander.count({ selector: coverToggleSelector });
-          if (coverToggleCount > 0) {
-            break;
-          }
-        }
-      }
-
-      if (coverToggleCount > 0) {
-        if (argv.verbose) {
-          const text = await commander.textContent({ selector: coverToggleSelector });
-          const dataQa = await commander.getAttribute({ selector: coverToggleSelector, attribute: 'data-qa' });
-          console.log(`🔍 [VERBOSE] Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
-        }
-        try {
-          await commander.clickButton({ selector: coverToggleSelector, scrollIntoView: false });
-          console.log('✅ Clicked cover letter toggle');
-        } catch (error) {
-          console.log(`⚠️  Could not click toggle: ${error.message}`);
-          console.log('💡 Cover letter section may already be expanded');
-        }
-      } else {
-        console.log('💡 Cover letter toggle not found, section may already be expanded');
-      }
-    } else {
-      console.log('💡 Cover letter textarea already visible, skipping toggle click');
-    }
-
-    // Fill cover letter in modal
-    const filled = await commander.fillTextArea({
-      selector: 'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
-      text: MESSAGE,
-      checkEmpty: true,
-      scrollIntoView: false,
-      simulateTyping: true,
-    });
-    if (filled) {
-      console.log(`✅ ${commander.engine}: typed message successfully`);
-    } else {
-      console.log(`⏭️  ${commander.engine}: textarea already contains text, skipping typing to prevent double entry`);
-    }
-
-    // Verify textarea value
-    const textareaValue = await commander.inputValue({
-      selector: 'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
-    });
-    if (textareaValue === MESSAGE) {
-      console.log(`✅ ${commander.engine}: verified textarea contains target message`);
-    } else {
-      console.error(`❌ ${commander.engine}: textarea value does not match expected message`);
-      console.error('Expected:', MESSAGE);
-      console.error('Actual:', textareaValue);
-    }
-
-    // Check for UNANSWERED test questions in modal (after potential auto-fill)
-    // Count unanswered questions in modal using qa.mjs
-    const modalStats = await countUnansweredQuestions({
-      evaluate: commander.evaluate,
-      containerSelector: 'form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]',
-    });
-    const modalUnansweredTestQuestionCount = modalStats.unansweredCount;
-
-    if (modalUnansweredTestQuestionCount > 0) {
-      console.log(`⚠️  Found ${modalUnansweredTestQuestionCount} UNANSWERED test question(s) in modal`);
-      console.log('💡 Skipping this vacancy - cannot auto-submit when test questions remain unanswered');
-
-      // Close the modal
-      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-      if (closeButtonCount > 0) {
-        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-        console.log('✅ Closed the application modal');
-      }
-
-      await commander.wait({ ms: 1000, reason: 'modal to close' });
-      continue;
-    }
-
-    // Check if submit button exists and its state
-    const submitButtonSelector = '[data-qa="vacancy-response-submit-popup"]';
-    let buttonState = { found: false };
-    try {
-      const evalResult = await commander.safeEvaluate({
-        fn: (sel) => {
-          const el = document.querySelector(sel);
-          if (!el) return { found: false };
-          return {
-            found: true,
-            disabled: el.hasAttribute('disabled') || el.classList.contains('disabled'),
-            visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
-            text: el.textContent?.trim(),
-          };
-        },
-        args: [submitButtonSelector],
-        defaultValue: { found: false },
-        operationName: 'submit button state check',
-      });
-      if (evalResult.navigationError) {
-        console.log('⚠️  Navigation detected while checking submit button, continuing...');
-        continue;
-      }
-      buttonState = evalResult.value;
-    } catch (error) {
-      if (isNavigationError(error)) {
-        console.log('⚠️  Navigation detected while checking submit button, continuing...');
-        continue;
-      }
-      throw error;
-    }
-
-    if (argv.verbose) {
-      console.log('🔍 [VERBOSE] Submit button state:', JSON.stringify(buttonState, null, 2));
-    }
-
-    if (!buttonState.found) {
-      console.error('❌ Submit button not found in modal!');
-      console.error(`   Tried selector: ${submitButtonSelector}`);
-
-      try {
-        const modalText = await commander.evaluate({
-          fn: () => {
-            const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
-            return form ? form.innerText : 'Could not find modal';
-          },
-        });
-        console.error('📋 Modal content:');
-        console.error(modalText);
-      } catch {
-        console.error('⚠️  Could not extract modal content');
-      }
-
-      console.error('💡 Closing modal and skipping this vacancy...');
-
-      // Close the modal
-      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-      if (closeButtonCount > 0) {
-        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-        console.log('✅ Closed the application modal');
-      }
-
-      await commander.wait({ ms: 1000, reason: 'modal to close' });
-      continue;
-    }
-
-    if (buttonState.disabled) {
-      console.error('❌ Application button is still disabled after entering the message!');
-      console.error(`   Button text: "${buttonState.text}"`);
-
-      try {
-        const modalText = await commander.evaluate({
-          fn: () => {
-            const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
-            return form ? form.innerText : 'Could not find modal';
-          },
-        });
-
-        console.error('📋 Reason from modal:');
-        console.error(modalText);
-      } catch {
-        console.error('⚠️  Could not extract detailed error message from modal');
-      }
-
-      console.error('');
-      console.error('💡 Closing modal and skipping this vacancy...');
-
-      // Close the modal
-      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-      if (closeButtonCount > 0) {
-        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-        console.log('✅ Closed the application modal');
-      }
-
-      await commander.wait({ ms: 1000, reason: 'modal to close' });
-      continue;
-    }
-
-    // Click submit button with timeout handling
-    try {
-      await commander.clickButton({
-        selector: submitButtonSelector,
-        scrollIntoView: false,
-        timeout: 10000,
-      });
-      console.log(`✅ ${commander.engine}: clicked submit button`);
-    } catch (error) {
-      console.error(`❌ Failed to click submit button: ${error.message}`);
-      console.error('💡 Closing modal and skipping this vacancy...');
-
-      // Close the modal
-      const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-      if (closeButtonCount > 0) {
-        await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
-        console.log('✅ Closed the application modal');
-      }
-
-      await commander.wait({ ms: 1000, reason: 'modal to close' });
-      continue;
-    }
-
-    await commander.wait({ ms: 2000, reason: 'modal to close after submission' });
-
-    // Check if submission was successful or if limit error appeared
-    const limitErrorAfterSubmit = await commander.count({
-      selector: '[data-qa-popup-error-code="negotiations-limit-exceeded"]',
-    });
-
-    if (limitErrorAfterSubmit > 0) {
-      await handleLimitError();
-      continue;
-    }
-
-    console.log(`⏳ Waiting ${BUTTON_CLICK_INTERVAL / 1000} seconds before processing next button...`);
-    await commander.wait({ ms: BUTTON_CLICK_INTERVAL, reason: 'interval before next application' });
+    // For other statuses, continue the loop
   }
 })().catch(async (error) => {
   // Check if this is a navigation error - if so, don't crash
