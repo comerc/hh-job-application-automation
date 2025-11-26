@@ -1,4 +1,5 @@
 import { TIMING } from '../core/constants.js';
+import { isNavigationError } from '../core/navigation-safety.js';
 import { waitForLocatorOrElement } from '../elements/locators.js';
 import { scrollIntoViewIfNeeded } from './scroll.js';
 import { clickElement } from './click.js';
@@ -10,7 +11,7 @@ import { getInputValue } from '../elements/content.js';
  * @param {Object} options.page - Browser page object
  * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
  * @param {Object} options.locatorOrElement - Element or locator to check
- * @returns {Promise<boolean>} - True if empty, false if has content
+ * @returns {Promise<boolean>} - True if empty, false if has content (returns true on navigation)
  */
 export async function checkIfElementEmpty(options = {}) {
   const { page, engine, locatorOrElement } = options;
@@ -19,12 +20,20 @@ export async function checkIfElementEmpty(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
-  if (engine === 'playwright') {
-    const currentValue = await locatorOrElement.inputValue();
-    return !currentValue || currentValue.trim() === '';
-  } else {
-    const currentValue = await page.evaluate(el => el.value, locatorOrElement);
-    return !currentValue || currentValue.trim() === '';
+  try {
+    if (engine === 'playwright') {
+      const currentValue = await locatorOrElement.inputValue();
+      return !currentValue || currentValue.trim() === '';
+    } else {
+      const currentValue = await page.evaluate(el => el.value, locatorOrElement);
+      return !currentValue || currentValue.trim() === '';
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during checkIfElementEmpty, returning true');
+      return true;
+    }
+    throw error;
   }
 }
 
@@ -36,7 +45,7 @@ export async function checkIfElementEmpty(options = {}) {
  * @param {Object} options.locatorOrElement - Element or locator to fill
  * @param {string} options.text - Text to fill
  * @param {boolean} options.simulateTyping - Whether to simulate typing (default: true)
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} - True if filled, false on navigation
  */
 export async function performFill(options = {}) {
   const { page, engine, locatorOrElement, text, simulateTyping = true } = options;
@@ -49,24 +58,33 @@ export async function performFill(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
-  if (engine === 'playwright') {
-    if (simulateTyping) {
-      await locatorOrElement.type(text);
+  try {
+    if (engine === 'playwright') {
+      if (simulateTyping) {
+        await locatorOrElement.type(text);
+      } else {
+        await locatorOrElement.fill(text);
+      }
     } else {
-      await locatorOrElement.fill(text);
+      if (simulateTyping) {
+        // For Puppeteer, we need to focus first, then type
+        await locatorOrElement.focus();
+        await page.keyboard.type(text);
+      } else {
+        await page.evaluate((el, value) => {
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }, locatorOrElement, text);
+      }
     }
-  } else {
-    if (simulateTyping) {
-      // For Puppeteer, we need to focus first, then type
-      await locatorOrElement.focus();
-      await page.keyboard.type(text);
-    } else {
-      await page.evaluate((el, value) => {
-        el.value = value;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }, locatorOrElement, text);
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during performFill, recovering gracefully');
+      return false;
     }
+    throw error;
   }
 }
 
@@ -83,8 +101,8 @@ export async function performFill(options = {}) {
  * @param {boolean} options.scrollIntoView - Scroll into view (default: true)
  * @param {boolean} options.simulateTyping - Simulate typing vs direct fill (default: true)
  * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
- * @returns {Promise<boolean>} - True if filled, false if skipped (element already has content)
- * @throws {Error} - If selector or text is missing, or if operation fails
+ * @returns {Promise<boolean>} - True if filled, false if skipped (element already has content) or navigation occurred
+ * @throws {Error} - If selector or text is missing, or if operation fails (except navigation)
  */
 export async function fillTextArea(options = {}) {
   const {
@@ -104,30 +122,44 @@ export async function fillTextArea(options = {}) {
     throw new Error('fillTextArea: selector and text are required in options');
   }
 
-  // Get locator/element and wait for it to be visible (unified for both engines)
-  const locatorOrElement = await waitForLocatorOrElement({ page, engine, selector, timeout });
+  try {
+    // Get locator/element and wait for it to be visible (unified for both engines)
+    const locatorOrElement = await waitForLocatorOrElement({ page, engine, selector, timeout });
 
-  // Check if empty (if requested)
-  if (checkEmpty) {
-    const isEmpty = await checkIfElementEmpty({ page, engine, locatorOrElement });
-    if (!isEmpty) {
-      const currentValue = await getInputValue({ page, engine, locatorOrElement });
-      log.debug(() => `🔍 [VERBOSE] Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."`);
+    // Check if empty (if requested)
+    if (checkEmpty) {
+      const isEmpty = await checkIfElementEmpty({ page, engine, locatorOrElement });
+      if (!isEmpty) {
+        const currentValue = await getInputValue({ page, engine, locatorOrElement });
+        log.debug(() => `🔍 [VERBOSE] Textarea already has content, skipping: "${currentValue.substring(0, 30)}..."`);
+        return false;
+      }
+    }
+
+    // Scroll into view (if requested and needed)
+    if (shouldScroll) {
+      await scrollIntoViewIfNeeded({ page, engine, wait, log, locatorOrElement, behavior: 'smooth' });
+    }
+
+    // Click the element (prevent auto-scroll if scrollIntoView is disabled)
+    const clicked = await clickElement({ engine, log, locatorOrElement, noAutoScroll: !shouldScroll });
+    if (!clicked) {
+      return false; // Navigation occurred
+    }
+
+    // Fill the text
+    const filled = await performFill({ page, engine, locatorOrElement, text, simulateTyping });
+    if (!filled) {
+      return false; // Navigation occurred
+    }
+    log.debug(() => `🔍 [VERBOSE] Filled textarea with text: "${text.substring(0, 50)}..."`);
+
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during fillTextArea, recovering gracefully');
       return false;
     }
+    throw error;
   }
-
-  // Scroll into view (if requested and needed)
-  if (shouldScroll) {
-    await scrollIntoViewIfNeeded({ page, engine, wait, log, locatorOrElement, behavior: 'smooth' });
-  }
-
-  // Click the element (prevent auto-scroll if scrollIntoView is disabled)
-  await clickElement({ engine, log, locatorOrElement, noAutoScroll: !shouldScroll });
-
-  // Fill the text
-  await performFill({ page, engine, locatorOrElement, text, simulateTyping });
-  log.debug(() => `🔍 [VERBOSE] Filled textarea with text: "${text.substring(0, 50)}..."`);
-
-  return true;
 }

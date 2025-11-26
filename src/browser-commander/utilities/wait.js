@@ -1,3 +1,5 @@
+import { isNavigationError } from '../core/navigation-safety.js';
+
 /**
  * Wait/sleep for a specified time with optional verbose logging
  * @param {Object} options - Configuration options
@@ -53,5 +55,42 @@ export async function evaluate(options = {}) {
   } else {
     // Puppeteer accepts spread arguments
     return await page.evaluate(fn, ...args);
+  }
+}
+
+/**
+ * Safe evaluate that catches navigation errors and returns default value
+ * @param {Object} options - Configuration options
+ * @param {Object} options.page - Browser page object
+ * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
+ * @param {Function} options.fn - Function to evaluate
+ * @param {Array} options.args - Arguments to pass to function (default: [])
+ * @param {any} options.defaultValue - Value to return on navigation error (default: null)
+ * @param {string} options.operationName - Name for logging (default: 'evaluate')
+ * @param {boolean} options.silent - Don't log warnings (default: false)
+ * @returns {Promise<{success: boolean, value: any, navigationError: boolean}>}
+ */
+export async function safeEvaluate(options = {}) {
+  const {
+    page,
+    engine,
+    fn,
+    args = [],
+    defaultValue = null,
+    operationName = 'evaluate',
+    silent = false,
+  } = options;
+
+  try {
+    const value = await evaluate({ page, engine, fn, args });
+    return { success: true, value, navigationError: false };
+  } catch (error) {
+    if (isNavigationError(error)) {
+      if (!silent) {
+        console.log(`⚠️  Navigation detected during ${operationName}, recovering gracefully`);
+      }
+      return { success: false, value: defaultValue, navigationError: true };
+    }
+    throw error;
   }
 }

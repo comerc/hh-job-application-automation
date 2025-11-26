@@ -1,4 +1,5 @@
 import { TIMING } from '../core/constants.js';
+import { isNavigationError } from '../core/navigation-safety.js';
 
 /**
  * Helper to create Playwright locator from selector string
@@ -61,30 +62,42 @@ export async function getLocatorOrElement(options = {}) {
  * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
  * @param {string|Object} options.selector - CSS selector or existing locator/element
  * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
- * @returns {Promise<Object>} - Locator for Playwright (first match), Element for Puppeteer
- * @throws {Error} - If element not found or not visible within timeout
+ * @param {boolean} options.throwOnNavigation - Whether to throw on navigation error (default: true)
+ * @returns {Promise<Object|null>} - Locator for Playwright (first match), Element for Puppeteer, or null on navigation
+ * @throws {Error} - If element not found or not visible within timeout (unless navigation error and throwOnNavigation is false)
  */
 export async function waitForLocatorOrElement(options = {}) {
-  const { page, engine, selector, timeout = TIMING.DEFAULT_TIMEOUT } = options;
+  const { page, engine, selector, timeout = TIMING.DEFAULT_TIMEOUT, throwOnNavigation = true } = options;
 
   if (!selector) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = await getLocatorOrElement({ page, engine, selector });
-    // Use .first() to handle multiple matches (Playwright strict mode)
-    const firstLocator = locator.first();
-    await firstLocator.waitFor({ state: 'visible', timeout });
-    return firstLocator;
-  } else {
-    // Puppeteer: wait for selector to be visible (returns first match by default)
-    await page.waitForSelector(selector, { visible: true, timeout });
-    const element = await page.$(selector);
-    if (!element) {
-      throw new Error(`Element not found after waiting: ${selector}`);
+  try {
+    if (engine === 'playwright') {
+      const locator = await getLocatorOrElement({ page, engine, selector });
+      // Use .first() to handle multiple matches (Playwright strict mode)
+      const firstLocator = locator.first();
+      await firstLocator.waitFor({ state: 'visible', timeout });
+      return firstLocator;
+    } else {
+      // Puppeteer: wait for selector to be visible (returns first match by default)
+      await page.waitForSelector(selector, { visible: true, timeout });
+      const element = await page.$(selector);
+      if (!element) {
+        throw new Error(`Element not found after waiting: ${selector}`);
+      }
+      return element;
     }
-    return element;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during waitForLocatorOrElement, recovering gracefully');
+      if (throwOnNavigation) {
+        throw error;
+      }
+      return null;
+    }
+    throw error;
   }
 }
 

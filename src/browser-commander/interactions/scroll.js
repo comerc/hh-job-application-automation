@@ -1,4 +1,5 @@
 import { TIMING } from '../core/constants.js';
+import { isNavigationError } from '../core/navigation-safety.js';
 
 // Shared evaluation function for checking if scrolling is needed
 const needsScrollingFn = (el, thresholdPercent) => {
@@ -23,6 +24,7 @@ const needsScrollingFn = (el, thresholdPercent) => {
  * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
  * @param {Object} options.locatorOrElement - Playwright locator or Puppeteer element
  * @param {string} options.behavior - 'smooth' or 'instant' (default: 'smooth')
+ * @returns {Promise<boolean>} - True if scrolled, false on navigation
  */
 export async function scrollIntoView(options = {}) {
   const { page, engine, locatorOrElement, behavior = 'smooth' } = options;
@@ -31,14 +33,23 @@ export async function scrollIntoView(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
-  if (engine === 'playwright') {
-    await locatorOrElement.evaluate((el, scrollBehavior) => {
-      el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
-    }, behavior);
-  } else {
-    await page.evaluate((el, scrollBehavior) => {
-      el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
-    }, locatorOrElement, behavior);
+  try {
+    if (engine === 'playwright') {
+      await locatorOrElement.evaluate((el, scrollBehavior) => {
+        el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
+      }, behavior);
+    } else {
+      await page.evaluate((el, scrollBehavior) => {
+        el.scrollIntoView({ behavior: scrollBehavior, block: 'center', inline: 'center' });
+      }, locatorOrElement, behavior);
+    }
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during scrollIntoView, skipping');
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -49,7 +60,7 @@ export async function scrollIntoView(options = {}) {
  * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
  * @param {Object} options.locatorOrElement - Playwright locator or Puppeteer element
  * @param {number} options.threshold - Percentage of viewport height to consider "significant" (default: 10)
- * @returns {Promise<boolean>} - True if scroll is needed
+ * @returns {Promise<boolean>} - True if scroll is needed, false on navigation
  */
 export async function needsScrolling(options = {}) {
   const { page, engine, locatorOrElement, threshold = 10 } = options;
@@ -58,10 +69,18 @@ export async function needsScrolling(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
-  if (engine === 'playwright') {
-    return await locatorOrElement.evaluate(needsScrollingFn, threshold);
-  } else {
-    return await page.evaluate(needsScrollingFn, locatorOrElement, threshold);
+  try {
+    if (engine === 'playwright') {
+      return await locatorOrElement.evaluate(needsScrollingFn, threshold);
+    } else {
+      return await page.evaluate(needsScrollingFn, locatorOrElement, threshold);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during needsScrolling, returning false');
+      return false;
+    }
+    throw error;
   }
 }
 

@@ -2,6 +2,8 @@
  * Navigation-related browser operations
  */
 
+import { isNavigationError } from '../core/navigation-safety.js';
+
 /**
  * Wait for URL to stabilize (no redirects happening)
  * @param {Object} options - Configuration options
@@ -65,7 +67,8 @@ export async function waitForUrlStabilization(options = {}) {
  * @param {boolean} options.waitForStableUrlAfter - Wait for URL to stabilize AFTER navigation (default: true)
  * @param {number} options.stableChecks - Number of consecutive stable checks required (default: 3)
  * @param {number} options.checkInterval - Interval between stability checks in ms (default: 1000)
- * @returns {Promise<void>}
+ * @param {number} options.timeout - Navigation timeout in ms (default: 60000)
+ * @returns {Promise<boolean>} - True if navigation succeeded, false on navigation-related error
  */
 export async function goto(options = {}) {
   const {
@@ -77,31 +80,42 @@ export async function goto(options = {}) {
     waitForStableUrlAfter = true,
     stableChecks = 3,
     checkInterval = 1000,
+    timeout = 240000,
   } = options;
 
   if (!url) {
     throw new Error('url is required in options');
   }
 
-  // Wait for URL to stabilize BEFORE navigation (to avoid interrupting natural redirects)
-  if (waitForStableUrlBefore) {
-    await stabilizeFn({
-      stableChecks,
-      checkInterval,
-      reason: 'before navigation',
-    });
-  }
+  try {
+    // Wait for URL to stabilize BEFORE navigation (to avoid interrupting natural redirects)
+    if (waitForStableUrlBefore) {
+      await stabilizeFn({
+        stableChecks,
+        checkInterval,
+        reason: 'before navigation',
+      });
+    }
 
-  // Navigate to the URL
-  await page.goto(url, { waitUntil });
+    // Navigate to the URL
+    await page.goto(url, { waitUntil, timeout });
 
-  // Wait for URL to stabilize AFTER navigation (to ensure all redirects are complete)
-  if (waitForStableUrlAfter) {
-    await stabilizeFn({
-      stableChecks,
-      checkInterval,
-      reason: 'after navigation',
-    });
+    // Wait for URL to stabilize AFTER navigation (to ensure all redirects are complete)
+    if (waitForStableUrlAfter) {
+      await stabilizeFn({
+        stableChecks,
+        checkInterval,
+        reason: 'after navigation',
+      });
+    }
+
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation was interrupted, recovering gracefully');
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -110,9 +124,18 @@ export async function goto(options = {}) {
  * @param {Object} options - Configuration options
  * @param {Object} options.page - Browser page object
  * @param {number} options.timeout - Timeout in ms
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} - True if navigation completed, false on error
  */
 export async function waitForNavigation(options = {}) {
   const { page, timeout } = options;
-  await page.waitForNavigation(timeout ? { timeout } : undefined);
+  try {
+    await page.waitForNavigation(timeout ? { timeout } : undefined);
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  waitForNavigation was interrupted, continuing gracefully');
+      return false;
+    }
+    throw error;
+  }
 }

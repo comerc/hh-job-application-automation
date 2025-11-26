@@ -10,7 +10,7 @@ import { hideBin } from 'yargs/helpers';
 import path from 'path';
 import os from 'os';
 import { createQADatabase, findBestMatch } from './qa-database.mjs';
-import { launchBrowser, makeBrowserCommander } from './browser-commander/index.js';
+import { launchBrowser, makeBrowserCommander, isNavigationError } from './browser-commander/index.js';
 import {
   extractPageQuestions,
   extractQAPairs,
@@ -182,7 +182,7 @@ github.com/link-foundation
         const currentUrl = commander.getUrl();
         if (isOnVacancyPageFromResponse && vacancyPagePattern.test(currentUrl)) {
           // Check both sessionStorage flag AND page content for "Вы откликнулись"
-          const redirectInfo = await commander.evaluate({
+          const evalResult = await commander.safeEvaluate({
             fn: () => {
               const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
               // Normalize whitespace (including nbsp) for matching
@@ -207,9 +207,18 @@ github.com/link-foundation
                 needsRedirect: flag === 'true',
               };
             },
+            defaultValue: null,
+            operationName: 'redirect check',
           });
 
-          if (argv.verbose && isOnVacancyPageFromResponse) {
+          // Skip if navigation occurred
+          if (evalResult.navigationError) {
+            await commander.wait({ ms: pollingInterval, reason: 'waiting after navigation detected' });
+            continue;
+          }
+
+          const redirectInfo = evalResult.value;
+          if (redirectInfo && argv.verbose && isOnVacancyPageFromResponse) {
             console.log(`🔍 [VERBOSE] Checking redirect on vacancy page: ${currentUrl}`);
             console.log(`🔍 [VERBOSE] sessionStorage flag: ${redirectInfo.hasFlag}`);
             console.log(`🔍 [VERBOSE] "Вы откликнулись": ${redirectInfo.hasResponseText}`);
@@ -218,7 +227,7 @@ github.com/link-foundation
             console.log(`🔍 [VERBOSE] Has "Откликнуться" button: ${redirectInfo.hasRespondButton}`);
           }
 
-          if (redirectInfo.needsRedirect) {
+          if (redirectInfo && redirectInfo.needsRedirect) {
             if (redirectInfo.hasFlag) {
               console.log('✅ Detected "Откликнуться" button click via sessionStorage flag!');
             } else {
@@ -230,19 +239,31 @@ github.com/link-foundation
         }
 
         // Check if target URL reached
-        const result = await commander.evaluate({
+        const urlCheckResult = await commander.safeEvaluate({
           fn: (url) => window.location.href.startsWith(url),
           args: [targetUrl],
+          defaultValue: false,
+          operationName: 'URL check',
+          silent: true,
         });
-        if (result) {
+
+        if (urlCheckResult.navigationError) {
+          // Navigation happened, continue waiting
+          await commander.wait({ ms: pollingInterval, reason: 'waiting after navigation detected' });
+          continue;
+        }
+
+        if (urlCheckResult.value) {
           return true;
         }
       } catch (error) {
         if (pageClosedByUser) {
           return;
         }
-        const isDetachedFrameError = error.message && error.message.includes('detached Frame');
-        if (!isDetachedFrameError) {
+        // Handle navigation errors gracefully
+        if (isNavigationError(error)) {
+          console.log('⚠️  Navigation detected during URL check, continuing to wait...');
+        } else {
           console.log(`⚠️  Temporary error while checking URL: ${error.message.substring(0, 100)}... (retrying)`);
         }
       }
@@ -824,7 +845,7 @@ github.com/link-foundation
         if (wasOnVacancyPage) {
           // Check if application was submitted (page shows "Вы откликнулись")
           // This happens after clicking "Откликнуться" on vacancy_response page and submitting
-          const submissionInfo = await commander.evaluate({
+          const evalResult = await commander.safeEvaluate({
             fn: () => {
               // Normalize whitespace (including nbsp) for matching
               const bodyText = document.body.textContent.replace(/\s+/g, ' ');
@@ -840,7 +861,17 @@ github.com/link-foundation
                 hasSubmitted: hasResponseText || hasAlreadyResponded || hasResponseSent,
               };
             },
+            defaultValue: { hasSubmitted: false },
+            operationName: 'submission check in navigation handler',
           });
+
+          // Skip if navigation occurred during the check
+          if (evalResult.navigationError) {
+            lastUrl = currentUrl;
+            return;
+          }
+
+          const submissionInfo = evalResult.value;
 
           if (argv.verbose) {
             console.log(`🔍 [VERBOSE] Navigation handler checking submission on: ${currentUrl}`);
@@ -889,7 +920,12 @@ github.com/link-foundation
 
       lastUrl = currentUrl;
     } catch (error) {
-      console.log('⚠️  Error in navigation handler:', error.message);
+      // Handle navigation errors gracefully - don't crash the handler
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected in navigation handler, continuing...');
+      } else {
+        console.log('⚠️  Error in navigation handler:', error.message);
+      }
     }
   };
 
@@ -974,7 +1010,7 @@ github.com/link-foundation
         console.log(`🔍 [VERBOSE] isOnVacancyPageFromResponse: ${isOnVacancyPageFromResponse}`);
       }
 
-      const shouldRedirect = await commander.evaluate({
+      const evalResult = await commander.safeEvaluate({
         fn: () => {
           const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
           if (flag === 'true') {
@@ -983,7 +1019,16 @@ github.com/link-foundation
           }
           return false;
         },
+        defaultValue: false,
+        operationName: 'checkAndRedirectIfNeeded',
       });
+
+      // If navigation occurred, just return false
+      if (evalResult.navigationError) {
+        return false;
+      }
+
+      const shouldRedirect = evalResult.value;
 
       if (argv.verbose) {
         console.log(`🔍 [VERBOSE] shouldRedirect from sessionStorage: ${shouldRedirect}`);
@@ -1020,7 +1065,12 @@ github.com/link-foundation
 
       return false;
     } catch (error) {
-      console.log('⚠️  Error checking redirect condition:', error.message);
+      // Handle navigation errors gracefully
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected during redirect check, continuing...');
+      } else {
+        console.log('⚠️  Error checking redirect condition:', error.message);
+      }
       return false;
     }
   }
@@ -1199,10 +1249,17 @@ github.com/link-foundation
 
     // Log scroll position before any interaction
     if (argv.verbose) {
-      const scrollBefore = await commander.evaluate({
-        fn: () => ({ x: window.scrollX, y: window.scrollY }),
-      });
-      console.log(`🔍 [VERBOSE] 1. Scroll BEFORE button click: x=${scrollBefore.x}, y=${scrollBefore.y}`);
+      try {
+        const scrollBefore = await commander.evaluate({
+          fn: () => ({ x: window.scrollX, y: window.scrollY }),
+        });
+        console.log(`🔍 [VERBOSE] 1. Scroll BEFORE button click: x=${scrollBefore.x}, y=${scrollBefore.y}`);
+      } catch (e) {
+        if (isNavigationError(e)) {
+          console.log('🔍 [VERBOSE] 1. Navigation detected during scroll check, continuing...');
+          continue;
+        }
+      }
     }
 
     // Click first button with smooth scrolling animation
@@ -1243,6 +1300,10 @@ github.com/link-foundation
         console.log(`   - form exists: ${stateAfterClick.hasForm}`);
       }
     } catch (error) {
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected during button click, continuing...');
+        continue;
+      }
       console.log(`⚠️  Error clicking button: ${error.message}`);
       console.log('💡 Button might be disabled or modal is open, waiting 2 seconds and retrying...');
       await commander.wait({ ms: 2000, reason: 'retry after click error' });
@@ -1512,19 +1573,35 @@ github.com/link-foundation
 
     // Check if submit button exists and its state
     const submitButtonSelector = '[data-qa="vacancy-response-submit-popup"]';
-    const buttonState = await commander.evaluate({
-      fn: (sel) => {
-        const el = document.querySelector(sel);
-        if (!el) return { found: false };
-        return {
-          found: true,
-          disabled: el.hasAttribute('disabled') || el.classList.contains('disabled'),
-          visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
-          text: el.textContent?.trim(),
-        };
-      },
-      args: [submitButtonSelector],
-    });
+    let buttonState = { found: false };
+    try {
+      const evalResult = await commander.safeEvaluate({
+        fn: (sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return { found: false };
+          return {
+            found: true,
+            disabled: el.hasAttribute('disabled') || el.classList.contains('disabled'),
+            visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+            text: el.textContent?.trim(),
+          };
+        },
+        args: [submitButtonSelector],
+        defaultValue: { found: false },
+        operationName: 'submit button state check',
+      });
+      if (evalResult.navigationError) {
+        console.log('⚠️  Navigation detected while checking submit button, continuing...');
+        continue;
+      }
+      buttonState = evalResult.value;
+    } catch (error) {
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected while checking submit button, continuing...');
+        continue;
+      }
+      throw error;
+    }
 
     if (argv.verbose) {
       console.log('🔍 [VERBOSE] Submit button state:', JSON.stringify(buttonState, null, 2));
@@ -1631,6 +1708,14 @@ github.com/link-foundation
     await commander.wait({ ms: BUTTON_CLICK_INTERVAL, reason: 'interval before next application' });
   }
 })().catch(async (error) => {
+  // Check if this is a navigation error - if so, don't crash
+  if (isNavigationError(error)) {
+    console.log('⚠️  Navigation-related error occurred, attempting to recover...');
+    console.log('💡 The automation may have been interrupted by page navigation.');
+    console.log('💡 Please restart the script if needed.');
+    // Don't exit with error for navigation issues
+    process.exit(0);
+  }
   console.error('❌ Error occurred:', error.message);
   process.exit(1);
 });

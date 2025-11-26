@@ -1,3 +1,4 @@
+import { isNavigationError } from '../core/navigation-safety.js';
 import { createPlaywrightLocator } from './locators.js';
 
 /**
@@ -15,12 +16,20 @@ export async function querySelector(options = {}) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = createPlaywrightLocator({ page, selector }).first();
-    const count = await locator.count();
-    return count > 0 ? locator : null;
-  } else {
-    return await page.$(selector);
+  try {
+    if (engine === 'playwright') {
+      const locator = createPlaywrightLocator({ page, selector }).first();
+      const count = await locator.count();
+      return count > 0 ? locator : null;
+    } else {
+      return await page.$(selector);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during querySelector, returning null');
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -39,16 +48,24 @@ export async function querySelectorAll(options = {}) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = createPlaywrightLocator({ page, selector });
-    const count = await locator.count();
-    const elements = [];
-    for (let i = 0; i < count; i++) {
-      elements.push(locator.nth(i));
+  try {
+    if (engine === 'playwright') {
+      const locator = createPlaywrightLocator({ page, selector });
+      const count = await locator.count();
+      const elements = [];
+      for (let i = 0; i < count; i++) {
+        elements.push(locator.nth(i));
+      }
+      return elements;
+    } else {
+      return await page.$$(selector);
     }
-    return elements;
-  } else {
-    return await page.$$(selector);
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during querySelectorAll, returning empty array');
+      return [];
+    }
+    throw error;
   }
 }
 
@@ -103,34 +120,42 @@ export async function normalizeSelector(options = {}) {
   }
 
   if (selector._isPuppeteerTextSelector) {
-    // Find element by text and generate a unique selector
-    const result = await page.evaluate((baseSelector, text, exact) => {
-      const elements = Array.from(document.querySelectorAll(baseSelector));
-      const matchingElement = elements.find(el => {
-        const elementText = el.textContent.trim();
-        return exact ? elementText === text : elementText.includes(text);
-      });
+    try {
+      // Find element by text and generate a unique selector
+      const result = await page.evaluate((baseSelector, text, exact) => {
+        const elements = Array.from(document.querySelectorAll(baseSelector));
+        const matchingElement = elements.find(el => {
+          const elementText = el.textContent.trim();
+          return exact ? elementText === text : elementText.includes(text);
+        });
 
-      if (!matchingElement) {
+        if (!matchingElement) {
+          return null;
+        }
+
+        // Generate a unique selector using data-qa or nth-of-type
+        const dataQa = matchingElement.getAttribute('data-qa');
+        if (dataQa) {
+          return `[data-qa="${dataQa}"]`;
+        }
+
+        // Use nth-of-type as fallback
+        const tagName = matchingElement.tagName.toLowerCase();
+        const siblings = Array.from(matchingElement.parentElement.children).filter(
+          el => el.tagName.toLowerCase() === tagName
+        );
+        const index = siblings.indexOf(matchingElement);
+        return `${tagName}:nth-of-type(${index + 1})`;
+      }, selector.baseSelector, selector.text, selector.exact);
+
+      return result;
+    } catch (error) {
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected during normalizeSelector, returning null');
         return null;
       }
-
-      // Generate a unique selector using data-qa or nth-of-type
-      const dataQa = matchingElement.getAttribute('data-qa');
-      if (dataQa) {
-        return `[data-qa="${dataQa}"]`;
-      }
-
-      // Use nth-of-type as fallback
-      const tagName = matchingElement.tagName.toLowerCase();
-      const siblings = Array.from(matchingElement.parentElement.children).filter(
-        el => el.tagName.toLowerCase() === tagName
-      );
-      const index = siblings.indexOf(matchingElement);
-      return `${tagName}:nth-of-type(${index + 1})`;
-    }, selector.baseSelector, selector.text, selector.exact);
-
-    return result;
+      throw error;
+    }
   }
 
   return selector;
@@ -167,19 +192,32 @@ export function withTextSelectorSupport(fn, engine, page) {
  * @param {string} options.selector - CSS selector
  * @param {boolean} options.visible - Wait for visibility (default: true)
  * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
- * @returns {Promise<void>}
+ * @param {boolean} options.throwOnNavigation - Throw on navigation error (default: true)
+ * @returns {Promise<boolean>} - True if selector found, false on navigation
  */
 export async function waitForSelector(options = {}) {
-  const { page, engine, selector, visible = true, timeout = 5000 } = options;
+  const { page, engine, selector, visible = true, timeout = 5000, throwOnNavigation = true } = options;
 
   if (!selector) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = createPlaywrightLocator({ page, selector });
-    await locator.waitFor({ state: visible ? 'visible' : 'attached', timeout });
-  } else {
-    await page.waitForSelector(selector, { visible, timeout });
+  try {
+    if (engine === 'playwright') {
+      const locator = createPlaywrightLocator({ page, selector });
+      await locator.waitFor({ state: visible ? 'visible' : 'attached', timeout });
+    } else {
+      await page.waitForSelector(selector, { visible, timeout });
+    }
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during waitForSelector, recovering gracefully');
+      if (throwOnNavigation) {
+        throw error;
+      }
+      return false;
+    }
+    throw error;
   }
 }

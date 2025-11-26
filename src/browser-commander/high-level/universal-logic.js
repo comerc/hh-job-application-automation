@@ -3,6 +3,8 @@
  * These are pure functions that work with any browser automation engine
  */
 
+import { isNavigationError } from '../core/navigation-safety.js';
+
 /**
  * Wait indefinitely for a URL condition with custom check function
  * @param {Object} options - Configuration options
@@ -56,8 +58,10 @@ export async function waitForUrlCondition(options = {}) {
         return null;
       }
 
-      const isDetachedFrameError = error.message && error.message.includes('detached Frame');
-      if (!isDetachedFrameError) {
+      // Handle navigation errors gracefully
+      if (isNavigationError(error)) {
+        console.log('⚠️  Navigation detected during URL check, continuing to wait...');
+      } else {
         console.log(`⚠️  Temporary error while checking URL: ${error.message.substring(0, 100)}... (retrying)`);
       }
     }
@@ -72,28 +76,38 @@ export async function waitForUrlCondition(options = {}) {
  * @param {Function} options.evaluate - Evaluate function
  * @param {string} options.buttonText - Text to detect
  * @param {string} options.storageKey - SessionStorage key to set
+ * @returns {Promise<boolean>} - True if installed, false on navigation
  */
 export async function installClickListener(options = {}) {
   const { evaluate, buttonText, storageKey } = options;
 
-  await evaluate({
-    fn: (text, key) => {
-      document.addEventListener('click', (event) => {
-        let element = event.target;
-        while (element && element !== document.body) {
-          const elementText = element.textContent?.trim() || '';
-          if (elementText === text ||
-              (element.tagName === 'A' || element.tagName === 'BUTTON') && elementText.includes(text)) {
-            console.log(`[Click Listener] Detected click on ${text} button!`);
-            window.sessionStorage.setItem(key, 'true');
-            break;
+  try {
+    await evaluate({
+      fn: (text, key) => {
+        document.addEventListener('click', (event) => {
+          let element = event.target;
+          while (element && element !== document.body) {
+            const elementText = element.textContent?.trim() || '';
+            if (elementText === text ||
+                (element.tagName === 'A' || element.tagName === 'BUTTON') && elementText.includes(text)) {
+              console.log(`[Click Listener] Detected click on ${text} button!`);
+              window.sessionStorage.setItem(key, 'true');
+              break;
+            }
+            element = element.parentElement;
           }
-          element = element.parentElement;
-        }
-      }, true);
-    },
-    args: [buttonText, storageKey],
-  });
+        }, true);
+      },
+      args: [buttonText, storageKey],
+    });
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during installClickListener, skipping');
+      return false;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -101,22 +115,30 @@ export async function installClickListener(options = {}) {
  * @param {Object} options - Configuration options
  * @param {Function} options.evaluate - Evaluate function
  * @param {string} options.storageKey - SessionStorage key
- * @returns {Promise<boolean>} - True if flag was set
+ * @returns {Promise<boolean>} - True if flag was set, false otherwise or on navigation
  */
 export async function checkAndClearFlag(options = {}) {
   const { evaluate, storageKey } = options;
 
-  return await evaluate({
-    fn: (key) => {
-      const flag = window.sessionStorage.getItem(key);
-      if (flag === 'true') {
-        window.sessionStorage.removeItem(key);
-        return true;
-      }
+  try {
+    return await evaluate({
+      fn: (key) => {
+        const flag = window.sessionStorage.getItem(key);
+        if (flag === 'true') {
+          window.sessionStorage.removeItem(key);
+          return true;
+        }
+        return false;
+      },
+      args: [storageKey],
+    });
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during checkAndClearFlag, returning false');
       return false;
-    },
-    args: [storageKey],
-  });
+    }
+    throw error;
+  }
 }
 
 /**

@@ -1,4 +1,5 @@
 import { TIMING } from '../core/constants.js';
+import { isNavigationError } from '../core/navigation-safety.js';
 import { getLocatorOrElement } from './locators.js';
 
 /**
@@ -16,18 +17,26 @@ export async function isVisible(options = {}) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = await getLocatorOrElement({ page, engine, selector });
-    try {
-      await locator.waitFor({ state: 'visible', timeout: TIMING.VISIBILITY_CHECK_TIMEOUT });
-      return true;
-    } catch {
+  try {
+    if (engine === 'playwright') {
+      const locator = await getLocatorOrElement({ page, engine, selector });
+      try {
+        await locator.waitFor({ state: 'visible', timeout: TIMING.VISIBILITY_CHECK_TIMEOUT });
+        return true;
+      } catch {
+        return false;
+      }
+    } else {
+      const element = await getLocatorOrElement({ page, engine, selector });
+      if (!element) return false;
+      return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, element);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during visibility check, returning false');
       return false;
     }
-  } else {
-    const element = await getLocatorOrElement({ page, engine, selector });
-    if (!element) return false;
-    return await page.evaluate(el => el.offsetWidth > 0 && el.offsetHeight > 0, element);
+    throw error;
   }
 }
 
@@ -68,7 +77,10 @@ export async function isEnabled(options = {}) {
         return !isDisabled;
       }, element, disabledClasses);
     }
-  } catch {
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during enabled check, returning false');
+    }
     return false;
   }
 }
@@ -88,22 +100,30 @@ export async function count(options = {}) {
     throw new Error('selector is required in options');
   }
 
-  // Handle Puppeteer text selectors
-  if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
-    const result = await page.evaluate((baseSelector, text, exact) => {
-      const elements = Array.from(document.querySelectorAll(baseSelector));
-      return elements.filter(el => {
-        const elementText = el.textContent.trim();
-        return exact ? elementText === text : elementText.includes(text);
-      }).length;
-    }, selector.baseSelector, selector.text, selector.exact);
-    return result;
-  }
+  try {
+    // Handle Puppeteer text selectors
+    if (engine === 'puppeteer' && typeof selector === 'object' && selector._isPuppeteerTextSelector) {
+      const result = await page.evaluate((baseSelector, text, exact) => {
+        const elements = Array.from(document.querySelectorAll(baseSelector));
+        return elements.filter(el => {
+          const elementText = el.textContent.trim();
+          return exact ? elementText === text : elementText.includes(text);
+        }).length;
+      }, selector.baseSelector, selector.text, selector.exact);
+      return result;
+    }
 
-  if (engine === 'playwright') {
-    return await page.locator(selector).count();
-  } else {
-    const elements = await page.$$(selector);
-    return elements.length;
+    if (engine === 'playwright') {
+      return await page.locator(selector).count();
+    } else {
+      const elements = await page.$$(selector);
+      return elements.length;
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during element count, returning 0');
+      return 0;
+    }
+    throw error;
   }
 }

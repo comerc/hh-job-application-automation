@@ -1,3 +1,4 @@
+import { isNavigationError } from '../core/navigation-safety.js';
 import { getLocatorOrElement } from './locators.js';
 
 /**
@@ -15,13 +16,21 @@ export async function textContent(options = {}) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = await getLocatorOrElement({ page, engine, selector });
-    return await locator.textContent();
-  } else {
-    const element = await getLocatorOrElement({ page, engine, selector });
-    if (!element) return null;
-    return await page.evaluate(el => el.textContent, element);
+  try {
+    if (engine === 'playwright') {
+      const locator = await getLocatorOrElement({ page, engine, selector });
+      return await locator.textContent();
+    } else {
+      const element = await getLocatorOrElement({ page, engine, selector });
+      if (!element) return null;
+      return await page.evaluate(el => el.textContent, element);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during textContent, returning null');
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -40,13 +49,21 @@ export async function inputValue(options = {}) {
     throw new Error('selector is required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = await getLocatorOrElement({ page, engine, selector });
-    return await locator.inputValue();
-  } else {
-    const element = await getLocatorOrElement({ page, engine, selector });
-    if (!element) return '';
-    return await page.evaluate(el => el.value, element);
+  try {
+    if (engine === 'playwright') {
+      const locator = await getLocatorOrElement({ page, engine, selector });
+      return await locator.inputValue();
+    } else {
+      const element = await getLocatorOrElement({ page, engine, selector });
+      if (!element) return '';
+      return await page.evaluate(el => el.value, element);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during inputValue, returning empty string');
+      return '';
+    }
+    throw error;
   }
 }
 
@@ -66,13 +83,21 @@ export async function getAttribute(options = {}) {
     throw new Error('selector and attribute are required in options');
   }
 
-  if (engine === 'playwright') {
-    const locator = await getLocatorOrElement({ page, engine, selector });
-    return await locator.getAttribute(attribute);
-  } else {
-    const element = await getLocatorOrElement({ page, engine, selector });
-    if (!element) return null;
-    return await page.evaluate((el, attr) => el.getAttribute(attr), element, attribute);
+  try {
+    if (engine === 'playwright') {
+      const locator = await getLocatorOrElement({ page, engine, selector });
+      return await locator.getAttribute(attribute);
+    } else {
+      const element = await getLocatorOrElement({ page, engine, selector });
+      if (!element) return null;
+      return await page.evaluate((el, attr) => el.getAttribute(attr), element, attribute);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during getAttribute, returning null');
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -91,10 +116,18 @@ export async function getInputValue(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
-  if (engine === 'playwright') {
-    return await locatorOrElement.inputValue();
-  } else {
-    return await page.evaluate(el => el.value, locatorOrElement);
+  try {
+    if (engine === 'playwright') {
+      return await locatorOrElement.inputValue();
+    } else {
+      return await page.evaluate(el => el.value, locatorOrElement);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during getInputValue, returning empty string');
+      return '';
+    }
+    throw error;
   }
 }
 
@@ -114,13 +147,21 @@ export async function logElementInfo(options = {}) {
     return;
   }
 
-  if (engine === 'playwright') {
-    const tagName = await locatorOrElement.evaluate(el => el.tagName);
-    const text = await locatorOrElement.textContent();
-    log.debug(() => `🔍 [VERBOSE] Target element: ${tagName}: "${text?.trim().substring(0, 30)}..."`);
-  } else {
-    const tagName = await page.evaluate(el => el.tagName, locatorOrElement);
-    const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), locatorOrElement);
-    log.debug(() => `🔍 [VERBOSE] Target element: ${tagName}: "${text}..."`);
+  try {
+    if (engine === 'playwright') {
+      const tagName = await locatorOrElement.evaluate(el => el.tagName);
+      const text = await locatorOrElement.textContent();
+      log.debug(() => `🔍 [VERBOSE] Target element: ${tagName}: "${text?.trim().substring(0, 30)}..."`);
+    } else {
+      const tagName = await page.evaluate(el => el.tagName, locatorOrElement);
+      const text = await page.evaluate(el => el.textContent?.trim().substring(0, 30), locatorOrElement);
+      log.debug(() => `🔍 [VERBOSE] Target element: ${tagName}: "${text}..."`);
+    }
+  } catch (error) {
+    if (isNavigationError(error)) {
+      log.debug(() => '⚠️  Navigation detected during logElementInfo, skipping');
+      return;
+    }
+    throw error;
   }
 }

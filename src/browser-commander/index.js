@@ -7,7 +7,7 @@
 // Import functions needed by makeBrowserCommander
 import { createLogger } from './core/logger.js';
 import { detectEngine } from './core/engine-detection.js';
-import { wait, evaluate } from './utilities/wait.js';
+import { wait, evaluate, safeEvaluate } from './utilities/wait.js';
 import { getUrl, unfocusAddressBar } from './utilities/url.js';
 import { waitForUrlStabilization, goto, waitForNavigation } from './browser/navigation.js';
 import { createPlaywrightLocator, getLocatorOrElement, waitForLocatorOrElement, waitForVisible, locator } from './elements/locators.js';
@@ -24,6 +24,7 @@ export { CHROME_ARGS, TIMING } from './core/constants.js';
 export { isVerboseEnabled, createLogger } from './core/logger.js';
 export { disableTranslateInPreferences } from './core/preferences.js';
 export { detectEngine } from './core/engine-detection.js';
+export { isNavigationError, safeOperation, makeNavigationSafe, withNavigationSafety } from './core/navigation-safety.js';
 
 // Re-export browser management
 export { launchBrowser } from './browser/launcher.js';
@@ -73,7 +74,7 @@ export {
 } from './interactions/fill.js';
 
 // Re-export utilities
-export { wait, evaluate } from './utilities/wait.js';
+export { wait, evaluate, safeEvaluate } from './utilities/wait.js';
 export { getUrl, unfocusAddressBar } from './utilities/url.js';
 
 // Re-export high-level universal logic
@@ -104,6 +105,7 @@ export function makeBrowserCommander(options = {}) {
   // Create bound helper functions that inject page, engine, log
   const waitBound = (opts) => wait({ ...opts, log });
   const evaluateBound = (opts) => evaluate({ ...opts, page, engine });
+  const safeEvaluateBound = (opts) => safeEvaluate({ ...opts, page, engine });
   const getUrlBound = () => getUrl({ page });
   const unfocusAddressBarBound = (opts = {}) => unfocusAddressBar({ ...opts, page });
 
@@ -195,6 +197,7 @@ export function makeBrowserCommander(options = {}) {
     fillTextArea: fillTextAreaWrapped,
     clickButton: clickButtonWrapped,
     evaluate: evaluateBound,
+    safeEvaluate: safeEvaluateBound,
     waitForSelector: waitForSelectorBound,
     querySelector: querySelectorBound,
     querySelectorAll: querySelectorAllBound,

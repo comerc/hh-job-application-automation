@@ -1,4 +1,5 @@
 import { TIMING } from '../core/constants.js';
+import { isNavigationError } from '../core/navigation-safety.js';
 import { waitForLocatorOrElement } from '../elements/locators.js';
 import { scrollIntoViewIfNeeded } from './scroll.js';
 import { logElementInfo } from '../elements/content.js';
@@ -10,7 +11,7 @@ import { logElementInfo } from '../elements/content.js';
  * @param {Function} options.log - Logger instance
  * @param {Object} options.locatorOrElement - Element or locator to click
  * @param {boolean} options.noAutoScroll - Prevent Playwright's automatic scrolling (default: false)
- * @returns {Promise<void>}
+ * @returns {Promise<boolean>} - True if clicked, false on navigation
  */
 export async function clickElement(options = {}) {
   const { engine, log, locatorOrElement, noAutoScroll = false } = options;
@@ -19,12 +20,21 @@ export async function clickElement(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
-  if (engine === 'playwright' && noAutoScroll) {
-    // Prevent Playwright's automatic scrolling by using force option
-    log.debug(() => `🔍 [VERBOSE] Clicking with noAutoScroll (force: true)`);
-    await locatorOrElement.click({ force: true });
-  } else {
-    await locatorOrElement.click();
+  try {
+    if (engine === 'playwright' && noAutoScroll) {
+      // Prevent Playwright's automatic scrolling by using force option
+      log.debug(() => `🔍 [VERBOSE] Clicking with noAutoScroll (force: true)`);
+      await locatorOrElement.click({ force: true });
+    } else {
+      await locatorOrElement.click();
+    }
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during click, recovering gracefully');
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -42,8 +52,8 @@ export async function clickElement(options = {}) {
  * @param {boolean} options.smoothScroll - Use smooth scroll animation (default: true)
  * @param {number} options.waitAfterClick - Wait time after click in ms (default: 1000). Gives modals time to capture scroll position before opening
  * @param {number} options.timeout - Timeout in ms (default: TIMING.DEFAULT_TIMEOUT)
- * @returns {Promise<void>}
- * @throws {Error} - If selector is missing, element not found, or click operation fails
+ * @returns {Promise<boolean>} - True if clicked successfully, false on navigation
+ * @throws {Error} - If selector is missing, element not found, or click operation fails (except navigation errors)
  */
 export async function clickButton(options = {}) {
   const {
@@ -64,30 +74,43 @@ export async function clickButton(options = {}) {
     throw new Error('clickButton: selector is required in options');
   }
 
-  // Get locator/element and wait for it to be visible (unified for both engines)
-  const locatorOrElement = await waitForLocatorOrElement({ page, engine, selector, timeout });
+  try {
+    // Get locator/element and wait for it to be visible (unified for both engines)
+    const locatorOrElement = await waitForLocatorOrElement({ page, engine, selector, timeout });
 
-  // Log element info if verbose
-  if (verbose) {
-    await logElementInfo({ page, engine, log, locatorOrElement });
-  }
+    // Log element info if verbose
+    if (verbose) {
+      await logElementInfo({ page, engine, log, locatorOrElement });
+    }
 
-  // Scroll into view (if requested and needed)
-  if (shouldScroll) {
-    const behavior = smoothScroll ? 'smooth' : 'instant';
-    await scrollIntoViewIfNeeded({ page, engine, wait, log, locatorOrElement, behavior, waitAfterScroll });
-  } else {
-    log.debug(() => `🔍 [VERBOSE] Skipping scroll (scrollIntoView: false)`);
-  }
+    // Scroll into view (if requested and needed)
+    if (shouldScroll) {
+      const behavior = smoothScroll ? 'smooth' : 'instant';
+      await scrollIntoViewIfNeeded({ page, engine, wait, log, locatorOrElement, behavior, waitAfterScroll });
+    } else {
+      log.debug(() => `🔍 [VERBOSE] Skipping scroll (scrollIntoView: false)`);
+    }
 
-  // Perform click
-  log.debug(() => `🔍 [VERBOSE] About to click element`);
-  // If scrollIntoView is disabled, also prevent Playwright's automatic scrolling
-  await clickElement({ engine, log, locatorOrElement, noAutoScroll: !shouldScroll });
-  log.debug(() => `🔍 [VERBOSE] Click completed`);
+    // Perform click
+    log.debug(() => `🔍 [VERBOSE] About to click element`);
+    // If scrollIntoView is disabled, also prevent Playwright's automatic scrolling
+    const clicked = await clickElement({ engine, log, locatorOrElement, noAutoScroll: !shouldScroll });
+    if (!clicked) {
+      return false; // Navigation occurred during click
+    }
+    log.debug(() => `🔍 [VERBOSE] Click completed`);
 
-  // Wait after click if specified (useful for modals that need time to capture scroll position)
-  if (waitAfterClick > 0) {
-    await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
+    // Wait after click if specified (useful for modals that need time to capture scroll position)
+    if (waitAfterClick > 0) {
+      await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
+    }
+
+    return true;
+  } catch (error) {
+    if (isNavigationError(error)) {
+      console.log('⚠️  Navigation detected during clickButton, recovering gracefully');
+      return false;
+    }
+    throw error;
   }
 }
