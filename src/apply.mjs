@@ -611,9 +611,15 @@ github.com/link-foundation
     // Count total test questions and unanswered test questions using qa.mjs
     let testQuestionStats;
     try {
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Counting test questions (radio/checkbox)...');
+      }
       testQuestionStats = await countUnansweredQuestions({
         evaluate: commander.evaluate,
       });
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Question stats: total=${testQuestionStats.totalCount}, unanswered=${testQuestionStats.unansweredCount}`);
+      }
     } catch (error) {
       if (error.message && error.message.includes('Execution context was destroyed')) {
         console.log('💡 Page navigated away during question counting, skipping auto-submit');
@@ -628,27 +634,51 @@ github.com/link-foundation
     const hasTestQuestions = testQuestionStats.totalCount > 0 || textareaCount > 1;
     const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
 
+    if (argv.verbose) {
+      console.log(`🔍 [VERBOSE] hasTestQuestions=${hasTestQuestions} (radioCheckbox=${testQuestionStats.totalCount}, textareas=${textareaCount})`);
+      console.log(`🔍 [VERBOSE] hasUnansweredQuestions=${hasUnansweredQuestions}`);
+    }
+
     // Check if any test textareas are empty (beyond just the cover letter)
     let hasEmptyTestTextareas;
     try {
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Checking for empty test textareas...');
+      }
       hasEmptyTestTextareas = await commander.evaluate({
         fn: () => {
           const textareas = document.querySelectorAll('textarea');
           let emptyCount = 0;
+          const details = [];
 
-          textareas.forEach((textarea) => {
+          textareas.forEach((textarea, index) => {
             // Skip the cover letter textarea
             const isCoverLetter = textarea.getAttribute('data-qa') === 'vacancy-response-popup-form-letter-input' ||
                                   textarea.getAttribute('data-qa') === 'vacancy-response-form-letter-input';
 
-            if (!isCoverLetter && !textarea.value.trim()) {
+            const isEmpty = !textarea.value.trim();
+            details.push({
+              index,
+              isCoverLetter,
+              isEmpty,
+              dataQa: textarea.getAttribute('data-qa'),
+              valueLength: textarea.value.length,
+            });
+
+            if (!isCoverLetter && isEmpty) {
               emptyCount++;
             }
           });
 
-          return emptyCount > 0;
+          return { hasEmpty: emptyCount > 0, emptyCount, details };
         },
       });
+      if (argv.verbose) {
+        console.log(`🔍 [VERBOSE] Textarea check result:`, JSON.stringify(hasEmptyTestTextareas, null, 2));
+      }
+      // For backwards compatibility, extract the boolean
+      const textareaCheckResult = hasEmptyTestTextareas;
+      hasEmptyTestTextareas = textareaCheckResult.hasEmpty;
     } catch (error) {
       if (error.message && error.message.includes('Execution context was destroyed')) {
         console.log('💡 Page navigated away during textarea check, skipping auto-submit');
@@ -661,6 +691,9 @@ github.com/link-foundation
       console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} radio/checkbox test question(s) UNANSWERED`);
       console.log('💡 Cannot auto-submit when test questions remain unanswered - manual submission required');
       console.log('💡 Please answer the remaining questions and submit the form manually when ready');
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Returning early due to unanswered radio/checkbox questions');
+      }
       return;
     }
 
@@ -668,11 +701,20 @@ github.com/link-foundation
       console.log('⚠️  Found EMPTY test question textarea(s)');
       console.log('💡 Cannot auto-submit when test textareas are empty - manual submission required');
       console.log('💡 Please fill the empty textarea(s) and submit the form manually when ready');
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Returning early due to empty test textareas');
+      }
       return;
     }
 
     // Decide whether to auto-submit based on configuration and question presence
     let shouldAutoSubmit = false;
+
+    if (argv.verbose) {
+      console.log('🔍 [VERBOSE] Deciding whether to auto-submit...');
+      console.log(`🔍 [VERBOSE]   hasTestQuestions=${hasTestQuestions}`);
+      console.log(`🔍 [VERBOSE]   auto-submit-vacancy-response-form=${argv['auto-submit-vacancy-response-form']}`);
+    }
 
     if (!hasTestQuestions) {
       // No test questions - always auto-submit (only cover letter)
@@ -687,6 +729,9 @@ github.com/link-foundation
       shouldAutoSubmit = false;
       console.log(`💡 All ${testQuestionStats.totalCount} test question(s) answered, but --auto-submit-vacancy-response-form is disabled`);
       console.log('💡 Please review the answers and submit the form manually when ready');
+      if (argv.verbose) {
+        console.log('🔍 [VERBOSE] Returning early: flag disabled');
+      }
       return;
     }
 
@@ -749,7 +794,14 @@ github.com/link-foundation
         console.log(`   Has disabled attribute: ${buttonState.hasDisabledAttr}`);
         console.log(`   Has disabled class: ${buttonState.hasDisabledClass}`);
         console.log('💡 The form may require additional validation. Please check manually.');
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] NOT clicking disabled submit button, returning early');
+        }
+        return;
       } else {
+        if (argv.verbose) {
+          console.log('🔍 [VERBOSE] Submit button is enabled, clicking...');
+        }
         await commander.clickButton({
           selector: submitSelector,
           scrollIntoView: true,
@@ -1290,7 +1342,7 @@ github.com/link-foundation
             hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
           }),
         });
-        console.log(`🔍 [VERBOSE] 4. State immediately after click:`);
+        console.log('🔍 [VERBOSE] 4. State immediately after click:');
         console.log(`   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
         console.log(`   - body.position: ${stateAfterClick.bodyPosition}`);
         console.log(`   - body.top: "${stateAfterClick.bodyTop}"`);
