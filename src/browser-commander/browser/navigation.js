@@ -297,9 +297,11 @@ export async function waitAfterAction(options = {}) {
   }
 
   // No navigation detected, just wait for network idle
+  // Use shorter idle time since this is just for XHR completion, not full page load
   if (networkTracker) {
     const idle = await networkTracker.waitForNetworkIdle({
       timeout: Math.max(0, timeout - (Date.now() - startTime)),
+      idleTime: 2000, // Shorter idle time for non-navigation actions
     });
     return { navigated: false, ready: idle };
   }

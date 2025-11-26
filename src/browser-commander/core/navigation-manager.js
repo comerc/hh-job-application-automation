@@ -161,6 +161,9 @@ export function createNavigationManager(options = {}) {
     }
   }
 
+  // Track if waitForPageReady is currently running to prevent concurrent calls
+  let pageReadyPromise = null;
+
   /**
    * Wait for page to be ready (DOM loaded + network idle + no redirects)
    * @param {Object} options - Configuration options
@@ -174,47 +177,70 @@ export function createNavigationManager(options = {}) {
       reason = 'page ready',
     } = opts;
 
+    // If another waitForPageReady is already running, wait for it instead of starting a new one
+    // This prevents concurrent waits that can cause race conditions
+    if (pageReadyPromise) {
+      log.debug(() => `⏳ Waiting for existing page ready operation (${reason})...`);
+      return pageReadyPromise;
+    }
+
     log.debug(() => `⏳ Waiting for page ready (${reason})...`);
-    const startTime = Date.now();
-    const startUrl = currentUrl;
-    let lastUrlChangeTime = Date.now();
 
-    // Wait for URL to stabilize (no more redirects)
-    while (Date.now() - lastUrlChangeTime < config.redirectStabilizationTime) {
-      if (Date.now() - startTime > timeout) {
-        log.debug(() => `⚠️  Page ready timeout after ${timeout}ms (${reason})`);
-        break;
+    // Create the promise and store it
+    pageReadyPromise = (async () => {
+      const startTime = Date.now();
+      let lastUrlChangeTime = Date.now();
+
+      // Wait for URL to stabilize (no more redirects)
+      while (Date.now() - lastUrlChangeTime < config.redirectStabilizationTime) {
+        if (Date.now() - startTime > timeout) {
+          log.debug(() => `⚠️  Page ready timeout after ${timeout}ms (${reason})`);
+          break;
+        }
+
+        await new Promise(r => setTimeout(r, 200));
+
+        // Check if URL changed
+        const nowUrl = page.url();
+        if (nowUrl !== currentUrl) {
+          currentUrl = nowUrl;
+          lastUrlChangeTime = Date.now();
+          log.debug(() => `🔄 Redirect detected: ${nowUrl}`);
+        }
       }
 
-      await new Promise(r => setTimeout(r, 200));
+      // Wait for network idle - use remaining time but ensure at least 30s for idle check
+      // The 30s idle time is enforced by the network tracker's idleTimeout config
+      if (networkTracker) {
+        const elapsed = Date.now() - startTime;
+        // Give at least 60 seconds for network idle, or remaining time if more
+        const remainingTimeout = Math.max(60000, timeout - elapsed);
 
-      // Check if URL changed
-      const nowUrl = page.url();
-      if (nowUrl !== currentUrl) {
-        currentUrl = nowUrl;
-        lastUrlChangeTime = Date.now();
-        log.debug(() => `🔄 Redirect detected: ${nowUrl}`);
+        const networkIdle = await networkTracker.waitForNetworkIdle({
+          timeout: remainingTimeout,
+          // idleTime defaults to 30000ms from tracker config
+        });
+
+        if (!networkIdle) {
+          log.debug(() => `⚠️  Network did not become idle (${reason})`);
+        }
       }
+
+      // Complete navigation
+      completeNavigation();
+
+      const elapsed = Date.now() - startTime;
+      log.debug(() => `✅ Page ready after ${elapsed}ms (${reason})`);
+
+      return true;
+    })();
+
+    try {
+      return await pageReadyPromise;
+    } finally {
+      // Clear the promise so next call can start fresh
+      pageReadyPromise = null;
     }
-
-    // Wait for network idle
-    if (networkTracker) {
-      const networkIdle = await networkTracker.waitForNetworkIdle({
-        timeout: Math.max(0, timeout - (Date.now() - startTime)),
-      });
-
-      if (!networkIdle) {
-        log.debug(() => `⚠️  Network did not become idle (${reason})`);
-      }
-    }
-
-    // Complete navigation
-    completeNavigation();
-
-    const elapsed = Date.now() - startTime;
-    log.debug(() => `✅ Page ready after ${elapsed}ms (${reason})`);
-
-    return true;
   }
 
   /**
@@ -366,9 +392,17 @@ export function createNavigationManager(options = {}) {
 
   /**
    * Check if current operation should be aborted (navigation in progress)
+   * Returns true if:
+   * 1. The current abort controller's signal is aborted, OR
+   * 2. Navigation is currently in progress (isNavigating is true)
    * @returns {boolean}
    */
   function shouldAbort() {
+    // If we're currently navigating, operations should abort
+    if (isNavigating) {
+      return true;
+    }
+    // Also check the abort signal for backwards compatibility
     return currentAbortController ? currentAbortController.signal.aborted : false;
   }
 

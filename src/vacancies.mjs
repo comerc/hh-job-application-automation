@@ -307,6 +307,37 @@ export async function findAndProcessVacancyButton({
   // Check if we're still on a valid target page
   let currentPageUrl = commander.getUrl();
   if (!targetPagePattern.test(currentPageUrl)) {
+    // Check if we're on a vacancy_response page - if so, handle it
+    if (vacancyResponsePattern.test(currentPageUrl)) {
+      console.log('💡 On vacancy_response page, handling automatically...');
+      await handleVacancyResponsePage();
+
+      // After handling, wait a bit for potential redirect
+      await commander.wait({ ms: 2000, reason: 'potential redirect after vacancy response handling' });
+
+      // Check if we're back on target page
+      const newUrl = commander.getUrl();
+      if (targetPagePattern.test(newUrl)) {
+        console.log('✅ Back on search page after vacancy response handling');
+        return { status: 'vacancy_response_handled' };
+      } else if (vacancyResponsePattern.test(newUrl)) {
+        // Still on vacancy_response - user needs to complete manually
+        console.log('💡 Still on vacancy_response page, waiting for user action...');
+        const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
+        if (pageClosedByUser()) {
+          return { status: 'page_closed' };
+        }
+        if (waitResult === 'redirect_needed') {
+          return { status: 'redirect_needed' };
+        }
+        console.log('✅ Returned to target page after vacancy response');
+        return { status: 'returned_to_target' };
+      } else {
+        // Navigated somewhere else
+        return { status: 'not_on_target_page' };
+      }
+    }
+
     if (verbose) {
       console.log(`🔍 [VERBOSE] Not on target page, waiting for navigation: ${currentPageUrl}`);
     }
@@ -381,7 +412,9 @@ export async function findAndProcessVacancyButton({
     const clicked = typeof clickResult === 'object' ? clickResult.clicked : clickResult;
     const navigated = typeof clickResult === 'object' ? clickResult.navigated : false;
 
-    if (!clicked && navigated) {
+    // If navigation happened (regardless of whether click succeeded), stop processing this page
+    // The page has changed, so any further DOM operations would be on the wrong page
+    if (navigated) {
       // Navigation happened during click - page is already ready (clickButton waits for it)
       console.log('⚠️  Navigation detected during button click, page ready');
       return { status: 'navigation_detected' };
@@ -389,9 +422,6 @@ export async function findAndProcessVacancyButton({
 
     if (verbose) {
       console.log('🔍 [VERBOSE] 3. Button click completed + 1s wait after click (via waitAfterClick)');
-      if (navigated) {
-        console.log('🔍 [VERBOSE] Click triggered navigation, page is now ready');
-      }
 
       // Check state immediately after click
       try {
@@ -609,8 +639,12 @@ export async function waitForButtonsAfterNavigation({
     }
 
     // Check if we should abort due to navigation BEFORE waiting
-    if (commander.shouldAbort && commander.shouldAbort()) {
-      console.log('🛑 Navigation detected, stopping button wait immediately');
+    // Also check navigationManager.isNavigating() directly for redundancy
+    const shouldAbortNow = commander.shouldAbort && commander.shouldAbort();
+    const isNavigatingNow = commander.navigationManager && commander.navigationManager.isNavigating();
+
+    if (shouldAbortNow || isNavigatingNow) {
+      console.log(`🛑 Navigation detected, stopping button wait immediately (shouldAbort=${shouldAbortNow}, isNavigating=${isNavigatingNow})`);
       return { status: 'navigation_detected' };
     }
 
@@ -624,8 +658,11 @@ export async function waitForButtonsAfterNavigation({
     }
 
     // Double-check abort status after wait completes
-    if (commander.shouldAbort && commander.shouldAbort()) {
-      console.log('🛑 Navigation detected after wait, exiting button wait loop');
+    const shouldAbortAfterWait = commander.shouldAbort && commander.shouldAbort();
+    const isNavigatingAfterWait = commander.navigationManager && commander.navigationManager.isNavigating();
+
+    if (shouldAbortAfterWait || isNavigatingAfterWait) {
+      console.log(`🛑 Navigation detected after wait, exiting button wait loop (shouldAbort=${shouldAbortAfterWait}, isNavigating=${isNavigatingAfterWait})`);
       return { status: 'navigation_detected' };
     }
 

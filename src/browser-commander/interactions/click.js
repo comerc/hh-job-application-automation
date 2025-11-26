@@ -159,13 +159,20 @@ export async function clickButton(options = {}) {
         log.debug(() => `🔄 Click triggered navigation to: ${newUrl}`);
 
         // Wait for page to be fully ready (network idle + no more redirects)
+        // Note: If navigationManager detected external navigation, it's already waiting
+        // We still call waitForPageReady here to ensure we don't return until page is ready
         if (navigationManager) {
+          // Use longer timeout (120s) for full page loads after click-triggered navigation
           await navigationManager.waitForPageReady({
-            timeout,
+            timeout: 120000,
             reason: 'after click navigation',
           });
         } else if (networkTracker) {
-          await networkTracker.waitForNetworkIdle({ timeout });
+          // Without navigation manager, use network tracker directly with 30s idle time
+          await networkTracker.waitForNetworkIdle({
+            timeout: 120000,
+            // idleTime defaults to 30000ms from tracker config
+          });
         } else {
           // Fallback: wait a bit for page to settle
           await wait({ ms: 2000, reason: 'page settle after navigation' });
@@ -177,13 +184,55 @@ export async function clickButton(options = {}) {
 
     // No navigation - wait after click if specified (useful for modals)
     if (waitAfterClick > 0) {
-      await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
+      const waitResult = await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
+
+      // Check if wait was aborted due to navigation that happened during the wait
+      if (waitResult && waitResult.aborted) {
+        log.debug(() => '🔄 Navigation detected during post-click wait (wait was aborted)');
+
+        // Re-check for navigation since it happened during the wait
+        const { navigated: lateNavigated, newUrl: lateUrl } = await detectNavigation({
+          page,
+          navigationManager,
+          startUrl,
+          log,
+        });
+
+        if (lateNavigated) {
+          log.debug(() => `🔄 Confirmed late navigation to: ${lateUrl}`);
+
+          // Wait for page to be fully ready
+          if (navigationManager) {
+            await navigationManager.waitForPageReady({
+              timeout: 120000,
+              reason: 'after late-detected click navigation',
+            });
+          }
+
+          return { clicked: true, navigated: true };
+        }
+      }
+    }
+
+    // Final check: did navigation happen while we were processing?
+    // This catches cases where navigation started but wasn't detected earlier
+    if (navigationManager && navigationManager.shouldAbort()) {
+      log.debug(() => '🔄 Navigation detected via abort signal at end of click processing');
+
+      await navigationManager.waitForPageReady({
+        timeout: 120000,
+        reason: 'after abort-detected click navigation',
+      });
+
+      return { clicked: true, navigated: true };
     }
 
     // If we have network tracking, wait for any XHR/fetch to complete
+    // Use shorter idle time for non-navigation clicks (just waiting for XHR, not full page load)
     if (networkTracker) {
       await networkTracker.waitForNetworkIdle({
-        timeout: 5000, // Shorter timeout for non-navigation clicks
+        timeout: 10000, // Maximum wait time
+        idleTime: 2000, // Only 2 seconds of idle needed for XHR completion
       });
     }
 

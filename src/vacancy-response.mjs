@@ -207,17 +207,29 @@ export async function handleVacancyResponsePage({
         }
 
         // Try each element type separately using findByText
-        const elementTypes = ['button', 'a', 'span'];
-        for (const elementType of elementTypes) {
-          toggleSelector = await commander.findByText({
-            text: 'Сопроводительное письмо',
-            selector: elementType,
-          });
-          const count = await commander.count({ selector: toggleSelector });
-          if (count > 0) {
-            toggleFound = true;
-            break;
+        // Search for multiple possible texts: the label or the "Добавить" button
+        const searchTexts = ['Добавить', 'Сопроводительное письмо'];
+        const elementTypes = ['a', 'button', 'span', 'div'];
+
+        for (const searchText of searchTexts) {
+          for (const elementType of elementTypes) {
+            if (verbose) {
+              console.log(`🔍 [VERBOSE] Searching for "${searchText}" in ${elementType} elements`);
+            }
+            toggleSelector = await commander.findByText({
+              text: searchText,
+              selector: elementType,
+            });
+            const count = await commander.count({ selector: toggleSelector });
+            if (verbose) {
+              console.log(`🔍 [VERBOSE] Found ${count} elements matching "${searchText}" in ${elementType}`);
+            }
+            if (count > 0) {
+              toggleFound = true;
+              break;
+            }
           }
+          if (toggleFound) break;
         }
       }
 

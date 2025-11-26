@@ -29,6 +29,7 @@ import { waitForUrlCondition, installClickListener, checkAndClearFlag, findToggl
 import { createNetworkTracker } from './core/network-tracker.js';
 import { createNavigationManager } from './core/navigation-manager.js';
 import { createPageSessionFactory } from './core/page-session.js';
+import { createPageHandlerManager, HandlerStoppedError, isHandlerStoppedError } from './core/page-handler-manager.js';
 
 // Re-export core utilities
 export { CHROME_ARGS, TIMING } from './core/constants.js';
@@ -41,6 +42,7 @@ export { isNavigationError, safeOperation, makeNavigationSafe, withNavigationSaf
 export { createNetworkTracker } from './core/network-tracker.js';
 export { createNavigationManager } from './core/navigation-manager.js';
 export { createPageSessionFactory } from './core/page-session.js';
+export { createPageHandlerManager, HandlerStoppedError, isHandlerStoppedError } from './core/page-handler-manager.js';
 
 // Re-export browser management
 export { launchBrowser } from './browser/launcher.js';
@@ -126,15 +128,24 @@ export function makeBrowserCommander(options = {}) {
   const log = createLogger({ verbose });
 
   // Create NetworkTracker if enabled
+  // Use 30 second idle timeout to ensure page is fully loaded
   let networkTracker = null;
   if (enableNetworkTracking) {
-    networkTracker = createNetworkTracker({ page, engine, log });
+    networkTracker = createNetworkTracker({
+      page,
+      engine,
+      log,
+      idleTimeout: 30000, // Wait 30 seconds without requests before considering network idle
+    });
     networkTracker.startTracking();
   }
 
   // Create NavigationManager if enabled
   let navigationManager = null;
   let sessionFactory = null;
+
+  // PageHandlerManager (will be initialized after commander is created)
+  let pageHandlerManager = null;
 
   if (enableNavigationManager) {
     navigationManager = createNavigationManager({
@@ -149,6 +160,12 @@ export function makeBrowserCommander(options = {}) {
     sessionFactory = createPageSessionFactory({
       navigationManager,
       networkTracker,
+      log,
+    });
+
+    // Create PageHandlerManager
+    pageHandlerManager = createPageHandlerManager({
+      navigationManager,
       log,
     });
   }
@@ -265,7 +282,10 @@ export function makeBrowserCommander(options = {}) {
   const inputValueWrapped = withTextSelectorSupport(inputValueBound, engine, page);
 
   // Cleanup function
-  const destroy = () => {
+  const destroy = async () => {
+    if (pageHandlerManager) {
+      await pageHandlerManager.destroy();
+    }
     if (networkTracker) {
       networkTracker.stopTracking();
     }
@@ -273,11 +293,12 @@ export function makeBrowserCommander(options = {}) {
       navigationManager.stopListening();
     }
     if (sessionFactory) {
-      sessionFactory.endAllSessions();
+      await sessionFactory.endAllSessions();
     }
   };
 
-  return {
+  // Build commander object
+  const commander = {
     // Core properties
     engine,
     page,
@@ -287,6 +308,7 @@ export function makeBrowserCommander(options = {}) {
     networkTracker,
     navigationManager,
     sessionFactory,
+    pageHandlerManager,
 
     // Helper functions (now public)
     createPlaywrightLocator: createPlaywrightLocatorBound,
@@ -338,11 +360,11 @@ export function makeBrowserCommander(options = {}) {
     // Lifecycle
     destroy,
 
-    // Convenience methods for page sessions
+    // Convenience methods for page sessions (legacy API)
     createSession: sessionFactory ? (opts) => sessionFactory.createSession(opts) : null,
     getActiveSessions: sessionFactory ? () => sessionFactory.getActiveSessions() : () => [],
 
-    // Subscribe to navigation events
+    // Subscribe to navigation events (legacy API)
     onNavigationStart: navigationManager ? (fn) => navigationManager.on('onNavigationStart', fn) : () => {},
     onNavigationComplete: navigationManager ? (fn) => navigationManager.on('onNavigationComplete', fn) : () => {},
     onUrlChange: navigationManager ? (fn) => navigationManager.on('onUrlChange', fn) : () => {},
@@ -351,5 +373,22 @@ export function makeBrowserCommander(options = {}) {
     // Abort handling - check these to stop operations when navigation occurs
     shouldAbort: navigationManager ? () => navigationManager.shouldAbort() : () => false,
     getAbortSignal: navigationManager ? () => navigationManager.getAbortSignal() : () => null,
+
+    // Page Handler API (recommended way to handle pages)
+    // Register a handler: commander.pageHandler({ urlMatcher, handler, name })
+    pageHandler: pageHandlerManager
+      ? (config) => pageHandlerManager.pageHandler(config)
+      : () => { throw new Error('pageHandler requires enableNavigationManager: true'); },
+
+    // Error classes for handler control flow
+    HandlerStoppedError,
+    isHandlerStoppedError,
   };
+
+  // Initialize PageHandlerManager with the commander
+  if (pageHandlerManager) {
+    pageHandlerManager.initialize(commander);
+  }
+
+  return commander;
 }
