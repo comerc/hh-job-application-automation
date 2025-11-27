@@ -5,7 +5,117 @@
  * the NavigationManager for backwards compatibility.
  */
 
+import { TIMING } from '../core/constants.js';
 import { isNavigationError } from '../core/navigation-safety.js';
+import { isActionStoppedError } from '../core/page-trigger-manager.js';
+
+/**
+ * Default verification function for navigation operations.
+ * Verifies that navigation completed by checking:
+ * - URL matches expected pattern (if provided)
+ * - Page is in a ready state
+ *
+ * @param {Object} options - Verification options
+ * @param {Object} options.page - Browser page object
+ * @param {string} options.expectedUrl - Expected URL or URL pattern (optional)
+ * @param {string} options.startUrl - URL before navigation
+ * @returns {Promise<{verified: boolean, actualUrl: string, reason: string}>}
+ */
+export async function defaultNavigationVerification(options = {}) {
+  const { page, expectedUrl, startUrl } = options;
+
+  try {
+    const actualUrl = page.url();
+
+    // If expected URL is provided, verify it matches
+    if (expectedUrl) {
+      // Check for exact match or pattern match
+      if (actualUrl === expectedUrl) {
+        return { verified: true, actualUrl, reason: 'exact URL match' };
+      }
+      // Check if expected URL is contained in actual URL (for patterns)
+      if (actualUrl.includes(expectedUrl) || actualUrl.startsWith(expectedUrl)) {
+        return { verified: true, actualUrl, reason: 'URL pattern match' };
+      }
+      // Check if it's a regex pattern
+      if (expectedUrl instanceof RegExp && expectedUrl.test(actualUrl)) {
+        return { verified: true, actualUrl, reason: 'URL regex match' };
+      }
+
+      return {
+        verified: false,
+        actualUrl,
+        reason: `URL mismatch: expected "${expectedUrl}", got "${actualUrl}"`,
+      };
+    }
+
+    // No expected URL - just verify URL changed from start
+    if (startUrl && actualUrl !== startUrl) {
+      return { verified: true, actualUrl, reason: 'URL changed from start' };
+    }
+
+    // If no start URL and no expected URL, assume success
+    return { verified: true, actualUrl, reason: 'navigation completed' };
+  } catch (error) {
+    if (isNavigationError(error) || isActionStoppedError(error)) {
+      return { verified: false, actualUrl: '', reason: 'error during verification', navigationError: true };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Verify navigation operation with retry logic
+ * @param {Object} options - Verification options
+ * @param {Object} options.page - Browser page object
+ * @param {string} options.expectedUrl - Expected URL (optional)
+ * @param {string} options.startUrl - URL before navigation
+ * @param {Function} options.verifyFn - Custom verification function (optional)
+ * @param {number} options.timeout - Verification timeout in ms (default: TIMING.VERIFICATION_TIMEOUT)
+ * @param {number} options.retryInterval - Interval between retries (default: TIMING.VERIFICATION_RETRY_INTERVAL)
+ * @param {Function} options.log - Logger instance
+ * @returns {Promise<{verified: boolean, actualUrl: string, reason: string, attempts: number}>}
+ */
+export async function verifyNavigation(options = {}) {
+  const {
+    page,
+    expectedUrl,
+    startUrl,
+    verifyFn = defaultNavigationVerification,
+    timeout = TIMING.VERIFICATION_TIMEOUT,
+    retryInterval = TIMING.VERIFICATION_RETRY_INTERVAL,
+    log = { debug: () => {} },
+  } = options;
+
+  const startTime = Date.now();
+  let attempts = 0;
+  let lastResult = { verified: false, actualUrl: '', reason: '' };
+
+  while (Date.now() - startTime < timeout) {
+    attempts++;
+    lastResult = await verifyFn({
+      page,
+      expectedUrl,
+      startUrl,
+    });
+
+    if (lastResult.verified) {
+      log.debug(() => `✅ Navigation verification succeeded after ${attempts} attempt(s): ${lastResult.reason}`);
+      return { ...lastResult, attempts };
+    }
+
+    if (lastResult.navigationError) {
+      log.debug(() => '⚠️  Navigation/stop detected during verification');
+      return { ...lastResult, attempts };
+    }
+
+    // Wait before next retry
+    await new Promise(resolve => setTimeout(resolve, retryInterval));
+  }
+
+  log.debug(() => `❌ Navigation verification failed after ${attempts} attempts: ${lastResult.reason}`);
+  return { ...lastResult, attempts };
+}
 
 /**
  * Wait for URL to stabilize (no redirects happening)
@@ -76,6 +186,7 @@ export async function waitForUrlStabilization(options = {}) {
  * @param {Object} options.page - Browser page object
  * @param {Function} options.waitForUrlStabilization - URL stabilization function (legacy)
  * @param {Object} options.navigationManager - NavigationManager instance (preferred)
+ * @param {Function} options.log - Logger instance (optional)
  * @param {string} options.url - URL to navigate to
  * @param {string} options.waitUntil - Wait until condition (default: 'domcontentloaded')
  * @param {boolean} options.waitForStableUrlBefore - Wait for URL to stabilize BEFORE navigation (default: true)
@@ -83,14 +194,18 @@ export async function waitForUrlStabilization(options = {}) {
  * @param {boolean} options.waitForNetworkIdle - Wait for all network requests to complete (default: true)
  * @param {number} options.stableChecks - Number of consecutive stable checks required (default: 3)
  * @param {number} options.checkInterval - Interval between stability checks in ms (default: 1000)
- * @param {number} options.timeout - Navigation timeout in ms (default: 60000)
- * @returns {Promise<boolean>} - True if navigation succeeded, false on navigation-related error
+ * @param {number} options.timeout - Navigation timeout in ms (default: 240000)
+ * @param {boolean} options.verify - Whether to verify the navigation (default: true)
+ * @param {Function} options.verifyFn - Custom verification function (optional)
+ * @param {number} options.verificationTimeout - Verification timeout in ms (default: TIMING.VERIFICATION_TIMEOUT)
+ * @returns {Promise<{navigated: boolean, verified: boolean, actualUrl?: string, reason?: string}>}
  */
 export async function goto(options = {}) {
   const {
     page,
     waitForUrlStabilization: stabilizeFn,
     navigationManager,
+    log = { debug: () => {} },
     url,
     waitUntil = 'domcontentloaded',
     waitForStableUrlBefore = true,
@@ -99,19 +214,54 @@ export async function goto(options = {}) {
     stableChecks = 3,
     checkInterval = 1000,
     timeout = 240000,
+    verify = true,
+    verifyFn,
+    verificationTimeout = TIMING.VERIFICATION_TIMEOUT,
   } = options;
 
   if (!url) {
     throw new Error('url is required in options');
   }
 
+  const startUrl = page.url();
+
   // If NavigationManager is available, use it for full navigation handling
   if (navigationManager) {
-    return navigationManager.navigate({
-      url,
-      waitUntil,
-      timeout,
-    });
+    try {
+      const navigated = await navigationManager.navigate({
+        url,
+        waitUntil,
+        timeout,
+      });
+
+      // Verify navigation if requested
+      if (verify && navigated) {
+        const verificationResult = await verifyNavigation({
+          page,
+          expectedUrl: url,
+          startUrl,
+          verifyFn,
+          timeout: verificationTimeout,
+          log,
+        });
+
+        return {
+          navigated: true,
+          verified: verificationResult.verified,
+          actualUrl: verificationResult.actualUrl,
+          reason: verificationResult.reason,
+        };
+      }
+
+      return { navigated, verified: navigated, actualUrl: page.url() };
+    } catch (error) {
+      if (isNavigationError(error) || isActionStoppedError(error)) {
+        // Navigation was stopped by page trigger or navigation error
+        // This is not a failure - it means another action took over
+        return { navigated: false, verified: false, reason: 'navigation stopped/interrupted' };
+      }
+      throw error;
+    }
   }
 
   // Legacy approach without NavigationManager
@@ -137,11 +287,30 @@ export async function goto(options = {}) {
       });
     }
 
-    return true;
+    // Verify navigation if requested
+    if (verify) {
+      const verificationResult = await verifyNavigation({
+        page,
+        expectedUrl: url,
+        startUrl,
+        verifyFn,
+        timeout: verificationTimeout,
+        log,
+      });
+
+      return {
+        navigated: true,
+        verified: verificationResult.verified,
+        actualUrl: verificationResult.actualUrl,
+        reason: verificationResult.reason,
+      };
+    }
+
+    return { navigated: true, verified: true, actualUrl: page.url() };
   } catch (error) {
-    if (isNavigationError(error)) {
-      console.log('⚠️  Navigation was interrupted, recovering gracefully');
-      return false;
+    if (isNavigationError(error) || isActionStoppedError(error)) {
+      console.log('⚠️  Navigation was interrupted/stopped, recovering gracefully');
+      return { navigated: false, verified: false, reason: 'navigation interrupted/stopped' };
     }
     throw error;
   }

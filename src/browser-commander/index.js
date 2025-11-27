@@ -64,7 +64,16 @@ export {
 
 // Re-export browser management
 export { launchBrowser } from './browser/launcher.js';
-export { waitForUrlStabilization, goto, waitForNavigation, waitForPageReady, waitAfterAction } from './browser/navigation.js';
+export {
+  waitForUrlStabilization,
+  goto,
+  waitForNavigation,
+  waitForPageReady,
+  waitAfterAction,
+  // Navigation verification
+  defaultNavigationVerification,
+  verifyNavigation,
+} from './browser/navigation.js';
 
 // Re-export element operations
 export {
@@ -99,14 +108,27 @@ export {
   scrollIntoView,
   needsScrolling,
   scrollIntoViewIfNeeded,
+  // Scroll verification
+  defaultScrollVerification,
+  verifyScroll,
 } from './interactions/scroll.js';
 
-export { clickElement, clickButton } from './interactions/click.js';
+export {
+  clickElement,
+  clickButton,
+  // Click verification
+  defaultClickVerification,
+  capturePreClickState,
+  verifyClick,
+} from './interactions/click.js';
 
 export {
   checkIfElementEmpty,
   performFill,
   fillTextArea,
+  // Fill verification
+  defaultFillVerification,
+  verifyFill,
 } from './interactions/fill.js';
 
 // Re-export utilities
