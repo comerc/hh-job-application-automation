@@ -29,7 +29,15 @@ import { waitForUrlCondition, installClickListener, checkAndClearFlag, findToggl
 import { createNetworkTracker } from './core/network-tracker.js';
 import { createNavigationManager } from './core/navigation-manager.js';
 import { createPageSessionFactory } from './core/page-session.js';
-import { createPageHandlerManager, HandlerStoppedError, isHandlerStoppedError } from './core/page-handler-manager.js';
+import {
+  createPageTriggerManager,
+  ActionStoppedError,
+  isActionStoppedError,
+  makeUrlCondition,
+  allConditions,
+  anyCondition,
+  notCondition,
+} from './core/page-trigger-manager.js';
 
 // Re-export core utilities
 export { CHROME_ARGS, TIMING } from './core/constants.js';
@@ -42,7 +50,17 @@ export { isNavigationError, safeOperation, makeNavigationSafe, withNavigationSaf
 export { createNetworkTracker } from './core/network-tracker.js';
 export { createNavigationManager } from './core/navigation-manager.js';
 export { createPageSessionFactory } from './core/page-session.js';
-export { createPageHandlerManager, HandlerStoppedError, isHandlerStoppedError } from './core/page-handler-manager.js';
+
+// Page trigger system
+export {
+  createPageTriggerManager,
+  ActionStoppedError,
+  isActionStoppedError,
+  makeUrlCondition,
+  allConditions,
+  anyCondition,
+  notCondition,
+} from './core/page-trigger-manager.js';
 
 // Re-export browser management
 export { launchBrowser } from './browser/launcher.js';
@@ -144,8 +162,8 @@ export function makeBrowserCommander(options = {}) {
   let navigationManager = null;
   let sessionFactory = null;
 
-  // PageHandlerManager (will be initialized after commander is created)
-  let pageHandlerManager = null;
+  // PageTriggerManager (will be initialized after commander is created)
+  let pageTriggerManager = null;
 
   if (enableNavigationManager) {
     navigationManager = createNavigationManager({
@@ -163,8 +181,8 @@ export function makeBrowserCommander(options = {}) {
       log,
     });
 
-    // Create PageHandlerManager
-    pageHandlerManager = createPageHandlerManager({
+    // Create PageTriggerManager
+    pageTriggerManager = createPageTriggerManager({
       navigationManager,
       log,
     });
@@ -283,8 +301,8 @@ export function makeBrowserCommander(options = {}) {
 
   // Cleanup function
   const destroy = async () => {
-    if (pageHandlerManager) {
-      await pageHandlerManager.destroy();
+    if (pageTriggerManager) {
+      await pageTriggerManager.destroy();
     }
     if (networkTracker) {
       networkTracker.stopTracking();
@@ -304,11 +322,11 @@ export function makeBrowserCommander(options = {}) {
     page,
     log,
 
-    // New navigation management components
+    // Navigation management components
     networkTracker,
     navigationManager,
     sessionFactory,
-    pageHandlerManager,
+    pageTriggerManager,
 
     // Helper functions (now public)
     createPlaywrightLocator: createPlaywrightLocatorBound,
@@ -374,20 +392,28 @@ export function makeBrowserCommander(options = {}) {
     shouldAbort: navigationManager ? () => navigationManager.shouldAbort() : () => false,
     getAbortSignal: navigationManager ? () => navigationManager.getAbortSignal() : () => null,
 
-    // Page Handler API (recommended way to handle pages)
-    // Register a handler: commander.pageHandler({ urlMatcher, handler, name })
-    pageHandler: pageHandlerManager
-      ? (config) => pageHandlerManager.pageHandler(config)
-      : () => { throw new Error('pageHandler requires enableNavigationManager: true'); },
+    // Page Trigger API
+    // Register a trigger: commander.pageTrigger({ condition, action, name })
+    // condition receives context: { url, commander }
+    // action receives context: { url, commander, checkStopped, forEach, wait, onCleanup, ... }
+    pageTrigger: pageTriggerManager
+      ? (config) => pageTriggerManager.pageTrigger(config)
+      : () => { throw new Error('pageTrigger requires enableNavigationManager: true'); },
 
-    // Error classes for handler control flow
-    HandlerStoppedError,
-    isHandlerStoppedError,
+    // URL condition helpers
+    makeUrlCondition,
+    allConditions,
+    anyCondition,
+    notCondition,
+
+    // Error classes for action control flow
+    ActionStoppedError,
+    isActionStoppedError,
   };
 
-  // Initialize PageHandlerManager with the commander
-  if (pageHandlerManager) {
-    pageHandlerManager.initialize(commander);
+  // Initialize PageTriggerManager with the commander
+  if (pageTriggerManager) {
+    pageTriggerManager.initialize(commander);
   }
 
   return commander;

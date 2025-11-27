@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Test data directory (MUST NOT include production data/)
 test-data/
+
+# macOS
+.DS_Store

@@ -1,6 +1,6 @@
 # Browser Commander
 
-A universal browser automation library that supports both Playwright and Puppeteer with a unified API. The key focus is on **stoppable page handlers** - ensuring automation logic is properly mounted/unmounted during page navigation.
+A universal browser automation library that supports both Playwright and Puppeteer with a unified API. The key focus is on **stoppable page triggers** - ensuring automation logic is properly mounted/unmounted during page navigation.
 
 ## Core Concept: Page State Machine
 
@@ -10,19 +10,19 @@ Browser Commander manages the browser as a state machine with two states:
 ┌─────────────────┐                      ┌─────────────────┐
 │                 │   navigation start   │                 │
 │  WORKING STATE  │ ─────────────────►   │  LOADING STATE  │
-│  (handler runs) │                      │  (wait only)    │
+│  (action runs)  │                      │  (wait only)    │
 │                 │   ◄─────────────────  │                 │
 └─────────────────┘     page ready       └─────────────────┘
 ```
 
 **LOADING STATE**: Page is loading. Only waiting/tracking operations are allowed. No automation logic runs.
 
-**WORKING STATE**: Page is fully loaded (30 seconds of network idle). Page handlers can safely interact with DOM.
+**WORKING STATE**: Page is fully loaded (30 seconds of network idle). Page triggers can safely interact with DOM.
 
 ## Quick Start
 
 ```javascript
-import { launchBrowser, makeBrowserCommander } from './browser-commander/index.js';
+import { launchBrowser, makeBrowserCommander, makeUrlCondition } from './browser-commander/index.js';
 
 // 1. Launch browser
 const { browser, page } = await launchBrowser({ engine: 'playwright' });
@@ -30,15 +30,15 @@ const { browser, page } = await launchBrowser({ engine: 'playwright' });
 // 2. Create commander
 const commander = makeBrowserCommander({ page, verbose: true });
 
-// 3. Register page handler with URL matcher
-commander.pageHandler({
-  name: 'example-handler',
-  urlMatcher: (url) => url.includes('example.com'),
-  handler: async (ctx) => {
-    // ctx.commander has all methods, but they throw HandlerStoppedError if navigation happens
+// 3. Register page trigger with condition and action
+commander.pageTrigger({
+  name: 'example-trigger',
+  condition: makeUrlCondition('*example.com*'),  // matches URLs containing 'example.com'
+  action: async (ctx) => {
+    // ctx.commander has all methods, but they throw ActionStoppedError if navigation happens
     // ctx.checkStopped() - call in loops to check if should stop
     // ctx.abortSignal - use with fetch() for cancellation
-    // ctx.onCleanup(fn) - register cleanup when handler stops
+    // ctx.onCleanup(fn) - register cleanup when action stops
 
     console.log(`Processing: ${ctx.url}`);
 
@@ -49,7 +49,7 @@ commander.pageHandler({
   },
 });
 
-// 4. Navigate - handler auto-starts when page is ready
+// 4. Navigate - action auto-starts when page is ready
 await commander.goto({ url: 'https://example.com' });
 
 // 5. Cleanup
@@ -57,19 +57,65 @@ await commander.destroy();
 await browser.close();
 ```
 
-## Page Handler Lifecycle
+## URL Condition Helpers
+
+The `makeUrlCondition` helper makes it easy to create URL matching conditions:
+
+```javascript
+import { makeUrlCondition, allConditions, anyCondition, notCondition } from './browser-commander/index.js';
+
+// Exact URL match
+makeUrlCondition('https://example.com/page')
+
+// Contains substring (use * wildcards)
+makeUrlCondition('*checkout*')     // URL contains 'checkout'
+makeUrlCondition('*example.com*')  // URL contains 'example.com'
+
+// Starts with / ends with
+makeUrlCondition('/api/*')         // starts with '/api/'
+makeUrlCondition('*.json')         // ends with '.json'
+
+// Express-style route patterns
+makeUrlCondition('/vacancy/:id')                    // matches /vacancy/123
+makeUrlCondition('https://hh.ru/vacancy/:vacancyId') // matches specific domain + path
+makeUrlCondition('/user/:userId/profile')           // multiple segments
+
+// RegExp
+makeUrlCondition(/\/product\/\d+/)
+
+// Custom function (receives full context)
+makeUrlCondition((url, ctx) => {
+  const parsed = new URL(url);
+  return parsed.pathname.startsWith('/admin') && parsed.searchParams.has('edit');
+})
+
+// Combine conditions
+allConditions(
+  makeUrlCondition('*example.com*'),
+  makeUrlCondition('*/checkout*')
+)  // Both must match
+
+anyCondition(
+  makeUrlCondition('*/cart*'),
+  makeUrlCondition('*/checkout*')
+)  // Either matches
+
+notCondition(makeUrlCondition('*/admin*'))  // Negation
+```
+
+## Page Trigger Lifecycle
 
 ### The Guarantee
 
 When navigation is detected:
-1. **Handler is signaled to stop** (AbortController.abort())
-2. **Wait for handler to finish** (up to 10 seconds for graceful cleanup)
+1. **Action is signaled to stop** (AbortController.abort())
+2. **Wait for action to finish** (up to 10 seconds for graceful cleanup)
 3. **Only then start waiting for page load**
 
 This ensures:
 - No DOM operations on stale/loading pages
-- Handlers can do proper cleanup (clear intervals, save state)
-- No race conditions between handler and navigation
+- Actions can do proper cleanup (clear intervals, save state)
+- No race conditions between action and navigation
 
 ### Lifecycle Flow
 
@@ -78,8 +124,8 @@ URL Change Detected
        │
        ▼
 ┌──────────────────────────────────┐
-│ 1. Signal handler to stop        │  ◄── AbortController.abort()
-│ 2. Wait for handler to finish    │  ◄── Max 10 seconds
+│ 1. Signal action to stop         │  ◄── AbortController.abort()
+│ 2. Wait for action to finish     │  ◄── Max 10 seconds
 │ 3. Run cleanup callbacks         │  ◄── ctx.onCleanup()
 └──────────────────────────────────┘
        │
@@ -97,30 +143,30 @@ URL Change Detected
        │
        ▼
 ┌──────────────────────────────────┐
-│ 1. Find matching handler         │  ◄── urlMatcher(url)
-│ 2. Start handler                 │  ◄── handler(ctx)
+│ 1. Find matching trigger         │  ◄── condition(ctx)
+│ 2. Start action                  │  ◄── action(ctx)
 └──────────────────────────────────┘
 ```
 
-## Handler Context API
+## Action Context API
 
-When your handler is called, it receives a context object with these properties:
+When your action is called, it receives a context object with these properties:
 
 ```javascript
-commander.pageHandler({
-  name: 'my-handler',
-  urlMatcher: (url) => url.includes('/checkout'),
-  handler: async (ctx) => {
+commander.pageTrigger({
+  name: 'my-trigger',
+  condition: makeUrlCondition('*/checkout*'),
+  action: async (ctx) => {
     // Current URL
     ctx.url;  // 'https://example.com/checkout'
 
-    // Handler name (for debugging)
-    ctx.handlerName;  // 'my-handler'
+    // Trigger name (for debugging)
+    ctx.triggerName;  // 'my-trigger'
 
-    // Check if handler should stop
+    // Check if action should stop
     ctx.isStopped();  // Returns true if navigation detected
 
-    // Throw HandlerStoppedError if stopped (use in manual loops)
+    // Throw ActionStoppedError if stopped (use in manual loops)
     ctx.checkStopped();
 
     // AbortSignal - use with fetch() or other cancellable APIs
@@ -134,7 +180,7 @@ commander.pageHandler({
       await ctx.commander.clickButton({ selector: item.selector });
     });
 
-    // Register cleanup (runs when handler stops)
+    // Register cleanup (runs when action stops)
     ctx.onCleanup(() => {
       console.log('Cleaning up...');
     });
@@ -148,16 +194,16 @@ commander.pageHandler({
 });
 ```
 
-## HandlerStoppedError
+## ActionStoppedError
 
-When navigation is detected, all `ctx.commander` methods throw `HandlerStoppedError`:
+When navigation is detected, all `ctx.commander` methods throw `ActionStoppedError`:
 
 ```javascript
-handler: async (ctx) => {
+action: async (ctx) => {
   try {
     await ctx.commander.clickButton({ selector: 'button' });
   } catch (error) {
-    if (commander.isHandlerStoppedError(error)) {
+    if (commander.isActionStoppedError(error)) {
       // Navigation happened - clean up and return
       console.log('Navigation detected, stopping');
       return;
@@ -167,86 +213,89 @@ handler: async (ctx) => {
 }
 ```
 
-The error is automatically caught by the PageHandlerManager, so you usually don't need to catch it unless you need custom cleanup logic.
+The error is automatically caught by the PageTriggerManager, so you usually don't need to catch it unless you need custom cleanup logic.
 
-## URL Matching
+## Condition Function
 
-The `urlMatcher` function determines which pages your handler runs on:
+The `condition` function determines when your trigger runs. It receives full context:
 
 ```javascript
-// Simple string check
-urlMatcher: (url) => url.includes('/checkout')
+// Simple URL check
+condition: (ctx) => ctx.url.includes('/checkout')
 
 // Multiple pages
-urlMatcher: (url) => url.includes('/cart') || url.includes('/checkout')
+condition: (ctx) => ctx.url.includes('/cart') || ctx.url.includes('/checkout')
 
 // Regex
-urlMatcher: (url) => /\/product\/\d+/.test(url)
+condition: (ctx) => /\/product\/\d+/.test(ctx.url)
 
-// Complex logic
-urlMatcher: (url) => {
-  const parsed = new URL(url);
+// Complex logic with commander access
+condition: (ctx) => {
+  const parsed = new URL(ctx.url);
   return parsed.pathname.startsWith('/admin') && parsed.searchParams.has('edit');
 }
+
+// Or use makeUrlCondition helper
+condition: makeUrlCondition('/checkout/*')
 ```
 
-### Handler Priority
+### Trigger Priority
 
-If multiple handlers match, the highest priority runs:
+If multiple triggers match, the highest priority runs:
 
 ```javascript
 // Higher priority runs first
-commander.pageHandler({
+commander.pageTrigger({
   name: 'specific-checkout',
   priority: 10,  // Higher priority
-  urlMatcher: (url) => url.includes('/checkout/payment'),
-  handler: handlePaymentPage,
+  condition: makeUrlCondition('*/checkout/payment*'),
+  action: handlePaymentPage,
 });
 
-commander.pageHandler({
+commander.pageTrigger({
   name: 'general-checkout',
   priority: 0,   // Default priority
-  urlMatcher: (url) => url.includes('/checkout'),
-  handler: handleCheckoutPage,
+  condition: makeUrlCondition('*/checkout*'),
+  action: handleCheckoutPage,
 });
 ```
 
 ## Returning to a Page
 
-If navigation brings you back to a matching URL, the handler restarts:
+If navigation brings you back to a matching URL, the action restarts:
 
 ```javascript
-// Handler registered for /search
-commander.pageHandler({
-  urlMatcher: (url) => url.includes('/search'),
-  handler: async (ctx) => {
-    console.log('Search handler started');
+// Trigger registered for /search
+commander.pageTrigger({
+  condition: makeUrlCondition('*/search*'),
+  action: async (ctx) => {
+    console.log('Search action started');
     // ... do work
   },
 });
 
-// Navigate to search -> handler starts
+// Navigate to search -> action starts
 await commander.goto({ url: '/search' });
 
-// Navigate away -> handler stops
+// Navigate away -> action stops
 await commander.goto({ url: '/product/123' });
 
-// Navigate back -> handler restarts (new instance)
+// Navigate back -> action restarts (new instance)
 await commander.goto({ url: '/search' });
 ```
 
-## Unregistering Handlers
+## Unregistering Triggers
 
-`pageHandler` returns an unregister function:
+`pageTrigger` returns an unregister function:
 
 ```javascript
-const unregister = commander.pageHandler({
-  name: 'temp-handler',
-  urlMatcher: (url) => url.includes('/temp'),
-  handler: async (ctx) => { /* ... */ },
+const unregister = commander.pageTrigger({
+  name: 'temp-trigger',
+  condition: makeUrlCondition('*/temp*'),
+  action: async (ctx) => { /* ... */ },
 });
 
-// Later: remove the handler
+// Later: remove the trigger
 unregister();
 ```
 
@@ -258,7 +307,7 @@ unregister();
 browser-commander/
 ├── index.js                    # Main entry, makeBrowserCommander()
 ├── core/
-│   ├── page-handler-manager.js # Handler lifecycle management
+│   ├── page-trigger-manager.js # Trigger lifecycle management
 │   ├── navigation-manager.js   # URL changes, abort signals
 │   ├── network-tracker.js      # HTTP request tracking
 │   ├── page-session.js         # Per-page context (legacy)
@@ -292,7 +341,7 @@ browser-commander/
 ┌─────────────────────────────────────────────────────────────────┐
 │                      BrowserCommander                           │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
-│  │ NetworkTracker  │  │NavigationManager│  │PageHandlerMgr  │  │
+│  │ NetworkTracker  │  │NavigationManager│  │PageTriggerMgr  │  │
 │  │                 │  │                 │  │                │  │
 │  │ - Track HTTP    │◄─│ - URL changes   │◄─│ - Register     │  │
 │  │ - Wait idle     │  │ - Abort signals │  │ - Start/Stop   │  │
@@ -331,13 +380,13 @@ const commander = makeBrowserCommander({
 });
 ```
 
-### commander.pageHandler(config)
+### commander.pageTrigger(config)
 
 ```javascript
-const unregister = commander.pageHandler({
-  name: 'handler-name',                    // For debugging
-  urlMatcher: (url) => boolean,            // When to run
-  handler: async (ctx) => void,            // What to do
+const unregister = commander.pageTrigger({
+  name: 'trigger-name',                    // For debugging
+  condition: (ctx) => boolean,             // When to run (receives {url, commander})
+  action: async (ctx) => void,             // What to do
   priority: 0,                             // Higher runs first
 });
 ```
@@ -375,7 +424,7 @@ await commander.fillTextArea({
 ### commander.destroy()
 
 ```javascript
-await commander.destroy();  // Stop handlers, cleanup
+await commander.destroy();  // Stop actions, cleanup
 ```
 
 ## Best Practices
@@ -397,7 +446,7 @@ await ctx.forEach(items, async (item) => {
 ### 2. Use ctx.checkStopped for Complex Logic
 
 ```javascript
-handler: async (ctx) => {
+action: async (ctx) => {
   while (hasMorePages) {
     ctx.checkStopped();  // Throws if navigation detected
 
@@ -410,7 +459,7 @@ handler: async (ctx) => {
 ### 3. Register Cleanup for Resources
 
 ```javascript
-handler: async (ctx) => {
+action: async (ctx) => {
   const intervalId = setInterval(updateStatus, 1000);
 
   ctx.onCleanup(() => {
@@ -418,14 +467,14 @@ handler: async (ctx) => {
     console.log('Interval cleared');
   });
 
-  // ... rest of handler
+  // ... rest of action
 }
 ```
 
 ### 4. Use ctx.abortSignal with Fetch
 
 ```javascript
-handler: async (ctx) => {
+action: async (ctx) => {
   const response = await fetch(url, {
     signal: ctx.abortSignal,  // Cancels on navigation
   });
@@ -441,40 +490,12 @@ const commander = makeBrowserCommander({ page, verbose: true });
 ```
 
 Log symbols:
-- `📋` Handler registration/lifecycle
-- `🚀` Handler starting
-- `🛑` Handler stopping
-- `✅` Handler completed
-- `❌` Handler error
+- `📋` Trigger registration/lifecycle
+- `🚀` Action starting
+- `🛑` Action stopping
+- `✅` Action completed
+- `❌` Action error
 - `📤` Request started
 - `📥` Request ended
 - `🔗` URL change
 - `🌐` Network idle
-
-## Migration from Legacy API
-
-The old `onPageReady` callback API still works but `pageHandler` is recommended:
-
-```javascript
-// OLD (still works, but less control)
-commander.onPageReady(async ({ url }) => {
-  if (url.includes('/checkout')) {
-    await handleCheckout(commander);
-  }
-});
-
-// NEW (recommended)
-commander.pageHandler({
-  name: 'checkout',
-  urlMatcher: (url) => url.includes('/checkout'),
-  handler: async (ctx) => {
-    await handleCheckout(ctx);
-  },
-});
-```
-
-Key differences:
-- `pageHandler` guarantees handler stops before navigation
-- `pageHandler` provides `ctx.checkStopped()` for loops
-- `pageHandler` wraps commander methods to auto-throw on stop
-- `pageHandler` supports cleanup callbacks
