@@ -15,6 +15,7 @@ import {
 } from './qa.mjs';
 import { findBestMatch } from './qa-database.mjs';
 import { log } from './logging.mjs';
+import { SELECTORS } from './hh-selectors.mjs';
 
 /**
  * Setup Q&A auto-fill and auto-save for all textareas and radio buttons on the page
@@ -140,8 +141,8 @@ export async function handleVacancyResponsePage({
   let textareaAlreadyVisible = false;
   let textareaSelector = '';
   const possibleSelectors = [
-    'textarea[data-qa="vacancy-response-popup-form-letter-input"]',
-    'textarea[data-qa="vacancy-response-form-letter-input"]',
+    SELECTORS.coverLetterTextareaPopup,
+    SELECTORS.coverLetterTextareaForm,
   ];
 
   for (const sel of possibleSelectors) {
@@ -169,8 +170,8 @@ export async function handleVacancyResponsePage({
 
       // Try data-qa attributes first
       const dataQaSelectors = [
-        '[data-qa="vacancy-response-letter-toggle"]',
-        '[data-qa="add-cover-letter"]',
+        SELECTORS.coverLetterToggle,
+        SELECTORS.addCoverLetterButton,
       ];
 
       for (const sel of dataQaSelectors) {
@@ -239,7 +240,7 @@ export async function handleVacancyResponsePage({
 
   // Wait for textarea
   if (!textareaAlreadyVisible) {
-    textareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
+    textareaSelector = SELECTORS.coverLetterTextareaPopup;
   }
 
   try {
@@ -248,7 +249,7 @@ export async function handleVacancyResponsePage({
     log.debug(() => '🔍 Textarea found and visible');
   } catch {
     log.debug(() => '🔍 First selector timed out after 2000ms, trying alternative');
-    textareaSelector = 'textarea[data-qa="vacancy-response-form-letter-input"]';
+    textareaSelector = SELECTORS.coverLetterTextareaForm;
     try {
       log.debug(() => `🔍 Trying alternative textarea selector: ${textareaSelector}`);
       await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
@@ -331,23 +332,27 @@ export async function handleVacancyResponsePage({
   let hasEmptyTestTextareas;
   try {
     log.debug(() => '🔍 Checking for empty test textareas...');
+    // Note: Using inline selectors here since this runs in browser context
+    // The SELECTORS constants are not available inside evaluate()
+    const coverLetterPopupQa = 'vacancy-response-popup-form-letter-input';
+    const coverLetterFormQa = 'vacancy-response-form-letter-input';
     hasEmptyTestTextareas = await commander.evaluate({
-      fn: () => {
+      fn: (popupQa, formQa) => {
         const textareas = document.querySelectorAll('textarea');
         let emptyCount = 0;
         const details = [];
 
         textareas.forEach((textarea, index) => {
           // Skip the cover letter textarea
-          const isCoverLetter = textarea.getAttribute('data-qa') === 'vacancy-response-popup-form-letter-input' ||
-                                textarea.getAttribute('data-qa') === 'vacancy-response-form-letter-input';
+          const dataQa = textarea.getAttribute('data-qa');
+          const isCoverLetter = dataQa === popupQa || dataQa === formQa;
 
           const isEmpty = !textarea.value.trim();
           details.push({
             index,
             isCoverLetter,
             isEmpty,
-            dataQa: textarea.getAttribute('data-qa'),
+            dataQa,
             valueLength: textarea.value.length,
           });
 
@@ -358,6 +363,7 @@ export async function handleVacancyResponsePage({
 
         return { hasEmpty: emptyCount > 0, emptyCount, details };
       },
+      args: [coverLetterPopupQa, coverLetterFormQa],
     });
     log.debug(() => `🔍 Textarea check result: ${JSON.stringify(hasEmptyTestTextareas, null, 2)}`);
     // For backwards compatibility, extract the boolean
@@ -416,14 +422,14 @@ export async function handleVacancyResponsePage({
     console.log('✅ Proceeding with auto-submit');
 
     // Try multiple selectors for submit button (modal vs full-page form)
-    const possibleSelectors = [
-      '[data-qa="vacancy-response-submit-popup"]',  // Modal form
-      '[data-qa="vacancy-response-letter-submit"]', // Full-page form
-      'button[type="submit"]',                       // Generic fallback
+    const submitSelectors = [
+      SELECTORS.submitButtonPopup,  // Modal form
+      SELECTORS.submitButtonLetter, // Full-page form
+      'button[type="submit"]',       // Generic fallback
     ];
 
     let submitSelector = null;
-    for (const sel of possibleSelectors) {
+    for (const sel of submitSelectors) {
       const count = await commander.count({ selector: sel });
       if (count > 0) {
         submitSelector = sel;
