@@ -20,6 +20,7 @@ import {
   findAndProcessVacancyButton,
   waitForButtonsAfterNavigation,
 } from './vacancies.mjs';
+import { log, enableDebugLevel } from './logging.mjs';
 
 // Create QA database instance with explicit production file path
 const QA_DB_PATH = path.join(process.cwd(), 'data', 'qa.lino');
@@ -111,6 +112,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   // Set user data dir based on engine if not explicitly set
   if (!argv['user-data-dir']) {
     argv['user-data-dir'] = path.join(os.homedir(), '.hh-apply', `${argv.engine}-data`);
+  }
+
+  // Enable debug logging if verbose mode is on
+  if (argv.verbose) {
+    enableDebugLevel();
   }
 
   const MESSAGE = argv.message || process.env.MESSAGE || `Здравствуйте,
@@ -228,13 +234,13 @@ github.com/link-foundation
           }
 
           const redirectInfo = evalResult.value;
-          if (redirectInfo && argv.verbose && isOnVacancyPageFromResponse) {
-            console.log(`🔍 [VERBOSE] Checking redirect on vacancy page: ${currentUrl}`);
-            console.log(`🔍 [VERBOSE] sessionStorage flag: ${redirectInfo.hasFlag}`);
-            console.log(`🔍 [VERBOSE] "Вы откликнулись": ${redirectInfo.hasResponseText}`);
-            console.log(`🔍 [VERBOSE] "Вы уже откликались": ${redirectInfo.hasAlreadyResponded}`);
-            console.log(`🔍 [VERBOSE] "Отклик отправлен": ${redirectInfo.hasResponseSent}`);
-            console.log(`🔍 [VERBOSE] Has "Откликнуться" button: ${redirectInfo.hasRespondButton}`);
+          if (redirectInfo && isOnVacancyPageFromResponse) {
+            log.debug(() => `🔍 Checking redirect on vacancy page: ${currentUrl}`);
+            log.debug(() => `🔍 sessionStorage flag: ${redirectInfo.hasFlag}`);
+            log.debug(() => `🔍 "Вы откликнулись": ${redirectInfo.hasResponseText}`);
+            log.debug(() => `🔍 "Вы уже откликались": ${redirectInfo.hasAlreadyResponded}`);
+            log.debug(() => `🔍 "Отклик отправлен": ${redirectInfo.hasResponseSent}`);
+            log.debug(() => `🔍 Has "Откликнуться" button: ${redirectInfo.hasRespondButton}`);
           }
 
           if (redirectInfo && redirectInfo.needsRedirect) {
@@ -326,11 +332,9 @@ github.com/link-foundation
     try {
       const currentUrl = commander.getUrl();
 
-      if (argv.verbose) {
-        console.log('🔍 [VERBOSE] checkAndRedirectIfNeeded called');
-        console.log(`🔍 [VERBOSE] Current URL: ${currentUrl}`);
-        console.log(`🔍 [VERBOSE] isOnVacancyPageFromResponse: ${isOnVacancyPageFromResponse}`);
-      }
+      log.debug(() => '🔍 checkAndRedirectIfNeeded called');
+      log.debug(() => `🔍 Current URL: ${currentUrl}`);
+      log.debug(() => `🔍 isOnVacancyPageFromResponse: ${isOnVacancyPageFromResponse}`);
 
       const evalResult = await commander.safeEvaluate({
         fn: () => {
@@ -352,9 +356,7 @@ github.com/link-foundation
 
       const shouldRedirect = evalResult.value;
 
-      if (argv.verbose) {
-        console.log(`🔍 [VERBOSE] shouldRedirect from sessionStorage: ${shouldRedirect}`);
-      }
+      log.debug(() => `🔍 shouldRedirect from sessionStorage: ${shouldRedirect}`);
 
       if (shouldRedirect) {
         console.log('✅ Detected "Откликнуться" button was clicked on vacancy page!');
@@ -465,9 +467,7 @@ github.com/link-foundation
     try {
       // Prevent recursive calls while navigating
       if (isNavigating) {
-        if (argv.verbose) {
-          console.log(`🔍 [VERBOSE] Skipping navigation handler (already navigating): ${currentUrl}`);
-        }
+        log.debug(() => `🔍 Skipping navigation handler (already navigating): ${currentUrl}`);
         return;
       }
 
@@ -541,13 +541,11 @@ github.com/link-foundation
 
           const submissionInfo = evalResult.value;
 
-          if (argv.verbose) {
-            console.log(`🔍 [VERBOSE] Navigation handler checking submission on: ${currentUrl}`);
-            console.log(`🔍 [VERBOSE] "Вы откликнулись": ${submissionInfo.hasResponseText}`);
-            console.log(`🔍 [VERBOSE] "Вы уже откликались": ${submissionInfo.hasAlreadyResponded}`);
-            console.log(`🔍 [VERBOSE] "Отклик отправлен": ${submissionInfo.hasResponseSent}`);
-            console.log(`🔍 [VERBOSE] Will redirect: ${submissionInfo.hasSubmitted}`);
-          }
+          log.debug(() => `🔍 Navigation handler checking submission on: ${currentUrl}`);
+          log.debug(() => `🔍 "Вы откликнулись": ${submissionInfo.hasResponseText}`);
+          log.debug(() => `🔍 "Вы уже откликались": ${submissionInfo.hasAlreadyResponded}`);
+          log.debug(() => `🔍 "Отклик отправлен": ${submissionInfo.hasResponseSent}`);
+          log.debug(() => `🔍 Will redirect: ${submissionInfo.hasSubmitted}`);
 
           if (submissionInfo.hasSubmitted && !isNavigating) {
             console.log('✅ Detected application submission completed (user clicked on vacancy_response page), triggering redirect...');
