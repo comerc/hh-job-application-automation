@@ -1,22 +1,23 @@
 /**
  * Main orchestrator module
  * Coordinates the main application loop and state management
+ *
+ * This module uses the pageTrigger pattern from browser-commander for
+ * cleaner, more declarative page handling with automatic lifecycle management.
+ *
+ * @see https://github.com/konard/hh-job-application-automation/issues/89
  */
 
 import { isNavigationError } from './browser-commander/index.js';
-import { saveQAPairs } from './vacancy-response.mjs';
 import {
   handleLimitError,
   findAndProcessVacancyButton,
   waitForButtonsAfterNavigation,
 } from './vacancies.mjs';
 import { log } from './logging.mjs';
-import {
-  createNavigationHandler,
-  createClickListenerHandler,
-  checkAndRedirectIfNeeded,
-} from './page-handlers.mjs';
+import { checkAndRedirectIfNeeded } from './page-handlers.mjs';
 import { SESSION_KEYS } from './helpers/session-tracker.mjs';
+import { setupPageTriggers } from './page-triggers.mjs';
 
 /**
  * Create the URL condition wait function
@@ -139,40 +140,8 @@ export function createWaitForUrlCondition({
   };
 }
 
-/**
- * Setup periodic Q&A saving
- * @param {Object} options
- * @param {Object} options.commander - Browser commander instance
- * @param {Function} options.addOrUpdateQA - Function to save Q&A pairs
- * @param {RegExp} options.vacancyResponsePattern - Pattern to match vacancy_response URLs
- * @param {number} options.saveIntervalMs - Interval in milliseconds (default: 5000)
- * @returns {NodeJS.Timer} Interval ID for cleanup
- */
-export function setupPeriodicQASave({
-  commander,
-  addOrUpdateQA,
-  vacancyResponsePattern,
-  saveIntervalMs = 5000,
-}) {
-  let lastSaveTime = Date.now();
-
-  return setInterval(async () => {
-    try {
-      const currentUrl = commander.getUrl();
-      const now = Date.now();
-
-      if (vacancyResponsePattern.test(currentUrl) && (now - lastSaveTime) >= saveIntervalMs) {
-        const savedCount = await saveQAPairs({ commander, addOrUpdateQA });
-        if (savedCount > 0) {
-          console.log(`Auto-saved ${savedCount} Q&A pair(s)`);
-          lastSaveTime = now;
-        }
-      }
-    } catch {
-      // Ignore errors during periodic save
-    }
-  }, saveIntervalMs);
-}
+// Note: Periodic Q&A saving is now handled by the vacancy-response-page pageTrigger
+// in page-triggers.mjs with proper lifecycle management and automatic cleanup
 
 /**
  * Create the main automation orchestrator
@@ -194,28 +163,18 @@ export function createOrchestrator({
   handleVacancyResponsePageWrapper,
 }) {
   // State variables
+  // Note: Most state is now managed by pageTriggers in page-triggers.mjs
   let pageClosedByUser = false;
-  let isOnVacancyPageFromResponse = false;
-  let clickListenerInstalled = false;
-  let lastVacancyPageUrl = '';
-  let isNavigating = false;
-  let lastUrl = commander.getUrl();
+  let isOnVacancyPageFromResponse = false;  // Kept for legacy compatibility with redirect check
+  let isNavigating = false;  // Kept for redirect check
 
   // Getters and setters for state
   const getPageClosedByUser = () => pageClosedByUser;
   const setPageClosedByUser = (value) => { pageClosedByUser = value; };
   const getIsOnVacancyPageFromResponse = () => isOnVacancyPageFromResponse;
   const setIsOnVacancyPageFromResponse = (value) => { isOnVacancyPageFromResponse = value; };
-  const getClickListenerInstalled = () => clickListenerInstalled;
-  const setClickListenerInstalled = (value) => { clickListenerInstalled = value; };
-  const getLastVacancyPageUrl = () => lastVacancyPageUrl;
-  const setLastVacancyPageUrl = (value) => { lastVacancyPageUrl = value; };
   const getIsNavigating = () => isNavigating;
   const setIsNavigating = (value) => { isNavigating = value; };
-  const getLastUrl = () => lastUrl;
-  const setLastUrl = (value) => { lastUrl = value; };
-
-  const { addOrUpdateQA } = qaDB;
 
   // Create waitForUrlCondition function
   const waitForUrlCondition = createWaitForUrlCondition({
@@ -225,41 +184,20 @@ export function createOrchestrator({
     vacancyPagePattern,
   });
 
-  // Create navigation handler
-  const handleNavigation = createNavigationHandler({
-    commander,
-    addOrUpdateQA,
-    vacancyResponsePattern,
-    vacancyPagePattern,
-    getLastUrl,
-    setLastUrl,
-    getIsOnVacancyPageFromResponse,
-    setIsOnVacancyPageFromResponse,
-    getIsNavigating,
-    setIsNavigating,
-    START_URL,
-  });
-
-  // Create click listener handler
-  const handleClickListener = createClickListenerHandler({
-    commander,
-    vacancyPagePattern,
-    getIsOnVacancyPageFromResponse,
-    getClickListenerInstalled,
-    setClickListenerInstalled,
-    getLastVacancyPageUrl,
-    setLastVacancyPageUrl,
-  });
+  // Note: Navigation and click listener handlers are now managed by pageTriggers
+  // in page-triggers.mjs with proper lifecycle management
 
   // Wrapper for redirect check
+  // Note: This is kept for compatibility - the pageTriggers also handle redirects
+  // but this provides an additional check in the main loop
   const checkRedirect = () => checkAndRedirectIfNeeded({
     commander,
     getIsOnVacancyPageFromResponse,
     setIsOnVacancyPageFromResponse,
     getIsNavigating,
     setIsNavigating,
-    setClickListenerInstalled,
-    setLastVacancyPageUrl,
+    setClickListenerInstalled: () => {}, // No-op - managed by pageTriggers
+    setLastVacancyPageUrl: () => {}, // No-op - managed by pageTriggers
     START_URL,
   });
 
@@ -303,30 +241,27 @@ export function createOrchestrator({
         await commander.goto({ url: START_URL, waitForStableUrlBefore: false });
       }
 
+      // Setup page triggers for declarative page handling
+      // This replaces the manual onUrlChange handlers with the pageTrigger pattern
+      const cleanupTriggers = setupPageTriggers({
+        commander,
+        qaDB,
+        handleVacancyResponsePageWrapper,
+        START_URL,
+        setIsOnVacancyPageFromResponse,
+      });
+
+      process.on('exit', () => cleanupTriggers());
+
       // Check if already on vacancy_response page
+      // Note: The pageTrigger will handle this page, but we need to wait for
+      // the page to be ready first
       const currentUrl = commander.getUrl();
       if (vacancyResponsePattern.test(currentUrl)) {
-        await handleVacancyResponsePageWrapper();
-        console.log('Initial vacancy_response page handled. Script will continue monitoring...');
+        // Wait a bit for pageTrigger to start
+        await commander.wait({ ms: 500, reason: 'waiting for page trigger to initialize' });
+        console.log('Initial vacancy_response page detected. PageTrigger will handle it...');
       }
-
-      // Setup periodic Q&A saving
-      const saveInterval = setupPeriodicQASave({
-        commander,
-        addOrUpdateQA,
-        vacancyResponsePattern,
-      });
-
-      process.on('exit', () => clearInterval(saveInterval));
-
-      // Setup navigation listeners
-      commander.onUrlChange(async ({ newUrl }) => {
-        await handleNavigation(newUrl);
-      });
-
-      commander.onUrlChange(async ({ newUrl }) => {
-        await handleClickListener(newUrl);
-      });
 
       // Main loop
       await this.runMainLoop();
