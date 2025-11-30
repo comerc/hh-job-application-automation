@@ -88,11 +88,10 @@ export async function processModalApplication({
     }
 
     if (coverToggleCount > 0) {
-      if (verbose) {
-        const text = await commander.textContent({ selector: coverToggleSelector });
-        const dataQa = await commander.getAttribute({ selector: coverToggleSelector, attribute: 'data-qa' });
-        console.log(`🔍 Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
-      }
+      // Log toggle details in debug mode
+      const text = await commander.textContent({ selector: coverToggleSelector });
+      const dataQa = await commander.getAttribute({ selector: coverToggleSelector, attribute: 'data-qa' });
+      log.debug(() => `🔍 Clicking cover letter toggle: text="${text?.trim()}", data-qa="${dataQa}"`);
       try {
         await commander.clickButton({ selector: coverToggleSelector, scrollIntoView: false });
         console.log('✅ Clicked cover letter toggle');
@@ -185,9 +184,7 @@ export async function processModalApplication({
     throw error;
   }
 
-  if (verbose) {
-    console.log('🔍 Submit button state:', JSON.stringify(buttonState, null, 2));
-  }
+  log.debug(() => `🔍 Submit button state: ${JSON.stringify(buttonState, null, 2)}`);
 
   if (!buttonState.found) {
     console.error('❌ Submit button not found in modal!');
@@ -367,17 +364,15 @@ export async function findAndProcessVacancyButton({
   }
 
   // Log scroll position before any interaction
-  if (verbose) {
-    try {
-      const scrollBefore = await commander.evaluate({
-        fn: () => ({ x: window.scrollX, y: window.scrollY }),
-      });
-      console.log(`🔍 1. Scroll BEFORE button click: x=${scrollBefore.x}, y=${scrollBefore.y}`);
-    } catch (e) {
-      if (isNavigationError(e)) {
-        console.log('🔍 1. Navigation detected during scroll check, continuing...');
-        return { status: 'navigation_detected' };
-      }
+  try {
+    const scrollBefore = await commander.evaluate({
+      fn: () => ({ x: window.scrollX, y: window.scrollY }),
+    });
+    log.debug(() => `🔍 1. Scroll BEFORE button click: x=${scrollBefore.x}, y=${scrollBefore.y}`);
+  } catch (e) {
+    if (isNavigationError(e)) {
+      log.debug(() => '🔍 1. Navigation detected during scroll check, continuing...');
+      return { status: 'navigation_detected' };
     }
   }
 
@@ -403,34 +398,32 @@ export async function findAndProcessVacancyButton({
       return { status: 'navigation_detected' };
     }
 
-    if (verbose) {
-      console.log('🔍 3. Button click completed + 1s wait after click (via waitAfterClick)');
+    log.debug(() => '🔍 3. Button click completed + 1s wait after click (via waitAfterClick)');
 
-      // Check state immediately after click
-      try {
-        const stateAfterClick = await commander.evaluate({
-          fn: () => ({
-            scrollX: window.scrollX,
-            scrollY: window.scrollY,
-            bodyPosition: document.body ? window.getComputedStyle(document.body).position : 'unknown',
-            bodyTop: document.body ? document.body.style.top : 'unknown',
-            bodyOverflow: document.body ? window.getComputedStyle(document.body).overflow : 'unknown',
-            htmlOverflow: document.documentElement ? window.getComputedStyle(document.documentElement).overflow : 'unknown',
-            hasModal: !!document.querySelector('[data-qa="modal-overlay"]'),
-            hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
-          }),
-        });
-        console.log('🔍 4. State immediately after click:');
-        console.log(`   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
-        console.log(`   - body.position: ${stateAfterClick.bodyPosition}`);
-        console.log(`   - body.top: "${stateAfterClick.bodyTop}"`);
-        console.log(`   - body.overflow: ${stateAfterClick.bodyOverflow}`);
-        console.log(`   - html.overflow: ${stateAfterClick.htmlOverflow}`);
-        console.log(`   - modal overlay exists: ${stateAfterClick.hasModal}`);
-        console.log(`   - form exists: ${stateAfterClick.hasForm}`);
-      } catch (e) {
-        console.log(`🔍 4. Could not check state (page may have navigated): ${e.message}`);
-      }
+    // Check state immediately after click in debug mode
+    try {
+      const stateAfterClick = await commander.evaluate({
+        fn: () => ({
+          scrollX: window.scrollX,
+          scrollY: window.scrollY,
+          bodyPosition: document.body ? window.getComputedStyle(document.body).position : 'unknown',
+          bodyTop: document.body ? document.body.style.top : 'unknown',
+          bodyOverflow: document.body ? window.getComputedStyle(document.body).overflow : 'unknown',
+          htmlOverflow: document.documentElement ? window.getComputedStyle(document.documentElement).overflow : 'unknown',
+          hasModal: !!document.querySelector('[data-qa="modal-overlay"]'),
+          hasForm: !!document.querySelector('form#RESPONSE_MODAL_FORM_ID'),
+        }),
+      });
+      log.debug(() => '🔍 4. State immediately after click:');
+      log.debug(() => `   - scroll: x=${stateAfterClick.scrollX}, y=${stateAfterClick.scrollY}`);
+      log.debug(() => `   - body.position: ${stateAfterClick.bodyPosition}`);
+      log.debug(() => `   - body.top: "${stateAfterClick.bodyTop}"`);
+      log.debug(() => `   - body.overflow: ${stateAfterClick.bodyOverflow}`);
+      log.debug(() => `   - html.overflow: ${stateAfterClick.htmlOverflow}`);
+      log.debug(() => `   - modal overlay exists: ${stateAfterClick.hasModal}`);
+      log.debug(() => `   - form exists: ${stateAfterClick.hasForm}`);
+    } catch (e) {
+      log.debug(() => `🔍 4. Could not check state (page may have navigated): ${e.message}`);
     }
   } catch (error) {
     if (isNavigationError(error)) {
@@ -448,29 +441,25 @@ export async function findAndProcessVacancyButton({
   // Just wait for modal to appear (or navigation to complete)
   await commander.wait({ ms: 2000, reason: 'modal to appear' });
 
-  if (verbose) {
-    try {
-      const scrollAfterWait = await commander.evaluate({
-        fn: () => ({ x: window.scrollX, y: window.scrollY }),
-      });
-      console.log(`🔍 6. Scroll AFTER 2s wait: x=${scrollAfterWait.x}, y=${scrollAfterWait.y}`);
-    } catch (e) {
-      console.log(`🔍 6. Could not check scroll (page may have navigated): ${e.message}`);
-    }
-    console.log('🔍 7. Waiting for delayed redirects (2 more seconds)...');
+  try {
+    const scrollAfterWait = await commander.evaluate({
+      fn: () => ({ x: window.scrollX, y: window.scrollY }),
+    });
+    log.debug(() => `🔍 6. Scroll AFTER 2s wait: x=${scrollAfterWait.x}, y=${scrollAfterWait.y}`);
+  } catch (e) {
+    log.debug(() => `🔍 6. Could not check scroll (page may have navigated): ${e.message}`);
   }
+  log.debug(() => '🔍 7. Waiting for delayed redirects (2 more seconds)...');
 
   await commander.wait({ ms: 2000, reason: 'delayed redirects to complete' });
 
-  if (verbose) {
-    try {
-      const scrollFinal = await commander.evaluate({
-        fn: () => ({ x: window.scrollX, y: window.scrollY }),
-      });
-      console.log(`🔍 8. Scroll AFTER 4s total wait: x=${scrollFinal.x}, y=${scrollFinal.y}`);
-    } catch (e) {
-      console.log(`🔍 8. Could not check scroll (page may have navigated): ${e.message}`);
-    }
+  try {
+    const scrollFinal = await commander.evaluate({
+      fn: () => ({ x: window.scrollX, y: window.scrollY }),
+    });
+    log.debug(() => `🔍 8. Scroll AFTER 4s total wait: x=${scrollFinal.x}, y=${scrollFinal.y}`);
+  } catch (e) {
+    log.debug(() => `🔍 8. Could not check scroll (page may have navigated): ${e.message}`);
   }
 
   const currentUrl = commander.getUrl();
@@ -526,33 +515,29 @@ export async function findAndProcessVacancyButton({
   // Wait for modal
   let modalAppeared = false;
   try {
-    if (verbose) {
-      try {
-        const scrollBeforeModal = await commander.evaluate({
-          fn: () => ({ x: window.scrollX, y: window.scrollY }),
-        });
-        console.log(`🔍 9. Scroll BEFORE waiting for modal selector: x=${scrollBeforeModal.x}, y=${scrollBeforeModal.y}`);
-      } catch (e) {
-        console.log(`🔍 9. Could not check scroll: ${e.message}`);
-      }
-      console.log(`🔍 10. Waiting for modal selector: ${SELECTORS.applicationForm}...`);
+    try {
+      const scrollBeforeModal = await commander.evaluate({
+        fn: () => ({ x: window.scrollX, y: window.scrollY }),
+      });
+      log.debug(() => `🔍 9. Scroll BEFORE waiting for modal selector: x=${scrollBeforeModal.x}, y=${scrollBeforeModal.y}`);
+    } catch (e) {
+      log.debug(() => `🔍 9. Could not check scroll: ${e.message}`);
     }
+    log.debug(() => `🔍 10. Waiting for modal selector: ${SELECTORS.applicationForm}...`);
     await commander.waitForSelector({
       selector: SELECTORS.applicationForm,
       visible: true,
       timeout: 10000,
     });
     modalAppeared = true;
-    if (verbose) {
-      try {
-        const scrollAfterModal = await commander.evaluate({
-          fn: () => ({ x: window.scrollX, y: window.scrollY }),
-        });
-        console.log('🔍 11. Modal selector found');
-        console.log(`🔍 12. Scroll AFTER modal appeared: x=${scrollAfterModal.x}, y=${scrollAfterModal.y}`);
-      } catch (e) {
-        console.log(`🔍 11-12. Modal found but could not check scroll: ${e.message}`);
-      }
+    try {
+      const scrollAfterModal = await commander.evaluate({
+        fn: () => ({ x: window.scrollX, y: window.scrollY }),
+      });
+      log.debug(() => '🔍 11. Modal selector found');
+      log.debug(() => `🔍 12. Scroll AFTER modal appeared: x=${scrollAfterModal.x}, y=${scrollAfterModal.y}`);
+    } catch (e) {
+      log.debug(() => `🔍 11-12. Modal found but could not check scroll: ${e.message}`);
     }
   } catch {
     console.log('⚠️  Modal did not appear within timeout. This may be a different type of vacancy response.');
@@ -682,8 +667,8 @@ export async function waitForButtonsAfterNavigation({
     }
 
     checkCount++;
-    if (checkCount % 5 === 0 && verbose) {
-      console.log(`🔍 Still waiting... (checked ${checkCount} times)`);
+    if (checkCount % 5 === 0) {
+      log.debug(() => `🔍 Still waiting... (checked ${checkCount} times)`);
     }
   }
 }
