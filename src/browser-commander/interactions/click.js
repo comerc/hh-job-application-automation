@@ -4,6 +4,7 @@ import { isActionStoppedError } from '../core/page-trigger-manager.js';
 import { waitForLocatorOrElement } from '../elements/locators.js';
 import { scrollIntoViewIfNeeded } from './scroll.js';
 import { logElementInfo } from '../elements/content.js';
+import { createEngineAdapter } from '../core/engine-adapter.js';
 
 /**
  * Default verification function for click operations.
@@ -22,32 +23,22 @@ import { logElementInfo } from '../elements/content.js';
  * @returns {Promise<{verified: boolean, reason: string}>}
  */
 export async function defaultClickVerification(options = {}) {
-  const { page, engine, locatorOrElement, preClickState = {} } = options;
+  const { page, engine, locatorOrElement, preClickState = {}, adapter: providedAdapter } = options;
 
   try {
+    const adapter = providedAdapter || createEngineAdapter(page, engine);
+
     // Get current element state
     const getElementState = async () => {
-      if (engine === 'playwright') {
-        return await locatorOrElement.evaluate((el) => ({
-          disabled: el.disabled,
-          ariaPressed: el.getAttribute('aria-pressed'),
-          ariaExpanded: el.getAttribute('aria-expanded'),
-          ariaSelected: el.getAttribute('aria-selected'),
-          checked: el.checked,
-          className: el.className,
-          isConnected: el.isConnected,
-        }));
-      } else {
-        return await page.evaluate((el) => ({
-          disabled: el.disabled,
-          ariaPressed: el.getAttribute('aria-pressed'),
-          ariaExpanded: el.getAttribute('aria-expanded'),
-          ariaSelected: el.getAttribute('aria-selected'),
-          checked: el.checked,
-          className: el.className,
-          isConnected: el.isConnected,
-        }), locatorOrElement);
-      }
+      return await adapter.evaluateOnElement(locatorOrElement, (el) => ({
+        disabled: el.disabled,
+        ariaPressed: el.getAttribute('aria-pressed'),
+        ariaExpanded: el.getAttribute('aria-expanded'),
+        ariaSelected: el.getAttribute('aria-selected'),
+        checked: el.checked,
+        className: el.className,
+        isConnected: el.isConnected,
+      }));
     };
 
     const postClickState = await getElementState();
@@ -95,33 +86,23 @@ export async function defaultClickVerification(options = {}) {
  * @param {Object} options.page - Browser page object
  * @param {string} options.engine - Engine type
  * @param {Object} options.locatorOrElement - Element to capture state from
+ * @param {Object} options.adapter - Engine adapter (optional, will be created if not provided)
  * @returns {Promise<Object>} - Pre-click state object
  */
 export async function capturePreClickState(options = {}) {
-  const { page, engine, locatorOrElement } = options;
+  const { page, engine, locatorOrElement, adapter: providedAdapter } = options;
 
   try {
-    if (engine === 'playwright') {
-      return await locatorOrElement.evaluate((el) => ({
-        disabled: el.disabled,
-        ariaPressed: el.getAttribute('aria-pressed'),
-        ariaExpanded: el.getAttribute('aria-expanded'),
-        ariaSelected: el.getAttribute('aria-selected'),
-        checked: el.checked,
-        className: el.className,
-        isConnected: el.isConnected,
-      }));
-    } else {
-      return await page.evaluate((el) => ({
-        disabled: el.disabled,
-        ariaPressed: el.getAttribute('aria-pressed'),
-        ariaExpanded: el.getAttribute('aria-expanded'),
-        ariaSelected: el.getAttribute('aria-selected'),
-        checked: el.checked,
-        className: el.className,
-        isConnected: el.isConnected,
-      }), locatorOrElement);
-    }
+    const adapter = providedAdapter || createEngineAdapter(page, engine);
+    return await adapter.evaluateOnElement(locatorOrElement, (el) => ({
+      disabled: el.disabled,
+      ariaPressed: el.getAttribute('aria-pressed'),
+      ariaExpanded: el.getAttribute('aria-expanded'),
+      ariaSelected: el.getAttribute('aria-selected'),
+      checked: el.checked,
+      className: el.className,
+      isConnected: el.isConnected,
+    }));
   } catch (error) {
     if (isNavigationError(error) || isActionStoppedError(error)) {
       return {};
@@ -177,6 +158,7 @@ export async function verifyClick(options = {}) {
  * @param {boolean} options.noAutoScroll - Prevent Playwright's automatic scrolling (default: false)
  * @param {boolean} options.verify - Whether to verify the click operation (default: true)
  * @param {Function} options.verifyFn - Custom verification function (optional)
+ * @param {Object} options.adapter - Engine adapter (optional, will be created if not provided)
  * @returns {Promise<{clicked: boolean, verified: boolean, reason?: string}>}
  */
 export async function clickElement(options = {}) {
@@ -188,6 +170,7 @@ export async function clickElement(options = {}) {
     noAutoScroll = false,
     verify = true,
     verifyFn,
+    adapter: providedAdapter,
   } = options;
 
   if (!locatorOrElement) {
@@ -195,19 +178,20 @@ export async function clickElement(options = {}) {
   }
 
   try {
+    const adapter = providedAdapter || createEngineAdapter(page, engine);
+
     // Capture pre-click state for verification
     let preClickState = {};
     if (verify && page) {
-      preClickState = await capturePreClickState({ page, engine, locatorOrElement });
+      preClickState = await capturePreClickState({ page, engine, locatorOrElement, adapter });
     }
 
+    // Click with appropriate options
+    const clickOptions = (engine === 'playwright' && noAutoScroll) ? { force: true } : {};
     if (engine === 'playwright' && noAutoScroll) {
-      // Prevent Playwright's automatic scrolling by using force option
       log.debug(() => `🔍 [VERBOSE] Clicking with noAutoScroll (force: true)`);
-      await locatorOrElement.click({ force: true });
-    } else {
-      await locatorOrElement.click();
     }
+    await adapter.click(locatorOrElement, clickOptions);
 
     // Verify click if requested
     if (verify && page) {

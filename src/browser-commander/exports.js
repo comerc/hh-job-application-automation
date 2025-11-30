@@ -15,6 +15,9 @@ export { createNetworkTracker } from './core/network-tracker.js';
 export { createNavigationManager } from './core/navigation-manager.js';
 export { createPageSessionFactory } from './core/page-session.js';
 
+// Re-export engine adapter
+export { EngineAdapter, PlaywrightAdapter, PuppeteerAdapter, createEngineAdapter } from './core/engine-adapter.js';
+
 // Page trigger system
 export {
   createPageTriggerManager,
