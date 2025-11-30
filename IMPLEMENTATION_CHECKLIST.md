@@ -17,7 +17,7 @@ Based on review feedback:
 
 | Item | Status | Description |
 |------|--------|-------------|
-| Phase 1.1 | ✅ Foundation | Created `src/logging.mjs` module with log-lazy |
+| Phase 1.1 | ✅ **COMPLETE** | Integrated log-lazy throughout codebase (apply.mjs, vacancy-response.mjs, vacancies.mjs) |
 | Phase 1.2 | ✅ Foundation | Created `src/config.mjs` module with lino-arguments, installed package |
 | Phase 2.1 | ✅ Completed | Created `src/helpers/modal-helpers.mjs` with `closeModalIfPresent`, `isModalVisible`, `waitForModalToClose` |
 | Phase 2.2 | ✅ Completed | Created `src/hh-selectors.mjs` with SELECTORS and URL_PATTERNS |
@@ -26,26 +26,37 @@ Based on review feedback:
 
 ### 📁 New Files Created
 
-- `src/logging.mjs` - Logging module using log-lazy library
+- `src/logging.mjs` - Logging module using log-lazy library with lazy evaluation
 - `src/config.mjs` - Configuration module using lino-arguments library
 - `src/hh-selectors.mjs` - Centralized HH.ru selectors and URL patterns
 - `src/helpers/modal-helpers.mjs` - Modal handling helper functions
 
 ### 🔄 Files Modified
 
-- `src/vacancies.mjs` - Refactored to use new helpers:
+- `src/apply.mjs` - Integrated log-lazy for verbose logging:
+  - Import `log`, `enableDebugLevel` from logging module
+  - Enable debug level when `--verbose` flag is set
+  - Replace all verbose console.log with `log.debug(() => message)`
+
+- `src/vacancy-response.mjs` - Integrated log-lazy for verbose logging:
+  - Import `log` from logging module
+  - Replace all verbose console.log with `log.debug(() => message)`
+  - Lazy evaluation ensures zero-cost when debug disabled
+
+- `src/vacancies.mjs` - Integrated log-lazy + refactored to use helpers:
+  - Import `log` from logging module
   - Import `closeModalIfPresent` from modal-helpers
   - Import `SELECTORS` from hh-selectors
-  - Replace 5 modal close patterns with helper function
-  - Use `SELECTORS.applicationForm` instead of hardcoded selector
+  - Replace all verbose console.log with `log.debug(() => message)`
+  - Use helper functions and centralized selectors
+  - Move expensive operations out of verbose checks (now lazy-evaluated)
 
 ### ⏳ Remaining Work
 
-- Phase 1.1: Replace verbose console.log with log-lazy calls
-- Phase 1.2: Integrate config module into apply.mjs
-- Phase 2.2: Update vacancy-response.mjs to use selectors
-- Phase 2.3: Extract session storage tracker
-- Phase 3.x: Structural improvements (split apply.mjs, pageTrigger pattern)
+- Phase 1.2: Integrate config module into apply.mjs (replace yargs)
+- Phase 2.2: Update vacancy-response.mjs to use selectors from hh-selectors.mjs
+- Phase 2.3: Extract session storage tracker helper
+- Phase 3.x: Structural improvements (split apply.mjs, pageTrigger pattern, split large functions)
 
 ---
 
@@ -56,46 +67,48 @@ Based on review feedback:
 **Priority:** High
 **Estimated complexity:** Medium
 **Dependencies:** None
-**Status:** ✅ Foundation created
+**Status:** ✅ **COMPLETE**
 
-- [x] Install log-lazy package (already in dependencies)
+- [x] Install log-lazy package
   ```bash
   npm install log-lazy
   ```
 
-- [x] Create `src/logging.mjs` module
+- [x] Create `src/logging.mjs` module with lazy evaluation support
   ```javascript
   import makeLog from 'log-lazy';
-
-  // Initialize with console logging by default
-  // Can be extended to use other logging engines later
   const log = makeLog({ level: 'info' });
-
-  export default log;
+  export function enableDebugLevel() { log.enableLevel('debug'); }
   export { log };
   ```
 
-- [ ] Replace verbose console.log patterns in `src/apply.mjs`:
-  - Line 116-121: verbose logging setup
-  - Replace `if (verbose) console.log(...)` with `log.debug(() => ...)`
+- [x] Replace verbose console.log patterns in `src/apply.mjs`:
+  - Enable debug level when `--verbose` flag is set
+  - Replace `if (argv.verbose) console.log(...)` with `log.debug(() => ...)`
+  - All verbose logging now uses lazy evaluation
 
-- [ ] Replace verbose logging in `src/vacancy-response.mjs`:
-  - Lines 116-117, 120, 123, 128, 134, 137, 141, 143, etc.
+- [x] Replace verbose logging in `src/vacancy-response.mjs`:
   - Pattern: `if (verbose) console.log('🔍 [VERBOSE]...')` → `log.debug(() => '🔍 ...')`
+  - All 36+ verbose patterns replaced with lazy evaluation
+  - Multi-line console.log blocks converted to individual `log.debug()` calls
 
-- [ ] Replace verbose logging in `src/vacancies.mjs`:
-  - Lines 57, 92, 115, 139, etc.
-  - Same pattern as above
+- [x] Replace verbose logging in `src/vacancies.mjs`:
+  - All verbose console.log calls replaced with `log.debug(() => ...)`
+  - Complex multi-log patterns refactored for lazy evaluation
+  - Expensive operations (DOM queries, evaluations) now only execute when debug enabled
 
-- [ ] Update debug mode flag to control log level
+- [x] Update debug mode flag to control log level
   ```javascript
   // In apply.mjs
   if (argv.verbose) {
-    log.enableLevel('debug');
+    enableDebugLevel();
   }
   ```
 
-- [ ] Test logging behavior with verbose flag enabled/disabled
+- [x] Test logging behavior with verbose flag enabled/disabled
+  - All 120 tests pass
+  - Lint passes
+  - Backward compatible with existing `--verbose` CLI flag
 
 ### 1.2 Integrate lino-arguments Library
 
