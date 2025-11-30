@@ -19,6 +19,7 @@ import {
 } from './vacancies.mjs';
 import { log, enableDebugLevel } from './logging.mjs';
 import { createConfig, getUserDataDir } from './config.mjs';
+import { URL_PATTERNS } from './hh-selectors.mjs';
 
 // Create QA database instance with explicit production file path
 const QA_DB_PATH = path.join(process.cwd(), 'data', 'qa.lino');
@@ -110,11 +111,10 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   });
 
   // Declare patterns and tracking variables early (used by waitForUrlCondition and other functions)
-  // Match hh.ru/search/vacancy URLs that contain the resume parameter
-  // This allows the automation to continue when user manually navigates between pages
-  const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy.*[?&]resume=/;
-  const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
-  const vacancyPagePattern = /^https:\/\/hh\.ru\/vacancy\/(\d+)/;
+  // Use centralized URL patterns from hh-selectors.mjs
+  const targetPagePattern = URL_PATTERNS.searchVacancy;
+  const vacancyResponsePattern = URL_PATTERNS.vacancyResponse;
+  const vacancyPagePattern = URL_PATTERNS.vacancyPage;
   const BUTTON_CLICK_INTERVAL = argv.jobApplicationInterval * 1000;
   let isOnVacancyPageFromResponse = false;
   let clickListenerInstalled = false;
