@@ -16,6 +16,7 @@ import {
   createClickListenerHandler,
   checkAndRedirectIfNeeded,
 } from './page-handlers.mjs';
+import { SESSION_KEYS } from './helpers/session-tracker.mjs';
 
 /**
  * Create the URL condition wait function
@@ -47,8 +48,8 @@ export function createWaitForUrlCondition({
         if (getIsOnVacancyPageFromResponse() && vacancyPagePattern.test(currentUrl)) {
           // Check both sessionStorage flag AND page content for "Вы откликнулись"
           const evalResult = await commander.safeEvaluate({
-            fn: () => {
-              const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
+            fn: (storageKey) => {
+              const flag = window.sessionStorage.getItem(storageKey);
               // Normalize whitespace (including nbsp) for matching
               const bodyText = document.body.textContent.replace(/\s+/g, ' ');
 
@@ -71,6 +72,7 @@ export function createWaitForUrlCondition({
                 needsRedirect: flag === 'true',
               };
             },
+            args: [SESSION_KEYS.shouldRedirectAfterResponse],
             defaultValue: null,
             operationName: 'redirect check',
           });

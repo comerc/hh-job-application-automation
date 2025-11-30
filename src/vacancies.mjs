@@ -278,12 +278,19 @@ export async function processModalApplication({
 }
 
 /**
- * Find and process vacancy buttons on the search page
- * Returns status about what was found and processed
+ * Validate we're on the target page and handle early redirects
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @param {RegExp} options.targetPagePattern - Pattern to match target page URLs
+ * @param {RegExp} options.vacancyResponsePattern - Pattern to match vacancy_response URLs
+ * @param {Function} options.handleVacancyResponsePage - Handler for vacancy_response pages
+ * @param {Function} options.waitForUrlCondition - Wait for URL condition function
+ * @param {string} options.START_URL - Starting URL to return to
+ * @param {Function} options.pageClosedByUser - Check if page was closed
+ * @returns {Promise<{valid: boolean, status?: string}>}
  */
-export async function findAndProcessVacancyButton({
+async function validateTargetPage({
   commander,
-  MESSAGE,
   targetPagePattern,
   vacancyResponsePattern,
   handleVacancyResponsePage,
@@ -291,8 +298,7 @@ export async function findAndProcessVacancyButton({
   START_URL,
   pageClosedByUser,
 }) {
-  // Check if we're still on a valid target page
-  let currentPageUrl = commander.getUrl();
+  const currentPageUrl = commander.getUrl();
   if (!targetPagePattern.test(currentPageUrl)) {
     // Check if we're on a vacancy_response page - if so, handle it
     if (vacancyResponsePattern.test(currentPageUrl)) {
@@ -306,29 +312,39 @@ export async function findAndProcessVacancyButton({
       const newUrl = commander.getUrl();
       if (targetPagePattern.test(newUrl)) {
         console.log('✅ Back on search page after vacancy response handling');
-        return { status: 'vacancy_response_handled' };
+        return { valid: false, status: 'vacancy_response_handled' };
       } else if (vacancyResponsePattern.test(newUrl)) {
         // Still on vacancy_response - user needs to complete manually
         console.log('💡 Still on vacancy_response page, waiting for user action...');
         const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
         if (pageClosedByUser()) {
-          return { status: 'page_closed' };
+          return { valid: false, status: 'page_closed' };
         }
         if (waitResult === 'redirect_needed') {
-          return { status: 'redirect_needed' };
+          return { valid: false, status: 'redirect_needed' };
         }
         console.log('✅ Returned to target page after vacancy response');
-        return { status: 'returned_to_target' };
+        return { valid: false, status: 'returned_to_target' };
       } else {
         // Navigated somewhere else
-        return { status: 'not_on_target_page' };
+        return { valid: false, status: 'not_on_target_page' };
       }
     }
 
     log.debug(() => `🔍 Not on target page, waiting for navigation: ${currentPageUrl}`);
-    return { status: 'not_on_target_page' };
+    return { valid: false, status: 'not_on_target_page' };
   }
 
+  return { valid: true };
+}
+
+/**
+ * Find vacancy button on the page with retry logic
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @returns {Promise<{selector: string | null, count: number, status?: string}>}
+ */
+async function findVacancyButton({ commander }) {
   // Find "Откликнуться" button using text selector
   const buttonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
   const buttonCount = await commander.count({ selector: buttonSelector });
@@ -343,24 +359,44 @@ export async function findAndProcessVacancyButton({
     const buttonCount2 = await commander.count({ selector: buttonSelector2 });
 
     if (buttonCount2 === 0) {
-      return { status: 'no_buttons_found' };
+      return { selector: null, count: 0, status: 'no_buttons_found' };
     }
 
     log.debug(() => `🔍 Found ${buttonCount2} button(s) after waiting`);
-    return { status: 'retry_needed' };
+    return { selector: buttonSelector2, count: buttonCount2, status: 'retry_needed' };
   }
 
   console.log(`📋 Found ${buttonCount} "Откликнуться" button(s). Processing next button...`);
+  return { selector: buttonSelector, count: buttonCount };
+}
 
-  // Check if first button is enabled before clicking
-  const isEnabled = await commander.isEnabled({ selector: buttonSelector });
+/**
+ * Validate button is enabled and ready to click
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @param {string} options.selector - Button selector
+ * @returns {Promise<{enabled: boolean, status?: string}>}
+ */
+async function validateButtonState({ commander, selector }) {
+  const isEnabled = await commander.isEnabled({ selector });
 
   if (!isEnabled) {
     console.log('⚠️  First button is disabled or loading, waiting 2 seconds...');
     await commander.wait({ ms: 2000, reason: 'button to become enabled' });
-    return { status: 'button_disabled' };
+    return { enabled: false, status: 'button_disabled' };
   }
 
+  return { enabled: true };
+}
+
+/**
+ * Execute button click with scroll handling and state tracking
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @param {string} options.selector - Button selector
+ * @returns {Promise<{success: boolean, navigated: boolean, status?: string}>}
+ */
+async function executeButtonClick({ commander, selector }) {
   // Log scroll position before any interaction
   try {
     const scrollBefore = await commander.evaluate({
@@ -370,30 +406,26 @@ export async function findAndProcessVacancyButton({
   } catch (e) {
     if (isNavigationError(e)) {
       log.debug(() => '🔍 1. Navigation detected during scroll check, continuing...');
-      return { status: 'navigation_detected' };
+      return { success: false, navigated: true, status: 'navigation_detected' };
     }
   }
 
-  // Click first button with smooth scrolling animation
-  // Note: clickButton now returns {clicked, navigated} and automatically waits for page ready after navigation
+  // Click button with smooth scrolling animation
   try {
     log.debug(() => '🔍 2. About to click button in list (scrollIntoView: true, smoothScroll: true)');
     const clickResult = await commander.clickButton({
-      selector: buttonSelector,
+      selector,
       scrollIntoView: true,
       smoothScroll: true,
-      // waitAfterClick defaults to 1000ms in browser-commander
     });
 
     // Handle new return format {clicked, navigated}
     const navigated = typeof clickResult === 'object' ? clickResult.navigated : false;
 
-    // If navigation happened (regardless of whether click succeeded), stop processing this page
-    // The page has changed, so any further DOM operations would be on the wrong page
+    // If navigation happened, stop processing this page
     if (navigated) {
-      // Navigation happened during click - page is already ready (clickButton waits for it)
       console.log('⚠️  Navigation detected during button click, page ready');
-      return { status: 'navigation_detected' };
+      return { success: true, navigated: true, status: 'navigation_detected' };
     }
 
     log.debug(() => '🔍 3. Button click completed + 1s wait after click (via waitAfterClick)');
@@ -423,20 +455,43 @@ export async function findAndProcessVacancyButton({
     } catch (e) {
       log.debug(() => `🔍 4. Could not check state (page may have navigated): ${e.message}`);
     }
+
+    return { success: true, navigated: false };
   } catch (error) {
     if (isNavigationError(error)) {
       console.log('⚠️  Navigation detected during button click, continuing...');
-      return { status: 'navigation_detected' };
+      return { success: false, navigated: true, status: 'navigation_detected' };
     }
     console.log(`⚠️  Error clicking button: ${error.message}`);
     console.log('💡 Button might be disabled or modal is open, waiting 2 seconds and retrying...');
     await commander.wait({ ms: 2000, reason: 'retry after click error' });
-    return { status: 'click_error' };
+    return { success: false, navigated: false, status: 'click_error' };
   }
+}
 
+/**
+ * Handle post-click navigation and redirects
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @param {RegExp} options.targetPagePattern - Pattern to match target page URLs
+ * @param {RegExp} options.vacancyResponsePattern - Pattern to match vacancy_response URLs
+ * @param {Function} options.handleVacancyResponsePage - Handler for vacancy_response pages
+ * @param {Function} options.waitForUrlCondition - Wait for URL condition function
+ * @param {string} options.START_URL - Starting URL to return to
+ * @param {Function} options.pageClosedByUser - Check if page was closed
+ * @returns {Promise<{onTargetPage: boolean, status?: string}>}
+ */
+async function handlePostClickNavigation({
+  commander,
+  targetPagePattern,
+  vacancyResponsePattern,
+  handleVacancyResponsePage,
+  waitForUrlCondition,
+  START_URL,
+  pageClosedByUser,
+}) {
+  // Wait for modal to appear or navigation to complete
   log.debug(() => '🔍 5. Waiting for modal to appear (or navigation to complete, 2 seconds)...');
-
-  // Just wait for modal to appear (or navigation to complete)
   await commander.wait({ ms: 2000, reason: 'modal to appear' });
 
   try {
@@ -447,8 +502,9 @@ export async function findAndProcessVacancyButton({
   } catch (e) {
     log.debug(() => `🔍 6. Could not check scroll (page may have navigated): ${e.message}`);
   }
-  log.debug(() => '🔍 7. Waiting for delayed redirects (2 more seconds)...');
 
+  // Wait for delayed redirects
+  log.debug(() => '🔍 7. Waiting for delayed redirects (2 more seconds)...');
   await commander.wait({ ms: 2000, reason: 'delayed redirects to complete' });
 
   try {
@@ -460,6 +516,7 @@ export async function findAndProcessVacancyButton({
     log.debug(() => `🔍 8. Could not check scroll (page may have navigated): ${e.message}`);
   }
 
+  // Check if we're still on target page
   const currentUrl = commander.getUrl();
 
   if (!targetPagePattern.test(currentUrl)) {
@@ -475,23 +532,23 @@ export async function findAndProcessVacancyButton({
       if (targetPagePattern.test(newUrl)) {
         console.log('✅ Back on search page after submission');
         await commander.wait({ ms: 1000, reason: 'page to fully load' });
-        return { status: 'vacancy_response_handled' };
+        return { onTargetPage: false, status: 'vacancy_response_handled' };
       } else if (vacancyResponsePattern.test(newUrl)) {
         console.log('💡 Waiting for you to complete and navigate back to:', START_URL);
 
         const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
         if (pageClosedByUser()) {
-          return { status: 'page_closed' };
+          return { onTargetPage: false, status: 'page_closed' };
         }
 
         if (waitResult === 'redirect_needed') {
-          return { status: 'redirect_needed' };
+          return { onTargetPage: false, status: 'redirect_needed' };
         } else {
           console.log('✅ Returned to target page! Continuing with button loop...');
         }
 
         await commander.wait({ ms: 1000, reason: 'page to fully load after navigation' });
-        return { status: 'returned_to_target' };
+        return { onTargetPage: false, status: 'returned_to_target' };
       }
     } else {
       console.log('💡 This appears to be a separate application form page.');
@@ -501,15 +558,25 @@ export async function findAndProcessVacancyButton({
       await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
 
       if (pageClosedByUser()) {
-        return { status: 'page_closed' };
+        return { onTargetPage: false, status: 'page_closed' };
       }
 
       console.log('✅ Returned to target page! Continuing with button loop...');
       await commander.wait({ ms: 1000, reason: 'page to fully load after manual navigation' });
-      return { status: 'manual_form_completed' };
+      return { onTargetPage: false, status: 'manual_form_completed' };
     }
   }
 
+  return { onTargetPage: true };
+}
+
+/**
+ * Wait for application modal to appear and check for limit errors
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @returns {Promise<{appeared: boolean, limitError: boolean, status?: string}>}
+ */
+async function waitForApplicationModal({ commander }) {
   // Wait for modal
   let modalAppeared = false;
   try {
@@ -540,11 +607,11 @@ export async function findAndProcessVacancyButton({
   } catch {
     console.log('⚠️  Modal did not appear within timeout. This may be a different type of vacancy response.');
     console.log('💡 Skipping this button and moving to the next one...');
-    return { status: 'modal_timeout' };
+    return { appeared: false, limitError: false, status: 'modal_timeout' };
   }
 
   if (!modalAppeared) {
-    return { status: 'modal_not_appeared' };
+    return { appeared: false, limitError: false, status: 'modal_not_appeared' };
   }
 
   // Check for limit error
@@ -553,9 +620,20 @@ export async function findAndProcessVacancyButton({
   });
 
   if (limitErrorCount > 0) {
-    return { status: 'limit_error' };
+    return { appeared: true, limitError: true, status: 'limit_error' };
   }
 
+  return { appeared: true, limitError: false };
+}
+
+/**
+ * Submit modal application and check for post-submit errors
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @param {string} options.MESSAGE - Cover letter message
+ * @returns {Promise<{success: boolean, limitError: boolean, status?: string, reason?: string}>}
+ */
+async function submitModalApplication({ commander, MESSAGE }) {
   // Process modal application
   const result = await processModalApplication({
     commander,
@@ -563,7 +641,7 @@ export async function findAndProcessVacancyButton({
   });
 
   if (!result.success) {
-    return { status: 'modal_processing_failed', reason: result.reason };
+    return { success: false, limitError: false, status: 'modal_processing_failed', reason: result.reason };
   }
 
   // Check if submission was successful or if limit error appeared
@@ -572,7 +650,99 @@ export async function findAndProcessVacancyButton({
   });
 
   if (limitErrorAfterSubmit > 0) {
-    return { status: 'limit_error_after_submit' };
+    return { success: true, limitError: true, status: 'limit_error_after_submit' };
+  }
+
+  return { success: true, limitError: false };
+}
+
+/**
+ * Find and process vacancy buttons on the search page
+ * Returns status about what was found and processed
+ */
+export async function findAndProcessVacancyButton({
+  commander,
+  MESSAGE,
+  targetPagePattern,
+  vacancyResponsePattern,
+  handleVacancyResponsePage,
+  waitForUrlCondition,
+  START_URL,
+  pageClosedByUser,
+}) {
+  // Check if we're still on a valid target page
+  const pageValidation = await validateTargetPage({
+    commander,
+    targetPagePattern,
+    vacancyResponsePattern,
+    handleVacancyResponsePage,
+    waitForUrlCondition,
+    START_URL,
+    pageClosedByUser,
+  });
+
+  if (!pageValidation.valid) {
+    return { status: pageValidation.status };
+  }
+
+  // Find vacancy button
+  const buttonResult = await findVacancyButton({ commander });
+
+  if (!buttonResult.selector) {
+    return { status: buttonResult.status };
+  }
+
+  if (buttonResult.status) {
+    return { status: buttonResult.status };
+  }
+
+  const buttonSelector = buttonResult.selector;
+
+  // Validate button state
+  const stateValidation = await validateButtonState({ commander, selector: buttonSelector });
+
+  if (!stateValidation.enabled) {
+    return { status: stateValidation.status };
+  }
+
+  // Execute button click
+  const clickResult = await executeButtonClick({ commander, selector: buttonSelector });
+
+  if (!clickResult.success || clickResult.navigated) {
+    return { status: clickResult.status };
+  }
+
+  // Handle post-click navigation
+  const navigationResult = await handlePostClickNavigation({
+    commander,
+    targetPagePattern,
+    vacancyResponsePattern,
+    handleVacancyResponsePage,
+    waitForUrlCondition,
+    START_URL,
+    pageClosedByUser,
+  });
+
+  if (!navigationResult.onTargetPage) {
+    return { status: navigationResult.status };
+  }
+
+  // Wait for modal to appear
+  const modalResult = await waitForApplicationModal({ commander });
+
+  if (!modalResult.appeared || modalResult.limitError) {
+    return { status: modalResult.status };
+  }
+
+  // Submit modal application
+  const submitResult = await submitModalApplication({ commander, MESSAGE });
+
+  if (!submitResult.success) {
+    return { status: submitResult.status, reason: submitResult.reason };
+  }
+
+  if (submitResult.limitError) {
+    return { status: submitResult.status };
   }
 
   return { status: 'success' };

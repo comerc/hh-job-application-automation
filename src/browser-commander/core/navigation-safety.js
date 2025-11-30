@@ -96,12 +96,55 @@ export function makeNavigationSafe(asyncFn, defaultValue = null, operationName =
  * @param {any} defaultValue - Value to return on navigation error
  * @param {string} operationName - Name for logging
  * @returns {Promise<any>} - Result or default value
+ * @deprecated Use withNavigationSafety (HOF version) instead
  */
-export async function withNavigationSafety(asyncFn, defaultValue = null, operationName = 'operation') {
+export async function executeWithNavigationSafety(asyncFn, defaultValue = null, operationName = 'operation') {
   const result = await safeOperation(asyncFn, {
     defaultValue,
     operationName,
     silent: false,
   });
   return result.value;
+}
+
+/**
+ * Higher-order function that wraps an async function with navigation safety.
+ * Returns a new function that handles navigation errors gracefully.
+ *
+ * @param {Function} fn - Async function to wrap
+ * @param {Object} options - Configuration options
+ * @param {Function} options.onNavigationError - Callback when navigation error occurs (optional)
+ * @param {boolean} options.rethrow - Whether to rethrow navigation errors (default: true)
+ * @returns {Function} - Wrapped function with same signature as original
+ *
+ * @example
+ * // Return custom value on navigation error
+ * const safeClick = withNavigationSafety(click, {
+ *   onNavigationError: () => ({ navigated: true }),
+ * });
+ *
+ * @example
+ * // Suppress navigation errors (return undefined)
+ * const safeCheck = withNavigationSafety(checkElement, {
+ *   rethrow: false,
+ * });
+ */
+export function withNavigationSafety(fn, options = {}) {
+  const { onNavigationError, rethrow = true } = options;
+
+  return async (...args) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      if (isNavigationError(error)) {
+        if (onNavigationError) {
+          return onNavigationError(error);
+        }
+        if (!rethrow) {
+          return undefined;
+        }
+      }
+      throw error;
+    }
+  };
 }
