@@ -276,7 +276,7 @@ export async function fillTextArea(options = {}) {
     }
 
     // Click the element (prevent auto-scroll if scrollIntoView is disabled)
-    const clicked = await clickElement({ engine, log, locatorOrElement, noAutoScroll: !shouldScroll });
+    const clicked = await clickElement({ page, engine, log, locatorOrElement, noAutoScroll: !shouldScroll });
     if (!clicked) {
       return { filled: false, verified: false, skipped: false }; // Navigation occurred
     }
