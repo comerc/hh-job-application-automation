@@ -6,6 +6,7 @@
 import { isNavigationError } from './browser-commander/index.js';
 import { saveQAPairs } from './vacancy-response.mjs';
 import { log } from './logging.mjs';
+import { createApplyButtonTracker } from './helpers/session-tracker.mjs';
 
 /**
  * Create navigation handler that saves Q&A pairs when leaving vacancy_response page
@@ -170,31 +171,8 @@ export function createNavigationHandler({
  * @param {Object} options.commander - Browser commander instance
  */
 export async function setupVacancyPageClickListener({ commander }) {
-  try {
-    console.log('Setting up click listener for "Откликнуться" button on vacancy page');
-    await commander.evaluate({
-      fn: () => {
-        // Add click listener to document (capture phase to catch all clicks)
-        document.addEventListener('click', (event) => {
-          // Check if clicked element or any parent contains "Откликнуться" text
-          let element = event.target;
-          while (element && element !== document.body) {
-            const text = element.textContent?.trim() || '';
-            // Check for button text (handles both exact match and contains)
-            if (text === 'Откликнуться' || (element.tagName === 'A' || element.tagName === 'BUTTON') && text.includes('Откликнуться')) {
-              console.log('[Click Listener] Detected click on Откликнуться button!');
-              window.sessionStorage.setItem('shouldRedirectAfterResponse', 'true');
-              break;
-            }
-            element = element.parentElement;
-          }
-        }, true);
-      },
-    });
-    console.log('Click listener setup completed');
-  } catch (error) {
-    console.log('Error setting up vacancy page click listener:', error.message);
-  }
+  const buttonTracker = createApplyButtonTracker(commander);
+  await buttonTracker.install();
 }
 
 /**
@@ -270,25 +248,15 @@ export async function checkAndRedirectIfNeeded({
     log.debug(() => `Current URL: ${currentUrl}`);
     log.debug(() => `isOnVacancyPageFromResponse: ${getIsOnVacancyPageFromResponse()}`);
 
-    const evalResult = await commander.safeEvaluate({
-      fn: () => {
-        const flag = window.sessionStorage.getItem('shouldRedirectAfterResponse');
-        if (flag === 'true') {
-          window.sessionStorage.removeItem('shouldRedirectAfterResponse');
-          return true;
-        }
-        return false;
-      },
-      defaultValue: false,
-      operationName: 'checkAndRedirectIfNeeded',
-    });
+    const buttonTracker = createApplyButtonTracker(commander);
+    const checkResult = await buttonTracker.check({ clearAfterCheck: true });
 
     // If navigation occurred, just return false
-    if (evalResult.navigationError) {
+    if (checkResult.navigationError) {
       return false;
     }
 
-    const shouldRedirect = evalResult.value;
+    const shouldRedirect = checkResult.hasFlag;
 
     log.debug(() => `shouldRedirect from sessionStorage: ${shouldRedirect}`);
 
