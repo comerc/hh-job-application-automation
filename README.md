@@ -25,6 +25,48 @@ github.com/link-foundation
 Константин Дьяченко
 ```
 
+## Configuration
+
+### Using .lenv File (Recommended)
+
+The application supports configuration via `.lenv` files using the [lino-arguments](https://github.com/link-foundation/lino-arguments) library. This allows you to set default values without typing them every time.
+
+**Quick setup:**
+
+1. Copy the example configuration:
+   ```bash
+   cp .lenv.example .lenv
+   ```
+
+2. Edit `.lenv` and uncomment/modify the options you want:
+   ```
+   # Enable verbose logging by default
+   VERBOSE: true
+
+   # Set custom interval between applications
+   JOB_APPLICATION_INTERVAL: 30
+
+   # Set your resume URL
+   START_URL: https://hh.ru/search/vacancy?resume=YOUR_RESUME_ID&from=resumelist
+   ```
+
+3. Run the application (it will automatically load `.lenv`):
+   ```bash
+   npm run apply
+   ```
+
+**Configuration priority:**
+1. CLI arguments (highest priority) - e.g., `--verbose`
+2. Environment variables - e.g., `export VERBOSE=true`
+3. `.lenv` file - local configuration
+4. Default values (lowest priority)
+
+**Note:** The `.lenv` file is gitignored to keep your personal settings private.
+
+### Available Configuration Options
+
+See `.lenv.example` for all available options with detailed comments.
+
 ## Run
 
 **Note:** It's recommended to use `--verbose` flag for debugging to see detailed logs about which buttons are being clicked and which textareas are being detected.
