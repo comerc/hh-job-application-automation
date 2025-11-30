@@ -1,4 +1,5 @@
 import { isNavigationError } from '../core/navigation-safety.js';
+import { createEngineAdapter } from '../core/engine-adapter.js';
 
 /**
  * Wait/sleep for a specified time with optional verbose logging
@@ -74,29 +75,18 @@ export async function wait(options = {}) {
  * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
  * @param {Function} options.fn - Function to evaluate
  * @param {Array} options.args - Arguments to pass to function (default: [])
+ * @param {Object} options.adapter - Engine adapter (optional, will be created if not provided)
  * @returns {Promise<any>} - Result of evaluation
  */
 export async function evaluate(options = {}) {
-  const { page, engine, fn, args = [] } = options;
+  const { page, engine, fn, args = [], adapter: providedAdapter } = options;
 
   if (!fn) {
     throw new Error('fn is required in options');
   }
 
-  if (engine === 'playwright') {
-    // Playwright only accepts a single argument (can be an array/object)
-    if (args.length === 0) {
-      return await page.evaluate(fn);
-    } else if (args.length === 1) {
-      return await page.evaluate(fn, args[0]);
-    } else {
-      // Multiple args - pass as array
-      return await page.evaluate(fn, args);
-    }
-  } else {
-    // Puppeteer accepts spread arguments
-    return await page.evaluate(fn, ...args);
-  }
+  const adapter = providedAdapter || createEngineAdapter(page, engine);
+  return await adapter.evaluateOnPage(fn, args);
 }
 
 /**
