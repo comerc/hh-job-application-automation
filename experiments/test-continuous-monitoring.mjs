@@ -53,9 +53,9 @@ async function simulateAutomation() {
         }
 
         if (currentUrl !== startUrl) {
-          console.log(`✅ Detected URL change!`);
+          console.log('✅ Detected URL change!');
           if (hasButtons) {
-            console.log(`✅ New page has buttons! Continuing automation...`);
+            console.log('✅ New page has buttons! Continuing automation...');
             break; // Exit wait loop
           }
         }
