@@ -267,6 +267,242 @@ async function detectNavigation(options = {}) {
 }
 
 /**
+ * Prepare element for clicking - find, validate, and optionally scroll into view
+ * @param {Object} options - Configuration options
+ * @param {Object} options.page - Browser page object
+ * @param {string} options.engine - Engine type
+ * @param {Function} options.wait - Wait function
+ * @param {Function} options.log - Logger instance
+ * @param {boolean} options.verbose - Enable verbose logging
+ * @param {string|Object} options.selector - CSS selector, ElementHandle, or Playwright Locator
+ * @param {boolean} options.scrollIntoView - Scroll into view (default: true)
+ * @param {number} options.waitAfterScroll - Wait time after scroll in ms
+ * @param {boolean} options.smoothScroll - Use smooth scroll animation
+ * @param {number} options.timeout - Timeout in ms
+ * @returns {Promise<{locatorOrElement: Object, scrolled: boolean, navigated: boolean}>}
+ */
+async function prepareElement(options = {}) {
+  const {
+    page,
+    engine,
+    wait,
+    log,
+    verbose = false,
+    selector,
+    scrollIntoView: shouldScroll = true,
+    waitAfterScroll,
+    smoothScroll = true,
+    timeout,
+  } = options;
+
+  // Get locator/element and wait for it to be visible (unified for both engines)
+  const locatorOrElement = await waitForLocatorOrElement({ page, engine, selector, timeout });
+
+  // Log element info if verbose
+  if (verbose) {
+    await logElementInfo({ page, engine, log, locatorOrElement });
+  }
+
+  // Scroll into view (if requested and needed)
+  if (shouldScroll) {
+    const behavior = smoothScroll ? 'smooth' : 'instant';
+    const scrollResult = await scrollIntoViewIfNeeded({
+      page,
+      engine,
+      wait,
+      log,
+      locatorOrElement,
+      behavior,
+      waitAfterScroll,
+      verify: false, // Don't verify scroll here, we verify the overall click
+    });
+    // Check if scroll was aborted due to navigation/stop
+    if (!scrollResult.skipped && !scrollResult.scrolled) {
+      return { locatorOrElement: null, scrolled: false, navigated: true };
+    }
+    return { locatorOrElement, scrolled: true, navigated: false };
+  } else {
+    log.debug(() => `🔍 [VERBOSE] Skipping scroll (scrollIntoView: false)`);
+    return { locatorOrElement, scrolled: false, navigated: false };
+  }
+}
+
+/**
+ * Execute the click operation with verification
+ * @param {Object} options - Configuration options
+ * @param {Object} options.page - Browser page object
+ * @param {string} options.engine - Engine type
+ * @param {Function} options.log - Logger instance
+ * @param {Object} options.locatorOrElement - Element or locator to click
+ * @param {boolean} options.noAutoScroll - Prevent Playwright's automatic scrolling
+ * @param {boolean} options.verify - Whether to verify the click operation
+ * @param {Function} options.verifyFn - Custom verification function (optional)
+ * @returns {Promise<{clicked: boolean, verified: boolean, reason?: string, navigated: boolean}>}
+ */
+async function executeClick(options = {}) {
+  const {
+    page,
+    engine,
+    log,
+    locatorOrElement,
+    noAutoScroll = false,
+    verify = true,
+    verifyFn,
+  } = options;
+
+  log.debug(() => `🔍 [VERBOSE] About to click element`);
+
+  const clickResult = await clickElement({
+    page,
+    engine,
+    log,
+    locatorOrElement,
+    noAutoScroll,
+    verify,
+    verifyFn,
+  });
+
+  if (!clickResult.clicked) {
+    // Navigation/stop occurred during click itself
+    return { clicked: false, verified: true, navigated: true, reason: 'navigation during click' };
+  }
+
+  log.debug(() => `🔍 [VERBOSE] Click completed`);
+
+  return {
+    clicked: true,
+    verified: clickResult.verified,
+    navigated: false,
+    reason: clickResult.reason,
+  };
+}
+
+/**
+ * Handle navigation detection and waiting after a click
+ * @param {Object} options - Configuration options
+ * @param {Object} options.page - Browser page object
+ * @param {Function} options.wait - Wait function
+ * @param {Function} options.log - Logger instance
+ * @param {Object} options.navigationManager - NavigationManager instance (optional)
+ * @param {Object} options.networkTracker - NetworkTracker instance (optional)
+ * @param {string} options.startUrl - URL before click
+ * @param {boolean} options.waitForNavigation - Wait for navigation to complete
+ * @param {number} options.navigationCheckDelay - Time to check if navigation started
+ * @param {number} options.waitAfterClick - Wait time after click in ms
+ * @returns {Promise<{navigated: boolean, verified: boolean, reason: string}>}
+ */
+async function handleNavigationAfterClick(options = {}) {
+  const {
+    page,
+    wait,
+    log,
+    navigationManager,
+    networkTracker,
+    startUrl,
+    waitForNavigation = true,
+    navigationCheckDelay = 500,
+    waitAfterClick = 1000,
+  } = options;
+
+  // Check if click caused navigation
+  if (waitForNavigation) {
+    // Wait briefly for navigation to potentially start
+    await wait({ ms: navigationCheckDelay, reason: 'checking for navigation after click' });
+
+    // Detect if navigation occurred
+    const { navigated, newUrl } = await detectNavigation({
+      page,
+      navigationManager,
+      startUrl,
+      log,
+    });
+
+    if (navigated) {
+      log.debug(() => `🔄 Click triggered navigation to: ${newUrl}`);
+
+      // Wait for page to be fully ready (network idle + no more redirects)
+      // Note: If navigationManager detected external navigation, it's already waiting
+      // We still call waitForPageReady here to ensure we don't return until page is ready
+      if (navigationManager) {
+        // Use longer timeout (120s) for full page loads after click-triggered navigation
+        await navigationManager.waitForPageReady({
+          timeout: 120000,
+          reason: 'after click navigation',
+        });
+      } else if (networkTracker) {
+        // Without navigation manager, use network tracker directly with 30s idle time
+        await networkTracker.waitForNetworkIdle({
+          timeout: 120000,
+          // idleTime defaults to 30000ms from tracker config
+        });
+      } else {
+        // Fallback: wait a bit for page to settle
+        await wait({ ms: 2000, reason: 'page settle after navigation' });
+      }
+
+      // Navigation is considered successful verification
+      return { navigated: true, verified: true, reason: 'click triggered navigation' };
+    }
+  }
+
+  // No navigation - wait after click if specified (useful for modals)
+  if (waitAfterClick > 0) {
+    const waitResult = await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
+
+    // Check if wait was aborted due to navigation that happened during the wait
+    if (waitResult && waitResult.aborted) {
+      log.debug(() => '🔄 Navigation detected during post-click wait (wait was aborted)');
+
+      // Re-check for navigation since it happened during the wait
+      const { navigated: lateNavigated, newUrl: lateUrl } = await detectNavigation({
+        page,
+        navigationManager,
+        startUrl,
+        log,
+      });
+
+      if (lateNavigated) {
+        log.debug(() => `🔄 Confirmed late navigation to: ${lateUrl}`);
+
+        // Wait for page to be fully ready
+        if (navigationManager) {
+          await navigationManager.waitForPageReady({
+            timeout: 120000,
+            reason: 'after late-detected click navigation',
+          });
+        }
+
+        return { navigated: true, verified: true, reason: 'late-detected navigation' };
+      }
+    }
+  }
+
+  // Final check: did navigation happen while we were processing?
+  // This catches cases where navigation started but wasn't detected earlier
+  if (navigationManager && navigationManager.shouldAbort()) {
+    log.debug(() => '🔄 Navigation detected via abort signal at end of click processing');
+
+    await navigationManager.waitForPageReady({
+      timeout: 120000,
+      reason: 'after abort-detected click navigation',
+    });
+
+    return { navigated: true, verified: true, reason: 'abort-signal navigation' };
+  }
+
+  // If we have network tracking, wait for any XHR/fetch to complete
+  // Use shorter idle time for non-navigation clicks (just waiting for XHR, not full page load)
+  if (networkTracker) {
+    await networkTracker.waitForNetworkIdle({
+      timeout: 10000, // Maximum wait time
+      idleTime: 2000, // Only 2 seconds of idle needed for XHR completion
+    });
+  }
+
+  return { navigated: false, verified: true, reason: 'no navigation detected' };
+}
+
+/**
  * Click a button or element (high-level with scrolling and waits)
  * Now navigation-aware - automatically waits for page ready after navigation-causing clicks.
  *
@@ -323,39 +559,28 @@ export async function clickButton(options = {}) {
   const startUrl = page.url();
 
   try {
-    // Get locator/element and wait for it to be visible (unified for both engines)
-    const locatorOrElement = await waitForLocatorOrElement({ page, engine, selector, timeout });
+    // Step 1: Prepare element (find, validate, scroll into view)
+    const prepareResult = await prepareElement({
+      page,
+      engine,
+      wait,
+      log,
+      verbose,
+      selector,
+      scrollIntoView: shouldScroll,
+      waitAfterScroll,
+      smoothScroll,
+      timeout,
+    });
 
-    // Log element info if verbose
-    if (verbose) {
-      await logElementInfo({ page, engine, log, locatorOrElement });
+    if (prepareResult.navigated) {
+      return { clicked: false, navigated: true, verified: true, reason: 'navigation during scroll' };
     }
 
-    // Scroll into view (if requested and needed)
-    if (shouldScroll) {
-      const behavior = smoothScroll ? 'smooth' : 'instant';
-      const scrollResult = await scrollIntoViewIfNeeded({
-        page,
-        engine,
-        wait,
-        log,
-        locatorOrElement,
-        behavior,
-        waitAfterScroll,
-        verify: false, // Don't verify scroll here, we verify the overall click
-      });
-      // Check if scroll was aborted due to navigation/stop
-      if (!scrollResult.skipped && !scrollResult.scrolled) {
-        return { clicked: false, navigated: true, verified: true, reason: 'navigation during scroll' };
-      }
-    } else {
-      log.debug(() => `🔍 [VERBOSE] Skipping scroll (scrollIntoView: false)`);
-    }
+    const { locatorOrElement } = prepareResult;
 
-    // Perform click with verification
-    log.debug(() => `🔍 [VERBOSE] About to click element`);
-    // If scrollIntoView is disabled, also prevent Playwright's automatic scrolling
-    const clickResult = await clickElement({
+    // Step 2: Execute click operation
+    const clickResult = await executeClick({
       page,
       engine,
       log,
@@ -365,112 +590,28 @@ export async function clickButton(options = {}) {
       verifyFn,
     });
 
-    if (!clickResult.clicked) {
-      // Navigation/stop occurred during click itself
+    if (clickResult.navigated) {
       return { clicked: false, navigated: true, verified: true, reason: 'navigation during click' };
     }
-    log.debug(() => `🔍 [VERBOSE] Click completed`);
 
-    // Check if click caused navigation
-    if (waitForNavigation) {
-      // Wait briefly for navigation to potentially start
-      await wait({ ms: navigationCheckDelay, reason: 'checking for navigation after click' });
-
-      // Detect if navigation occurred
-      const { navigated, newUrl } = await detectNavigation({
-        page,
-        navigationManager,
-        startUrl,
-        log,
-      });
-
-      if (navigated) {
-        log.debug(() => `🔄 Click triggered navigation to: ${newUrl}`);
-
-        // Wait for page to be fully ready (network idle + no more redirects)
-        // Note: If navigationManager detected external navigation, it's already waiting
-        // We still call waitForPageReady here to ensure we don't return until page is ready
-        if (navigationManager) {
-          // Use longer timeout (120s) for full page loads after click-triggered navigation
-          await navigationManager.waitForPageReady({
-            timeout: 120000,
-            reason: 'after click navigation',
-          });
-        } else if (networkTracker) {
-          // Without navigation manager, use network tracker directly with 30s idle time
-          await networkTracker.waitForNetworkIdle({
-            timeout: 120000,
-            // idleTime defaults to 30000ms from tracker config
-          });
-        } else {
-          // Fallback: wait a bit for page to settle
-          await wait({ ms: 2000, reason: 'page settle after navigation' });
-        }
-
-        // Navigation is considered successful verification
-        return { clicked: true, navigated: true, verified: true, reason: 'click triggered navigation' };
-      }
-    }
-
-    // No navigation - wait after click if specified (useful for modals)
-    if (waitAfterClick > 0) {
-      const waitResult = await wait({ ms: waitAfterClick, reason: 'post-click settling time for modal scroll capture' });
-
-      // Check if wait was aborted due to navigation that happened during the wait
-      if (waitResult && waitResult.aborted) {
-        log.debug(() => '🔄 Navigation detected during post-click wait (wait was aborted)');
-
-        // Re-check for navigation since it happened during the wait
-        const { navigated: lateNavigated, newUrl: lateUrl } = await detectNavigation({
-          page,
-          navigationManager,
-          startUrl,
-          log,
-        });
-
-        if (lateNavigated) {
-          log.debug(() => `🔄 Confirmed late navigation to: ${lateUrl}`);
-
-          // Wait for page to be fully ready
-          if (navigationManager) {
-            await navigationManager.waitForPageReady({
-              timeout: 120000,
-              reason: 'after late-detected click navigation',
-            });
-          }
-
-          return { clicked: true, navigated: true, verified: true, reason: 'late-detected navigation' };
-        }
-      }
-    }
-
-    // Final check: did navigation happen while we were processing?
-    // This catches cases where navigation started but wasn't detected earlier
-    if (navigationManager && navigationManager.shouldAbort()) {
-      log.debug(() => '🔄 Navigation detected via abort signal at end of click processing');
-
-      await navigationManager.waitForPageReady({
-        timeout: 120000,
-        reason: 'after abort-detected click navigation',
-      });
-
-      return { clicked: true, navigated: true, verified: true, reason: 'abort-signal navigation' };
-    }
-
-    // If we have network tracking, wait for any XHR/fetch to complete
-    // Use shorter idle time for non-navigation clicks (just waiting for XHR, not full page load)
-    if (networkTracker) {
-      await networkTracker.waitForNetworkIdle({
-        timeout: 10000, // Maximum wait time
-        idleTime: 2000, // Only 2 seconds of idle needed for XHR completion
-      });
-    }
+    // Step 3: Handle navigation detection and waiting
+    const navResult = await handleNavigationAfterClick({
+      page,
+      wait,
+      log,
+      navigationManager,
+      networkTracker,
+      startUrl,
+      waitForNavigation,
+      navigationCheckDelay,
+      waitAfterClick,
+    });
 
     return {
       clicked: true,
-      navigated: false,
-      verified: clickResult.verified,
-      reason: clickResult.reason,
+      navigated: navResult.navigated,
+      verified: clickResult.verified && navResult.verified,
+      reason: navResult.navigated ? navResult.reason : clickResult.reason,
     };
   } catch (error) {
     if (isNavigationError(error) || isActionStoppedError(error)) {
