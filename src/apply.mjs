@@ -5,10 +5,7 @@
  * Works with both Playwright and Puppeteer through browser-commander
  */
 
-import yargs from 'yargs';
-import { hideBin } from 'yargs/helpers';
 import path from 'path';
-import os from 'os';
 import { createQADatabase } from './qa-database.mjs';
 import { launchBrowser, makeBrowserCommander, isNavigationError } from './browser-commander/index.js';
 import {
@@ -21,6 +18,7 @@ import {
   waitForButtonsAfterNavigation,
 } from './vacancies.mjs';
 import { log, enableDebugLevel } from './logging.mjs';
+import { createConfig, getUserDataDir } from './config.mjs';
 
 // Create QA database instance with explicit production file path
 const QA_DB_PATH = path.join(process.cwd(), 'data', 'qa.lino');
@@ -62,56 +60,12 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 (async () => {
-  // Parse command-line arguments
-  const argv = yargs(hideBin(process.argv))
-    .option('engine', {
-      type: 'string',
-      description: 'Browser automation engine to use: playwright or puppeteer',
-      choices: ['playwright', 'puppeteer'],
-      default: 'playwright',
-    })
-    .option('url', {
-      alias: 'u',
-      type: 'string',
-      description: 'URL to navigate to',
-      default: process.env.npm_config_url || process.env.START_URL || 'https://hh.ru/search/vacancy?from=resumelist',
-    })
-    .option('manual-login', {
-      type: 'boolean',
-      description: 'Open login page and wait for manual authentication before proceeding',
-      default: false,
-    })
-    .option('user-data-dir', {
-      type: 'string',
-      description: 'Path to user data directory for persistent session storage',
-      default: (lib) => path.join(os.homedir(), '.hh-automation', `${lib || 'playwright'}-data`),
-    })
-    .option('job-application-interval', {
-      type: 'number',
-      description: 'Interval in seconds to wait between job application button clicks',
-      default: 20,
-    })
-    .option('message', {
-      alias: 'm',
-      type: 'string',
-      description: 'Message to send with job application',
-    })
-    .option('verbose', {
-      type: 'boolean',
-      description: 'Enable verbose logging for debugging',
-      default: false,
-    })
-    .option('auto-submit-vacancy-response-form', {
-      type: 'boolean',
-      description: 'Auto-submit vacancy response forms when all questions are answered (default: false for safety)',
-      default: false,
-    })
-    .help()
-    .argv;
+  // Parse command-line arguments using lino-arguments config module
+  const argv = createConfig();
 
   // Set user data dir based on engine if not explicitly set
-  if (!argv['user-data-dir']) {
-    argv['user-data-dir'] = path.join(os.homedir(), '.hh-apply', `${argv.engine}-data`);
+  if (!argv.userDataDir) {
+    argv.userDataDir = getUserDataDir(argv.engine);
   }
 
   // Enable debug logging if verbose mode is on
@@ -119,27 +73,14 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     enableDebugLevel();
   }
 
-  const MESSAGE = argv.message || process.env.MESSAGE || `Здравствуйте,
-
-Мне понравилась ваша компания, я думаю моя кандидатура будет вам полезна и я смогу привнести ценность в работу компании.
-
-В какой форме предлагается юридическое оформление удалённой работы?
-
-Посмотреть мой код на GitHub можно тут:
-
-github.com/konard
-github.com/deep-assistant
-github.com/linksplatform
-github.com/link-foundation
-
-С уважением,
-Константин Дьяченко`;
+  // Use message from config (already has default from config module)
+  const MESSAGE = argv.message;
   const START_URL = argv.url;
 
   // Launch browser with default configuration from browser-commander
   const { browser: launchedBrowser, page } = await launchBrowser({
     engine: argv.engine,
-    userDataDir: argv['user-data-dir'],
+    userDataDir: argv.userDataDir,
     headless: false,
     verbose: argv.verbose,
   });
@@ -174,7 +115,7 @@ github.com/link-foundation
   const targetPagePattern = /^https:\/\/hh\.ru\/search\/vacancy.*[?&]resume=/;
   const vacancyResponsePattern = /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/;
   const vacancyPagePattern = /^https:\/\/hh\.ru\/vacancy\/(\d+)/;
-  const BUTTON_CLICK_INTERVAL = argv['job-application-interval'] * 1000;
+  const BUTTON_CLICK_INTERVAL = argv.jobApplicationInterval * 1000;
   let isOnVacancyPageFromResponse = false;
   let clickListenerInstalled = false;
   let lastVacancyPageUrl = '';
@@ -289,7 +230,7 @@ github.com/link-foundation
   }
 
   // Handle manual login if requested
-  if (argv['manual-login']) {
+  if (argv.manualLogin) {
     const backurl = encodeURIComponent(START_URL);
     const loginUrl = `https://hh.ru/account/login?role=applicant&backurl=${backurl}&hhtmFrom=vacancy_search_list`;
 
@@ -319,7 +260,7 @@ github.com/link-foundation
       vacancyResponsePattern,
       readQADatabase,
       addOrUpdateQA,
-      autoSubmitEnabled: argv['auto-submit-vacancy-response-form'],
+      autoSubmitEnabled: argv.autoSubmitVacancyResponseForm,
       verbose: argv.verbose,
     });
   }
