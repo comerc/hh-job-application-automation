@@ -14,6 +14,7 @@ import {
   collectMarkedQAPairs,
 } from './qa.mjs';
 import { findBestMatch } from './qa-database.mjs';
+import { log } from './logging.mjs';
 
 /**
  * Setup Q&A auto-fill and auto-save for all textareas and radio buttons on the page
@@ -112,41 +113,30 @@ export async function handleVacancyResponsePage({
 }) {
   console.log('📝 Detected vacancy_response page, handling application form...');
 
-  if (verbose) {
-    console.log(`🔍 [VERBOSE] Engine: ${commander.engine}`);
-    console.log('🔍 [VERBOSE] About to wait for body selector');
-  }
+  log.debug(() => `🔍 Engine: ${commander.engine}`);
+  log.debug(() => '🔍 About to wait for body selector');
 
   await commander.waitForSelector({ selector: 'body' });
 
-  if (verbose) {
-    console.log('🔍 [VERBOSE] Body selector found');
-  }
+  log.debug(() => '🔍 Body selector found');
 
   // Log all textareas for debugging
-  if (verbose) {
-    console.log('🔍 [VERBOSE] About to count textareas');
-  }
+  log.debug(() => '🔍 About to count textareas');
   const initialCount = await commander.count({ selector: 'textarea' });
   console.log(`🔍 Initial scan: Found ${initialCount} textarea(s) on page`);
 
-  if (verbose) {
-    console.log('🔍 [VERBOSE] Starting to inspect each textarea');
-    for (let i = 0; i < initialCount; i++) {
-      const selector = `textarea:nth-of-type(${i + 1})`;
-      console.log(`🔍 [VERBOSE] Processing textarea ${i} with selector: ${selector}`);
-      const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
-      const visible = await commander.isVisible({ selector });
-      const dataQaDisplay = dataQa || '(none)';
-      console.log(`🔍 Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
-    }
-    console.log('🔍 [VERBOSE] Finished inspecting textareas');
+  // Log all textareas in debug mode
+  for (let i = 0; i < initialCount; i++) {
+    const selector = `textarea:nth-of-type(${i + 1})`;
+    log.debug(() => `🔍 Processing textarea ${i} with selector: ${selector}`);
+    const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
+    const visible = await commander.isVisible({ selector });
+    const dataQaDisplay = dataQa || '(none)';
+    console.log(`🔍 Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
   }
 
   // Check if textarea is already visible
-  if (verbose) {
-    console.log('🔍 [VERBOSE] Checking if textarea is already visible');
-  }
+  log.debug(() => '🔍 Checking if textarea is already visible');
   let textareaAlreadyVisible = false;
   let textareaSelector = '';
   const possibleSelectors = [
@@ -155,18 +145,12 @@ export async function handleVacancyResponsePage({
   ];
 
   for (const sel of possibleSelectors) {
-    if (verbose) {
-      console.log(`🔍 [VERBOSE] Checking selector: ${sel}`);
-    }
+    log.debug(() => `🔍 Checking selector: ${sel}`);
     const count = await commander.count({ selector: sel });
-    if (verbose) {
-      console.log(`🔍 [VERBOSE] Count for ${sel}: ${count}`);
-    }
+    log.debug(() => `🔍 Count for ${sel}: ${count}`);
     if (count > 0) {
       const visible = await commander.isVisible({ selector: sel });
-      if (verbose) {
-        console.log(`🔍 [VERBOSE] Visible for ${sel}: ${visible}`);
-      }
+      log.debug(() => `🔍 Visible for ${sel}: ${visible}`);
       if (visible) {
         textareaAlreadyVisible = true;
         textareaSelector = sel;
@@ -175,9 +159,7 @@ export async function handleVacancyResponsePage({
       }
     }
   }
-  if (verbose) {
-    console.log(`🔍 [VERBOSE] textareaAlreadyVisible: ${textareaAlreadyVisible}`);
-  }
+  log.debug(() => `🔍 textareaAlreadyVisible: ${textareaAlreadyVisible}`);
 
   // If textarea not visible, click toggle button
   if (!textareaAlreadyVisible) {
@@ -202,9 +184,7 @@ export async function handleVacancyResponsePage({
 
       // Fallback to text matching for small elements
       if (!toggleFound) {
-        if (verbose) {
-          console.log('🔍 [VERBOSE] data-qa not found, searching by text');
-        }
+        log.debug(() => '🔍 data-qa not found, searching by text');
 
         // Try each element type separately using findByText
         // Search for multiple possible texts: the label or the "Добавить" button
@@ -213,17 +193,13 @@ export async function handleVacancyResponsePage({
 
         for (const searchText of searchTexts) {
           for (const elementType of elementTypes) {
-            if (verbose) {
-              console.log(`🔍 [VERBOSE] Searching for "${searchText}" in ${elementType} elements`);
-            }
+            log.debug(() => `🔍 Searching for "${searchText}" in ${elementType} elements`);
             toggleSelector = await commander.findByText({
               text: searchText,
               selector: elementType,
             });
             const count = await commander.count({ selector: toggleSelector });
-            if (verbose) {
-              console.log(`🔍 [VERBOSE] Found ${count} elements matching "${searchText}" in ${elementType}`);
-            }
+            log.debug(() => `🔍 Found ${count} elements matching "${searchText}" in ${elementType}`);
             if (count > 0) {
               toggleFound = true;
               break;
@@ -236,9 +212,7 @@ export async function handleVacancyResponsePage({
       if (toggleFound) {
         const text = await commander.textContent({ selector: toggleSelector });
         const dataQa = await commander.getAttribute({ selector: toggleSelector, attribute: 'data-qa' });
-        if (verbose) {
-          console.log(`🔍 [VERBOSE] Found toggle element: text="${text?.trim()}", data-qa="${dataQa}"`);
-        }
+        log.debug(() => `🔍 Found toggle element: text="${text?.trim()}", data-qa="${dataQa}"`);
         console.log(`🔘 Cover letter section is collapsed, clicking toggle (text: "${text?.trim()}", data-qa: "${dataQa}") to expand...`);
 
         await commander.clickButton({
@@ -253,9 +227,7 @@ export async function handleVacancyResponsePage({
 
         // Log textareas after toggle
         const countAfter = await commander.count({ selector: 'textarea' });
-        if (verbose) {
-          console.log(`📊 After toggle click: Found ${countAfter} textarea(s) on page`);
-        }
+        log.debug(() => `📊 After toggle click: Found ${countAfter} textarea(s) on page`);
       } else {
         console.log('💡 Toggle button not found, cover letter section may already be expanded');
       }
@@ -271,40 +243,24 @@ export async function handleVacancyResponsePage({
   }
 
   try {
-    if (verbose) {
-      console.log(`🔍 [VERBOSE] Waiting for textarea selector: ${textareaSelector}`);
-    }
+    log.debug(() => `🔍 Waiting for textarea selector: ${textareaSelector}`);
     await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Textarea found and visible');
-    }
+    log.debug(() => '🔍 Textarea found and visible');
   } catch {
-    if (verbose) {
-      console.log('🔍 [VERBOSE] First selector timed out after 2000ms, trying alternative');
-    }
+    log.debug(() => '🔍 First selector timed out after 2000ms, trying alternative');
     textareaSelector = 'textarea[data-qa="vacancy-response-form-letter-input"]';
     try {
-      if (verbose) {
-        console.log(`🔍 [VERBOSE] Trying alternative textarea selector: ${textareaSelector}`);
-      }
+      log.debug(() => `🔍 Trying alternative textarea selector: ${textareaSelector}`);
       await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
-      if (verbose) {
-        console.log('🔍 [VERBOSE] Alternative textarea found and visible');
-      }
+      log.debug(() => '🔍 Alternative textarea found and visible');
     } catch {
-      if (verbose) {
-        console.log('🔍 [VERBOSE] Alternative selector timed out after 2000ms, trying any textarea');
-      }
+      log.debug(() => '🔍 Alternative selector timed out after 2000ms, trying any textarea');
       textareaSelector = 'textarea';
       console.log('⚠️  Warning: Using generic textarea selector (no data-qa found). This may be fragile.');
       try {
-        if (verbose) {
-          console.log(`🔍 [VERBOSE] Trying any textarea selector: ${textareaSelector}`);
-        }
+        log.debug(() => `🔍 Trying any textarea selector: ${textareaSelector}`);
         await commander.waitForSelector({ selector: textareaSelector, visible: true, timeout: 2000 });
-        if (verbose) {
-          console.log('🔍 [VERBOSE] Any textarea found and visible');
-        }
+        log.debug(() => '🔍 Any textarea found and visible');
       } catch {
         console.log('⚠️  Cover letter textarea not found on vacancy_response page');
         const count = await commander.count({ selector: 'textarea' });
@@ -315,9 +271,7 @@ export async function handleVacancyResponsePage({
   }
 
   // Fill cover letter
-  if (verbose) {
-    console.log(`🔍 [VERBOSE] About to fill textarea with selector: ${textareaSelector}`);
-  }
+  log.debug(() => `🔍 About to fill textarea with selector: ${textareaSelector}`);
   const filled = await commander.fillTextArea({
     selector: textareaSelector,
     text: MESSAGE,
@@ -351,15 +305,11 @@ export async function handleVacancyResponsePage({
   // Count total test questions and unanswered test questions using qa.mjs
   let testQuestionStats;
   try {
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Counting test questions (radio/checkbox)...');
-    }
+    log.debug(() => '🔍 Counting test questions (radio/checkbox)...');
     testQuestionStats = await countUnansweredQuestions({
       evaluate: commander.evaluate,
     });
-    if (verbose) {
-      console.log(`🔍 [VERBOSE] Question stats: total=${testQuestionStats.totalCount}, unanswered=${testQuestionStats.unansweredCount}`);
-    }
+    log.debug(() => `🔍 Question stats: total=${testQuestionStats.totalCount}, unanswered=${testQuestionStats.unansweredCount}`);
   } catch (error) {
     if (error.message && error.message.includes('Execution context was destroyed')) {
       console.log('💡 Page navigated away during question counting, skipping auto-submit');
@@ -374,17 +324,13 @@ export async function handleVacancyResponsePage({
   const hasTestQuestions = testQuestionStats.totalCount > 0 || textareaCount > 1;
   const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
 
-  if (verbose) {
-    console.log(`🔍 [VERBOSE] hasTestQuestions=${hasTestQuestions} (radioCheckbox=${testQuestionStats.totalCount}, textareas=${textareaCount})`);
-    console.log(`🔍 [VERBOSE] hasUnansweredQuestions=${hasUnansweredQuestions}`);
-  }
+  log.debug(() => `🔍 hasTestQuestions=${hasTestQuestions} (radioCheckbox=${testQuestionStats.totalCount}, textareas=${textareaCount})`);
+  log.debug(() => `🔍 hasUnansweredQuestions=${hasUnansweredQuestions}`);
 
   // Check if any test textareas are empty (beyond just the cover letter)
   let hasEmptyTestTextareas;
   try {
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Checking for empty test textareas...');
-    }
+    log.debug(() => '🔍 Checking for empty test textareas...');
     hasEmptyTestTextareas = await commander.evaluate({
       fn: () => {
         const textareas = document.querySelectorAll('textarea');
@@ -413,9 +359,7 @@ export async function handleVacancyResponsePage({
         return { hasEmpty: emptyCount > 0, emptyCount, details };
       },
     });
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Textarea check result:', JSON.stringify(hasEmptyTestTextareas, null, 2));
-    }
+    log.debug(() => `🔍 Textarea check result: ${JSON.stringify(hasEmptyTestTextareas, null, 2)}`);
     // For backwards compatibility, extract the boolean
     const textareaCheckResult = hasEmptyTestTextareas;
     hasEmptyTestTextareas = textareaCheckResult.hasEmpty;
@@ -431,9 +375,7 @@ export async function handleVacancyResponsePage({
     console.log(`⚠️  Found ${testQuestionStats.unansweredCount} of ${testQuestionStats.totalCount} radio/checkbox test question(s) UNANSWERED`);
     console.log('💡 Cannot auto-submit when test questions remain unanswered - manual submission required');
     console.log('💡 Please answer the remaining questions and submit the form manually when ready');
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Returning early due to unanswered radio/checkbox questions');
-    }
+    log.debug(() => '🔍 Returning early due to unanswered radio/checkbox questions');
     return;
   }
 
@@ -441,20 +383,16 @@ export async function handleVacancyResponsePage({
     console.log('⚠️  Found EMPTY test question textarea(s)');
     console.log('💡 Cannot auto-submit when test textareas are empty - manual submission required');
     console.log('💡 Please fill the empty textarea(s) and submit the form manually when ready');
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Returning early due to empty test textareas');
-    }
+    log.debug(() => '🔍 Returning early due to empty test textareas');
     return;
   }
 
   // Decide whether to auto-submit based on configuration and question presence
   let shouldAutoSubmit = false;
 
-  if (verbose) {
-    console.log('🔍 [VERBOSE] Deciding whether to auto-submit...');
-    console.log(`🔍 [VERBOSE]   hasTestQuestions=${hasTestQuestions}`);
-    console.log(`🔍 [VERBOSE]   auto-submit-vacancy-response-form=${autoSubmitEnabled}`);
-  }
+  log.debug(() => '🔍 Deciding whether to auto-submit...');
+  log.debug(() => `🔍   hasTestQuestions=${hasTestQuestions}`);
+  log.debug(() => `🔍   auto-submit-vacancy-response-form=${autoSubmitEnabled}`);
 
   if (!hasTestQuestions) {
     // No test questions - always auto-submit (only cover letter)
@@ -469,9 +407,7 @@ export async function handleVacancyResponsePage({
     shouldAutoSubmit = false;
     console.log(`💡 All ${testQuestionStats.totalCount} test question(s) answered, but --auto-submit-vacancy-response-form is disabled`);
     console.log('💡 Please review the answers and submit the form manually when ready');
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Returning early: flag disabled');
-    }
+    log.debug(() => '🔍 Returning early: flag disabled');
     return;
   }
 
@@ -519,9 +455,7 @@ export async function handleVacancyResponsePage({
       args: [submitSelector],
     });
 
-    if (verbose) {
-      console.log('🔍 [VERBOSE] Submit button state:', JSON.stringify(buttonState, null, 2));
-    }
+    log.debug(() => `🔍 Submit button state: ${JSON.stringify(buttonState, null, 2)}`);
 
     if (!buttonState.found) {
       console.log('⚠️  Submit button not found in DOM');
@@ -534,14 +468,10 @@ export async function handleVacancyResponsePage({
       console.log(`   Has disabled attribute: ${buttonState.hasDisabledAttr}`);
       console.log(`   Has disabled class: ${buttonState.hasDisabledClass}`);
       console.log('💡 The form may require additional validation. Please check manually.');
-      if (verbose) {
-        console.log('🔍 [VERBOSE] NOT clicking disabled submit button, returning early');
-      }
+      log.debug(() => '🔍 NOT clicking disabled submit button, returning early');
       return;
     } else {
-      if (verbose) {
-        console.log('🔍 [VERBOSE] Submit button is enabled, clicking...');
-      }
+      log.debug(() => '🔍 Submit button is enabled, clicking...');
       await commander.clickButton({
         selector: submitSelector,
         scrollIntoView: true,
