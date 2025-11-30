@@ -708,7 +708,6 @@ github.com/link-foundation
       handleVacancyResponsePage: handleVacancyResponsePageWrapper,
       waitForUrlCondition,
       START_URL,
-      verbose: argv.verbose,
       pageClosedByUser: () => pageClosedByUser,
     });
 
@@ -734,7 +733,6 @@ github.com/link-foundation
       const waitResult = await waitForButtonsAfterNavigation({
         commander,
         pageClosedByUser: () => pageClosedByUser,
-        verbose: argv.verbose,
       });
 
       if (waitResult.status === 'page_closed') {

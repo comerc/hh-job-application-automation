@@ -37,7 +37,6 @@ export async function handleLimitError({ commander, START_URL }) {
 export async function processModalApplication({
   commander,
   MESSAGE,
-  verbose,
 }) {
   // Check if textarea is already visible (cover letter might be mandatory)
   const modalTextareaSelector = 'textarea[data-qa="vacancy-response-popup-form-letter-input"]';
@@ -290,7 +289,6 @@ export async function findAndProcessVacancyButton({
   handleVacancyResponsePage,
   waitForUrlCondition,
   START_URL,
-  verbose,
   pageClosedByUser,
 }) {
   // Check if we're still on a valid target page
@@ -562,7 +560,6 @@ export async function findAndProcessVacancyButton({
   const result = await processModalApplication({
     commander,
     MESSAGE,
-    verbose,
   });
 
   if (!result.success) {
@@ -589,7 +586,6 @@ export async function findAndProcessVacancyButton({
 export async function waitForButtonsAfterNavigation({
   commander,
   pageClosedByUser,
-  verbose,
 }) {
   console.log('💡 No more "Откликнуться" buttons on this page.');
   console.log('💡 You can manually navigate to another page (e.g., change filters, go to next page)');
