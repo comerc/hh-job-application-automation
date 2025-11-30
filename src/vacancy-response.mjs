@@ -414,7 +414,7 @@ export async function handleVacancyResponsePage({
       },
     });
     if (verbose) {
-      console.log(`🔍 [VERBOSE] Textarea check result:`, JSON.stringify(hasEmptyTestTextareas, null, 2));
+      console.log('🔍 [VERBOSE] Textarea check result:', JSON.stringify(hasEmptyTestTextareas, null, 2));
     }
     // For backwards compatibility, extract the boolean
     const textareaCheckResult = hasEmptyTestTextareas;

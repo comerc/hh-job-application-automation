@@ -409,7 +409,6 @@ export async function findAndProcessVacancyButton({
     });
 
     // Handle new return format {clicked, navigated}
-    const clicked = typeof clickResult === 'object' ? clickResult.clicked : clickResult;
     const navigated = typeof clickResult === 'object' ? clickResult.navigated : false;
 
     // If navigation happened (regardless of whether click succeeded), stop processing this page
