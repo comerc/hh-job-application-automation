@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "links-notation": "^0.11.2",
+    "lino-arguments": "^0.2.1",
     "log-lazy": "^1.0.4",
     "test-anywhere": "^0.7.0"
   }

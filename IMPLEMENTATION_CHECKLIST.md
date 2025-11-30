@@ -11,6 +11,44 @@ Based on review feedback:
 
 ---
 
+## Work Session Progress (2025-11-30)
+
+### ✅ Completed in This Session
+
+| Item | Status | Description |
+|------|--------|-------------|
+| Phase 1.1 | ✅ Foundation | Created `src/logging.mjs` module with log-lazy |
+| Phase 1.2 | ✅ Foundation | Created `src/config.mjs` module with lino-arguments, installed package |
+| Phase 2.1 | ✅ Completed | Created `src/helpers/modal-helpers.mjs` with `closeModalIfPresent`, `isModalVisible`, `waitForModalToClose` |
+| Phase 2.2 | ✅ Completed | Created `src/hh-selectors.mjs` with SELECTORS and URL_PATTERNS |
+| Refactoring | ✅ Done | Updated `src/vacancies.mjs` to use new helpers and selectors |
+| CI | ✅ Passing | All 120 tests pass, lint passes |
+
+### 📁 New Files Created
+
+- `src/logging.mjs` - Logging module using log-lazy library
+- `src/config.mjs` - Configuration module using lino-arguments library
+- `src/hh-selectors.mjs` - Centralized HH.ru selectors and URL patterns
+- `src/helpers/modal-helpers.mjs` - Modal handling helper functions
+
+### 🔄 Files Modified
+
+- `src/vacancies.mjs` - Refactored to use new helpers:
+  - Import `closeModalIfPresent` from modal-helpers
+  - Import `SELECTORS` from hh-selectors
+  - Replace 5 modal close patterns with helper function
+  - Use `SELECTORS.applicationForm` instead of hardcoded selector
+
+### ⏳ Remaining Work
+
+- Phase 1.1: Replace verbose console.log with log-lazy calls
+- Phase 1.2: Integrate config module into apply.mjs
+- Phase 2.2: Update vacancy-response.mjs to use selectors
+- Phase 2.3: Extract session storage tracker
+- Phase 3.x: Structural improvements (split apply.mjs, pageTrigger pattern)
+
+---
+
 ## Phase 1: Foundation - Logging and Configuration
 
 ### 1.1 Integrate log-lazy Library
@@ -18,13 +56,14 @@ Based on review feedback:
 **Priority:** High
 **Estimated complexity:** Medium
 **Dependencies:** None
+**Status:** ✅ Foundation created
 
-- [ ] Install log-lazy package
+- [x] Install log-lazy package (already in dependencies)
   ```bash
   npm install log-lazy
   ```
 
-- [ ] Create `src/logging.mjs` module
+- [x] Create `src/logging.mjs` module
   ```javascript
   import makeLog from 'log-lazy';
 
@@ -63,41 +102,28 @@ Based on review feedback:
 **Priority:** High
 **Estimated complexity:** Medium
 **Dependencies:** None
+**Status:** ✅ Foundation created
 
-- [ ] Install lino-arguments package
+- [x] Install lino-arguments package
   ```bash
   npm install lino-arguments
   ```
 
-- [ ] Create `.lenv` configuration file for defaults
+- [x] Create `src/config.mjs` module with lino-arguments integration
+  - Uses `makeConfig` from lino-arguments
+  - Supports environment variables via `getenv`
+  - All CLI options defined with proper defaults
+
+- [ ] Create `.lenv` configuration file for defaults (optional)
   ```
   ENGINE: playwright
   JOB_APPLICATION_INTERVAL: 20
   AUTO_SUBMIT_VACANCY_RESPONSE_FORM: false
   ```
 
-- [ ] Refactor `src/apply.mjs` argument parsing:
-  - Replace yargs with lino-arguments `makeConfig`
-  - Current code (lines 65-109):
-    ```javascript
-    const argv = yargs(hideBin(process.argv))
-      .option('engine', {...})
-      // ...
-      .argv;
-    ```
-  - New code:
-    ```javascript
-    import { makeConfig } from 'lino-arguments';
-
-    const config = makeConfig({
-      yargs: ({ yargs, getenv }) => yargs
-        .option('engine', {
-          default: getenv('ENGINE', 'playwright'),
-          // ...
-        })
-        // ...
-    });
-    ```
+- [ ] Refactor `src/apply.mjs` to use new config module:
+  - Import `createConfig` from `./config.mjs`
+  - Replace yargs setup with config module
 
 - [ ] Update all `argv.xxx` references to use new config object
 
@@ -122,96 +148,53 @@ Based on review feedback:
 **Priority:** Medium
 **Estimated complexity:** Low
 **Dependencies:** None
+**Status:** ✅ Completed
 
 Note: Per user feedback, this stays in the application, not browser-commander.
 
-- [ ] Create `src/helpers/modal-helpers.mjs`:
-  ```javascript
-  import { log } from '../logging.mjs';
+- [x] Create `src/helpers/modal-helpers.mjs`:
+  - `closeModalIfPresent()` - closes modal if present
+  - `isModalVisible()` - checks if modal overlay is visible
+  - `waitForModalToClose()` - waits for modal to close with timeout
+  - Uses SELECTORS from `hh-selectors.mjs` for selector references
 
-  /**
-   * Closes a modal if present on the page
-   * @param {Object} options
-   * @param {Object} options.commander - Browser commander instance
-   * @param {string} options.closeButtonSelector - Selector for close button
-   * @param {number} options.waitAfterClose - Ms to wait after closing
-   * @returns {Promise<boolean>} - True if modal was closed
-   */
-  export async function closeModalIfPresent(options = {}) {
-    const {
-      commander,
-      closeButtonSelector = '[data-qa="modal-close"]',
-      waitAfterClose = 1000,
-    } = options;
+- [x] Replace modal closing code in `src/vacancies.mjs`:
+  - ✅ `handleLimitError` - now uses `closeModalIfPresent`
+  - ✅ `processModalApplication` - all 4 modal close locations updated:
+    - Unanswered questions case
+    - Button not found case
+    - Button disabled case
+    - Click failed case
 
-    const count = await commander.count({ selector: closeButtonSelector });
-    if (count > 0) {
-      await commander.clickButton({ selector: closeButtonSelector });
-      await commander.wait({ ms: waitAfterClose, reason: 'modal to close' });
-      log(() => 'Closed modal dialog');
-      return true;
-    }
-    return false;
-  }
-  ```
-
-- [ ] Replace modal closing code in `src/vacancies.mjs`:
-  - Lines 143-156 (response popup close)
-  - Lines 214-222 (response popup close)
-  - Lines 249-254 (response popup close)
-  - Lines 280-285 (response popup close)
-
-- [ ] Add tests for `closeModalIfPresent` helper
+- [ ] Add tests for `closeModalIfPresent` helper (future improvement)
 
 ### 2.2 Create Selector Configuration
 
 **Priority:** Medium
 **Estimated complexity:** Low
 **Dependencies:** None
+**Status:** ✅ Completed
 
-- [ ] Create `src/hh-selectors.mjs`:
-  ```javascript
-  /**
-   * HH.ru specific selectors - centralized configuration
-   */
-  export const SELECTORS = {
-    // Modal close buttons
-    responsePopupClose: '[data-qa="response-popup-close"]',
-    modalClose: '[data-qa="modal-close"]',
+- [x] Create `src/hh-selectors.mjs`:
+  - `SELECTORS` object with all HH.ru specific selectors
+  - `URL_PATTERNS` object with regex patterns for page detection
+  - `extractVacancyId()` and `extractVacancyIdFromResponseUrl()` helper functions
+  - Comprehensive selector coverage:
+    - Modal close buttons
+    - Application form and buttons
+    - Cover letter elements
+    - Error states
+    - Question blocks
 
-    // Application buttons
-    applyButton: 'button[data-qa="vacancy-response-link-top"], button[data-qa="vacancy-serp__vacancy_response"]',
-    submitButton: '[data-qa="vacancy-response-submit-popup"]',
+- [x] Update `src/vacancies.mjs` to import and use selectors:
+  - Import `SELECTORS` from `hh-selectors.mjs`
+  - Updated `containerSelector` to use `SELECTORS.applicationForm`
+  - Updated modal form selector to use `SELECTORS.applicationForm`
+  - Updated verbose logging to show actual selector values
 
-    // Form elements
-    textarea: 'textarea',
-    coverLetterTextarea: '[data-qa="vacancy-response-letter-toggle"] ~ textarea',
+- [ ] Update `src/vacancy-response.mjs` to import selectors (future improvement)
 
-    // Navigation
-    loginLink: 'a[data-qa="login"]',
-
-    // Question types
-    questionBlock: '[data-qa="task-body"]',
-    radioOption: 'input[type="radio"]',
-    checkboxOption: 'input[type="checkbox"]',
-  };
-
-  /**
-   * URL patterns for page detection
-   */
-  export const URL_PATTERNS = {
-    searchVacancy: /^https:\/\/hh\.ru\/search\/vacancy.*[?&]resume=/,
-    vacancyResponse: /^https:\/\/hh\.ru\/applicant\/vacancy_response\?vacancyId=/,
-    vacancyPage: /^https:\/\/hh\.ru\/vacancy\/(\d+)/,
-    loginPage: /^https:\/\/hh\.ru\/account\/login/,
-  };
-  ```
-
-- [ ] Update `src/vacancies.mjs` to import selectors
-
-- [ ] Update `src/vacancy-response.mjs` to import selectors
-
-- [ ] Update `src/apply.mjs` to import URL patterns
+- [ ] Update `src/apply.mjs` to import URL patterns (future improvement)
 
 ### 2.3 Extract Session Storage Tracker
 

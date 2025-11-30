@@ -5,6 +5,8 @@
 
 import { isNavigationError } from './browser-commander/index.js';
 import { countUnansweredQuestions } from './qa.mjs';
+import { closeModalIfPresent } from './helpers/modal-helpers.mjs';
+import { SELECTORS } from './hh-selectors.mjs';
 
 /**
  * Handle limit error when detected
@@ -14,9 +16,8 @@ export async function handleLimitError({ commander, START_URL }) {
   console.log('⚠️  Limit reached: 200 applications in 24 hours');
   console.log('💤 Waiting 1 hour before retrying...');
 
-  const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-  if (closeButtonCount > 0) {
-    await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+  const closed = await closeModalIfPresent({ commander });
+  if (closed) {
     console.log('✅ Closed the application modal');
   }
 
@@ -137,7 +138,7 @@ export async function processModalApplication({
   // Count unanswered questions in modal using qa.mjs
   const modalStats = await countUnansweredQuestions({
     evaluate: commander.evaluate,
-    containerSelector: 'form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]',
+    containerSelector: SELECTORS.applicationForm,
   });
   const modalUnansweredTestQuestionCount = modalStats.unansweredCount;
 
@@ -145,14 +146,11 @@ export async function processModalApplication({
     console.log(`⚠️  Found ${modalUnansweredTestQuestionCount} UNANSWERED test question(s) in modal`);
     console.log('💡 Skipping this vacancy - cannot auto-submit when test questions remain unanswered');
 
-    // Close the modal
-    const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-    if (closeButtonCount > 0) {
-      await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+    // Close the modal using helper
+    const closed = await closeModalIfPresent({ commander });
+    if (closed) {
       console.log('✅ Closed the application modal');
     }
-
-    await commander.wait({ ms: 1000, reason: 'modal to close' });
     return { success: false, reason: 'unanswered_questions' };
   }
 
@@ -197,11 +195,13 @@ export async function processModalApplication({
     console.error(`   Tried selector: ${submitButtonSelector}`);
 
     try {
+      const formSelector = SELECTORS.applicationForm;
       const modalText = await commander.evaluate({
-        fn: () => {
-          const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
+        fn: (selector) => {
+          const form = document.querySelector(selector);
           return form ? form.innerText : 'Could not find modal';
         },
+        args: [formSelector],
       });
       console.error('📋 Modal content:');
       console.error(modalText);
@@ -211,14 +211,11 @@ export async function processModalApplication({
 
     console.error('💡 Closing modal and skipping this vacancy...');
 
-    // Close the modal
-    const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-    if (closeButtonCount > 0) {
-      await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+    // Close the modal using helper
+    const closed = await closeModalIfPresent({ commander });
+    if (closed) {
       console.log('✅ Closed the application modal');
     }
-
-    await commander.wait({ ms: 1000, reason: 'modal to close' });
     return { success: false, reason: 'button_not_found' };
   }
 
@@ -227,11 +224,13 @@ export async function processModalApplication({
     console.error(`   Button text: "${buttonState.text}"`);
 
     try {
+      const formSelector = SELECTORS.applicationForm;
       const modalText = await commander.evaluate({
-        fn: () => {
-          const form = document.querySelector('form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]');
+        fn: (selector) => {
+          const form = document.querySelector(selector);
           return form ? form.innerText : 'Could not find modal';
         },
+        args: [formSelector],
       });
 
       console.error('📋 Reason from modal:');
@@ -243,14 +242,11 @@ export async function processModalApplication({
     console.error('');
     console.error('💡 Closing modal and skipping this vacancy...');
 
-    // Close the modal
-    const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-    if (closeButtonCount > 0) {
-      await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+    // Close the modal using helper
+    const closed = await closeModalIfPresent({ commander });
+    if (closed) {
       console.log('✅ Closed the application modal');
     }
-
-    await commander.wait({ ms: 1000, reason: 'modal to close' });
     return { success: false, reason: 'button_disabled' };
   }
 
@@ -273,14 +269,11 @@ export async function processModalApplication({
     console.error(`❌ Failed to click submit button: ${error.message}`);
     console.error('💡 Closing modal and skipping this vacancy...');
 
-    // Close the modal
-    const closeButtonCount = await commander.count({ selector: '[data-qa="response-popup-close"]' });
-    if (closeButtonCount > 0) {
-      await commander.clickButton({ selector: '[data-qa="response-popup-close"]' });
+    // Close the modal using helper
+    const closed = await closeModalIfPresent({ commander });
+    if (closed) {
       console.log('✅ Closed the application modal');
     }
-
-    await commander.wait({ ms: 1000, reason: 'modal to close' });
     return { success: false, reason: 'click_failed' };
   }
 
@@ -553,10 +546,10 @@ export async function findAndProcessVacancyButton({
       } catch (e) {
         console.log(`🔍 [VERBOSE] 9. Could not check scroll: ${e.message}`);
       }
-      console.log('🔍 [VERBOSE] 10. Waiting for modal selector: form#RESPONSE_MODAL_FORM_ID...');
+      console.log(`🔍 [VERBOSE] 10. Waiting for modal selector: ${SELECTORS.applicationForm}...`);
     }
     await commander.waitForSelector({
-      selector: 'form#RESPONSE_MODAL_FORM_ID[name="vacancy_response"]',
+      selector: SELECTORS.applicationForm,
       visible: true,
       timeout: 10000,
     });
