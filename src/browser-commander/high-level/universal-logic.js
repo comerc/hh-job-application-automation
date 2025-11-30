@@ -3,7 +3,7 @@
  * These are pure functions that work with any browser automation engine
  */
 
-import { isNavigationError } from '../core/navigation-safety.js';
+import { isNavigationError, withNavigationSafety } from '../core/navigation-safety.js';
 
 /**
  * Wait indefinitely for a URL condition with custom check function
@@ -81,33 +81,33 @@ export async function waitForUrlCondition(options = {}) {
 export async function installClickListener(options = {}) {
   const { evaluate, buttonText, storageKey } = options;
 
-  try {
-    await evaluate({
-      fn: (text, key) => {
-        document.addEventListener('click', (event) => {
-          let element = event.target;
-          while (element && element !== document.body) {
-            const elementText = element.textContent?.trim() || '';
-            if (elementText === text ||
-                (element.tagName === 'A' || element.tagName === 'BUTTON') && elementText.includes(text)) {
-              console.log(`[Click Listener] Detected click on ${text} button!`);
-              window.sessionStorage.setItem(key, 'true');
-              break;
-            }
-            element = element.parentElement;
-          }
-        }, true);
-      },
-      args: [buttonText, storageKey],
-    });
-    return true;
-  } catch (error) {
-    if (isNavigationError(error)) {
+  const safeEvaluate = withNavigationSafety(evaluate, {
+    onNavigationError: () => {
       console.log('⚠️  Navigation detected during installClickListener, skipping');
       return false;
-    }
-    throw error;
-  }
+    },
+  });
+
+  const result = await safeEvaluate({
+    fn: (text, key) => {
+      document.addEventListener('click', (event) => {
+        let element = event.target;
+        while (element && element !== document.body) {
+          const elementText = element.textContent?.trim() || '';
+          if (elementText === text ||
+              (element.tagName === 'A' || element.tagName === 'BUTTON') && elementText.includes(text)) {
+            console.log(`[Click Listener] Detected click on ${text} button!`);
+            window.sessionStorage.setItem(key, 'true');
+            break;
+          }
+          element = element.parentElement;
+        }
+      }, true);
+    },
+    args: [buttonText, storageKey],
+  });
+
+  return result === false ? false : true;
 }
 
 /**
@@ -120,25 +120,24 @@ export async function installClickListener(options = {}) {
 export async function checkAndClearFlag(options = {}) {
   const { evaluate, storageKey } = options;
 
-  try {
-    return await evaluate({
-      fn: (key) => {
-        const flag = window.sessionStorage.getItem(key);
-        if (flag === 'true') {
-          window.sessionStorage.removeItem(key);
-          return true;
-        }
-        return false;
-      },
-      args: [storageKey],
-    });
-  } catch (error) {
-    if (isNavigationError(error)) {
+  const safeEvaluate = withNavigationSafety(evaluate, {
+    onNavigationError: () => {
       console.log('⚠️  Navigation detected during checkAndClearFlag, returning false');
       return false;
-    }
-    throw error;
-  }
+    },
+  });
+
+  return await safeEvaluate({
+    fn: (key) => {
+      const flag = window.sessionStorage.getItem(key);
+      if (flag === 'true') {
+        window.sessionStorage.removeItem(key);
+        return true;
+      }
+      return false;
+    },
+    args: [storageKey],
+  });
 }
 
 /**
