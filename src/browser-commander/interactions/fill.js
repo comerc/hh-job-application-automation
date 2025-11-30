@@ -4,6 +4,7 @@ import { waitForLocatorOrElement } from '../elements/locators.js';
 import { scrollIntoViewIfNeeded } from './scroll.js';
 import { clickElement } from './click.js';
 import { getInputValue } from '../elements/content.js';
+import { createEngineAdapter } from '../core/engine-adapter.js';
 
 /**
  * Default verification function for fill operations.
@@ -93,23 +94,20 @@ export async function verifyFill(options = {}) {
  * @param {Object} options.page - Browser page object
  * @param {string} options.engine - Engine type ('playwright' or 'puppeteer')
  * @param {Object} options.locatorOrElement - Element or locator to check
+ * @param {Object} options.adapter - Engine adapter (optional, will be created if not provided)
  * @returns {Promise<boolean>} - True if empty, false if has content (returns true on navigation)
  */
 export async function checkIfElementEmpty(options = {}) {
-  const { page, engine, locatorOrElement } = options;
+  const { page, engine, locatorOrElement, adapter: providedAdapter } = options;
 
   if (!locatorOrElement) {
     throw new Error('locatorOrElement is required in options');
   }
 
   try {
-    if (engine === 'playwright') {
-      const currentValue = await locatorOrElement.inputValue();
-      return !currentValue || currentValue.trim() === '';
-    } else {
-      const currentValue = await page.evaluate(el => el.value, locatorOrElement);
-      return !currentValue || currentValue.trim() === '';
-    }
+    const adapter = providedAdapter || createEngineAdapter(page, engine);
+    const currentValue = await adapter.getInputValue(locatorOrElement);
+    return !currentValue || currentValue.trim() === '';
   } catch (error) {
     if (isNavigationError(error)) {
       console.log('⚠️  Navigation detected during checkIfElementEmpty, returning true');
@@ -131,6 +129,7 @@ export async function checkIfElementEmpty(options = {}) {
  * @param {Function} options.verifyFn - Custom verification function (optional)
  * @param {number} options.verificationTimeout - Verification timeout in ms (default: TIMING.VERIFICATION_TIMEOUT)
  * @param {Function} options.log - Logger instance (optional)
+ * @param {Object} options.adapter - Engine adapter (optional, will be created if not provided)
  * @returns {Promise<{filled: boolean, verified: boolean, actualValue?: string}>}
  */
 export async function performFill(options = {}) {
@@ -144,6 +143,7 @@ export async function performFill(options = {}) {
     verifyFn,
     verificationTimeout = TIMING.VERIFICATION_TIMEOUT,
     log = { debug: () => {} },
+    adapter: providedAdapter,
   } = options;
 
   if (!text) {
@@ -155,24 +155,11 @@ export async function performFill(options = {}) {
   }
 
   try {
-    if (engine === 'playwright') {
-      if (simulateTyping) {
-        await locatorOrElement.type(text);
-      } else {
-        await locatorOrElement.fill(text);
-      }
+    const adapter = providedAdapter || createEngineAdapter(page, engine);
+    if (simulateTyping) {
+      await adapter.type(locatorOrElement, text);
     } else {
-      if (simulateTyping) {
-        // For Puppeteer, we need to focus first, then type
-        await locatorOrElement.focus();
-        await page.keyboard.type(text);
-      } else {
-        await page.evaluate((el, value) => {
-          el.value = value;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }, locatorOrElement, text);
-      }
+      await adapter.fill(locatorOrElement, text);
     }
 
     // Verify fill if requested
