@@ -734,8 +734,12 @@ What about paths?
     test('should handle multiline answers correctly', async () => {
       await cleanup();
 
-      // Short multiline answers (e.g., GitHub links) are stored as arrays (checkbox-like options)
-      // This is the actual behavior: multiple short unquoted lines become an array
+      // When a multiline string is passed to addOrUpdateQA, it is stored as a
+      // quoted multiline value (preserved as a single string, not split into array).
+      // This is the correct behavior for textarea content.
+      //
+      // Array behavior (checkbox options) only occurs when reading production files
+      // that were written with multiple unquoted indented lines (separate entries).
       const question = 'What are your GitHub links?';
       const multilineAnswer = `github.com/konard
 github.com/deep-assistant
@@ -745,12 +749,13 @@ github.com/link-foundation`;
       // Save multiline answer
       await addOrUpdateQA(question, multilineAnswer);
 
-      // Read back - returns an array for short multiple answers
+      // Read back - multiline strings are preserved as strings (quoted in file)
       const retrieved = await getAnswer(question);
 
-      // The code treats short multiple lines as checkbox options (returns array)
-      assert.ok(Array.isArray(retrieved), 'Short multiline answers should be returned as array');
-      assert.equal(retrieved.length, 4, 'Should have 4 array items');
+      // Multiline strings from addOrUpdateQA are returned as strings (not arrays)
+      // The array behavior is for pre-existing production data with separate lines
+      assert.ok(typeof retrieved === 'string', 'Multiline strings from addOrUpdateQA should be returned as string');
+      assert.equal(retrieved, multilineAnswer, 'Multiline answer should be preserved exactly');
       assert.ok(retrieved.includes('github.com/konard'), 'Should contain first line');
       assert.ok(retrieved.includes('github.com/deep-assistant'), 'Should contain second line');
       assert.ok(retrieved.includes('github.com/linksplatform'), 'Should contain third line');
@@ -790,12 +795,12 @@ github.com/link-foundation`;
       );
 
       // Verify data can be read back correctly
-      // Note: Short multiple lines are returned as array (checkbox-like behavior)
+      // Note: Multiline strings from addOrUpdateQA are returned as strings (quoted in file)
       const retrieved = await getAnswer(question);
-      assert.ok(Array.isArray(retrieved), 'Short multiline answers are returned as array');
-      assert.equal(retrieved.length, 3, 'Should have 3 answer lines');
+      assert.ok(typeof retrieved === 'string', 'Multiline answers from addOrUpdateQA are returned as string');
+      assert.equal(retrieved, answer, 'Multiline answer should be preserved exactly');
 
-      // Verify each line is preserved
+      // Verify each line is preserved in the string
       const expectedLines = answer.split('\n');
       for (let i = 0; i < expectedLines.length; i++) {
         assert.ok(retrieved.includes(expectedLines[i]), `Should contain line: ${expectedLines[i]}`);
@@ -820,10 +825,17 @@ Line 3`;
       const questionLineIndex = lines.findIndex(line => line.trim() === question);
       assert.ok(questionLineIndex >= 0, 'Question should be in file');
 
-      // Check that answer lines are indented with exactly 2 spaces
-      assert.equal(lines[questionLineIndex + 1], '  Line 1', 'First answer line should have 2-space indent');
-      assert.equal(lines[questionLineIndex + 2], '  Line 2', 'Second answer line should have 2-space indent');
-      assert.equal(lines[questionLineIndex + 3], '  Line 3', 'Third answer line should have 2-space indent');
+      // Multiline strings from addOrUpdateQA are quoted to preserve as single value.
+      // The quoted answer starts with 2-space indent followed by opening quote,
+      // then the multiline content with natural newlines, ending with closing quote.
+      // Format: '  "Line 1\nLine 2\nLine 3"' written as multiline in file
+      const firstAnswerLine = lines[questionLineIndex + 1];
+      assert.ok(firstAnswerLine.startsWith('  "'), 'Quoted answer should have 2-space indent before quote');
+      assert.ok(firstAnswerLine.includes('Line 1'), 'First answer line should contain "Line 1"');
+
+      // Verify the answer can be read back correctly
+      const retrieved = await getAnswer(question);
+      assert.equal(retrieved, answer, 'Multiline answer should be preserved exactly');
     });
 
     test('should handle multiline questions AND multiline answers', async () => {
