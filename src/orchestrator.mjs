@@ -69,8 +69,9 @@ export function createWaitForUrlCondition({
                 hasAlreadyResponded,
                 hasResponseSent,
                 hasRespondButton: !!respondButton,
-                // Only redirect if flag is set (button was clicked during this session)
-                needsRedirect: flag === 'true',
+                // Redirect if flag is set (button was clicked during this session)
+                // OR if response text is present (user already responded)
+                needsRedirect: flag === 'true' || hasResponseText || hasAlreadyResponded || hasResponseSent,
               };
             },
             args: [SESSION_KEYS.shouldRedirectAfterResponse],
