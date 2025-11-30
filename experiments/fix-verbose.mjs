@@ -17,25 +17,25 @@ content = content.replace(/console\.log\(\`ðŸ” \[VERBOSE\] /g, 'console.log(`ðŸ
 // Using template literals
 content = content.replace(
   /if \(verbose\) \{\s*console\.log\((`[^`]+`)\);\s*\}/g,
-  'log.debug(() => $1);'
+  'log.debug(() => $1);',
 );
 
 // Using single quotes
 content = content.replace(
   /if \(verbose\) \{\s*console\.log\(('[^']+')\);\s*\}/g,
-  'log.debug(() => $1);'
+  'log.debug(() => $1);',
 );
 
 // Multi-line patterns - template literals
 content = content.replace(
   /if \(verbose\) \{\s*\n\s*console\.log\((`[^`]+`)\);\s*\n\s*\}/g,
-  'log.debug(() => $1);'
+  'log.debug(() => $1);',
 );
 
 // Multi-line patterns - single quotes
 content = content.replace(
   /if \(verbose\) \{\s*\n\s*console\.log\(('[^']+')\);\s*\n\s*\}/g,
-  'log.debug(() => $1);'
+  'log.debug(() => $1);',
 );
 
 // Count remaining

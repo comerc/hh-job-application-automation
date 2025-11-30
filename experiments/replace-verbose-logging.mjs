@@ -20,13 +20,13 @@ async function replaceVerboseLogging(filePath) {
   // Single line pattern
   content = content.replace(
     /if \(verbose\) \{\s*console\.log\(([^)]+)\);\s*\}/g,
-    'log.debug(() => $1);'
+    'log.debug(() => $1);',
   );
 
   // Multi-line pattern with one console.log
   content = content.replace(
     /if \(verbose\) \{\s*\n\s*console\.log\(([^)]+)\);\s*\n\s*\}/g,
-    'log.debug(() => $1);'
+    'log.debug(() => $1);',
   );
 
   await writeFile(filePath, content, 'utf-8');
