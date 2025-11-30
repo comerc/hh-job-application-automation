@@ -55,10 +55,16 @@ Based on review feedback:
   - Use helper functions and centralized selectors
   - Move expensive operations out of verbose checks (now lazy-evaluated)
 
-### ⏳ Remaining Work
+### ⏳ Remaining Work (Future PRs)
 
-- Phase 2.3 cont.: Integrate session-tracker.mjs into apply.mjs (optional - helper is ready)
-- Phase 3.x: Structural improvements (split apply.mjs, pageTrigger pattern, split large functions)
+Phase 2.3 session-tracker integration into apply.mjs is optional - the helper module is created and ready for use when needed. The current apply.mjs already has equivalent inline functionality.
+
+Phase 3.x structural improvements are recommended for future work:
+- Phase 3.1: Split apply.mjs into smaller modules (cli.mjs, orchestrator.mjs, page-handlers.mjs)
+- Phase 3.2: Migrate to `pageTrigger` pattern for navigation
+- Phase 3.3: Split large functions in vacancy-response.mjs and vacancies.mjs
+
+These are significant refactoring tasks that should be done in a separate PR to minimize risk.
 
 ---
 
