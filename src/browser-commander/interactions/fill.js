@@ -104,6 +104,12 @@ export async function checkIfElementEmpty(options = {}) {
     throw new Error('locatorOrElement is required in options');
   }
 
+  // Add defensive check for page parameter
+  if (!page && !providedAdapter) {
+    const availableKeys = Object.keys(options).join(', ');
+    throw new Error(`checkIfElementEmpty: page is required in options when adapter is not provided. Available option keys: [${availableKeys}]. This indicates the 'page' parameter was not passed correctly from the calling function.`);
+  }
+
   try {
     const adapter = providedAdapter || createEngineAdapter(page, engine);
     const currentValue = await adapter.getInputValue(locatorOrElement);
@@ -152,6 +158,12 @@ export async function performFill(options = {}) {
 
   if (!locatorOrElement) {
     throw new Error('locatorOrElement is required in options');
+  }
+
+  // Add defensive check for page parameter
+  if (!page && !providedAdapter) {
+    const availableKeys = Object.keys(options).join(', ');
+    throw new Error(`performFill: page is required in options when adapter is not provided. Available option keys: [${availableKeys}]. This indicates the 'page' parameter was not passed correctly from the calling function.`);
   }
 
   try {
@@ -233,6 +245,12 @@ export async function fillTextArea(options = {}) {
     verifyFn,
     verificationTimeout = TIMING.VERIFICATION_TIMEOUT,
   } = options;
+
+  // Defensive check: Validate that page parameter is present
+  if (!page) {
+    const availableKeys = Object.keys(options).join(', ');
+    throw new Error(`fillTextArea: page is required in options. Available option keys: [${availableKeys}]. This indicates the 'page' parameter was not passed correctly from the calling function (bindings layer).`);
+  }
 
   if (!selector || !text) {
     throw new Error('fillTextArea: selector and text are required in options');

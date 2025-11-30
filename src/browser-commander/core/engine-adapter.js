@@ -439,7 +439,13 @@ export class PuppeteerAdapter extends EngineAdapter {
  */
 export function createEngineAdapter(page, engine) {
   if (!page) {
-    throw new Error('page is required');
+    const errorDetails = {
+      page: page,
+      pageType: typeof page,
+      engine: engine,
+      stackTrace: new Error().stack,
+    };
+    throw new Error(`page is required in createEngineAdapter. Received: page=${page} (type: ${typeof page}), engine=${engine}. This may indicate that the page object was not properly passed through the function call chain. Stack trace: ${errorDetails.stackTrace}`);
   }
 
   if (engine === 'playwright') {
