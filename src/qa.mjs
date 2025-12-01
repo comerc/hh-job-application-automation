@@ -310,14 +310,26 @@ export async function countUnansweredQuestions(options = {}) {
 export async function fillTextareaQuestion(options = {}) {
   const { commander, questionData, verbose = false } = options;
 
-  if (questionData.currentValue) {
+  // Perform fresh check of textarea content right before filling
+  // This is more reliable than the stale currentValue from extraction time
+  const freshValue = await commander.evaluate({
+    fn: (selector) => {
+      const textarea = document.querySelector(selector);
+      return textarea ? textarea.value.trim() : '';
+    },
+    args: [questionData.selector],
+  });
+
+  if (freshValue) {
     if (verbose) {
       console.log(`[QA] Textarea already has content for: ${questionData.question}`);
+      console.log(`[QA] Current value: "${freshValue.substring(0, 50)}..."`);
     }
     return false;
   }
 
-  const filled = await commander.fillTextArea({
+  // fillTextArea with checkEmpty: true provides additional safety check
+  const result = await commander.fillTextArea({
     selector: questionData.selector,
     text: questionData.answer,
     checkEmpty: true,
@@ -325,8 +337,13 @@ export async function fillTextareaQuestion(options = {}) {
     simulateTyping: true,
   });
 
+  // fillTextArea returns an object with { filled, verified, skipped, actualValue }
+  const filled = result && result.filled;
+
   if (filled) {
     console.log(`[QA] Prefilled textarea for: ${questionData.question}`);
+  } else if (result && result.skipped) {
+    console.log(`[QA] Textarea was not empty, skipped: ${questionData.question}`);
   }
 
   return filled;
