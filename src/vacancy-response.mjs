@@ -44,11 +44,25 @@ export async function setupQAHandling({ commander, readQADatabase, addOrUpdateQA
       }
     }
 
+    // Track filled selectors to prevent duplicate fills
+    const filledSelectors = new Set();
+
     // Auto-fill textareas and select radio buttons using qa.mjs functions
+    // Each fill operation is sequential with proper await to prevent concurrent typing
     for (const [question, data] of questionToAnswer) {
       try {
         if (data.type === 'textarea') {
-          await fillTextareaQuestion({ commander, questionData: data, verbose });
+          // Skip if this selector was already filled (prevents duplicate fills)
+          if (filledSelectors.has(data.selector)) {
+            console.log(`[QA] Skipping duplicate fill for selector: ${data.selector}`);
+            continue;
+          }
+          const filled = await fillTextareaQuestion({ commander, questionData: data, verbose });
+          if (filled) {
+            filledSelectors.add(data.selector);
+          }
+          // Small delay between textarea fills to ensure stability
+          await commander.wait({ ms: 100, reason: 'stability delay between textarea fills' });
         } else if (data.type === 'radio') {
           await fillRadioQuestion({ commander, questionData: data, verbose });
         } else if (data.type === 'checkbox') {
