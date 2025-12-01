@@ -13,6 +13,7 @@
 import { isNavigationError } from './browser-commander/index.js';
 import { log } from './logging.mjs';
 import { createApplyButtonTracker } from './helpers/session-tracker.mjs';
+import { URL_PATTERNS } from './hh-selectors.mjs';
 
 /**
  * @deprecated Use pageTriggers from page-triggers.mjs instead.
@@ -90,22 +91,74 @@ export async function checkAndRedirectIfNeeded({
     log.debug(() => `Current URL: ${currentUrl}`);
     log.debug(() => `isOnVacancyPageFromResponse: ${getIsOnVacancyPageFromResponse()}`);
 
+    // Only check on vacancy pages when we came from vacancy_response
+    if (!getIsOnVacancyPageFromResponse() || !URL_PATTERNS.vacancyPage.test(currentUrl)) {
+      return false;
+    }
+
     const buttonTracker = createApplyButtonTracker(commander);
-    const checkResult = await buttonTracker.check({ clearAfterCheck: true });
+    const checkResult = await buttonTracker.check({ clearAfterCheck: false });
 
     // If navigation occurred, just return false
     if (checkResult.navigationError) {
       return false;
     }
 
-    const shouldRedirect = checkResult.hasFlag;
+    const hasSessionFlag = checkResult.hasFlag;
 
-    log.debug(() => `shouldRedirect from sessionStorage: ${shouldRedirect}`);
+    log.debug(() => `shouldRedirect from sessionStorage: ${hasSessionFlag}`);
+
+    // Also check for response text on the page (handles cases where session flag wasn't set)
+    // This is the same logic as in waitForUrlCondition in orchestrator.mjs
+    const evalResult = await commander.safeEvaluate({
+      fn: () => {
+        // Normalize whitespace (including nbsp) for matching
+        const bodyText = document.body.textContent.replace(/\s+/g, ' ');
+
+        // Check for various response texts (handle nbsp and multiple spaces)
+        const hasResponseText = bodyText.includes('Вы откликнулись');
+        const hasAlreadyResponded = bodyText.includes('Вы уже откликались');
+        const hasResponseSent = bodyText.includes('Отклик отправлен');
+
+        return {
+          hasResponseText,
+          hasAlreadyResponded,
+          hasResponseSent,
+        };
+      },
+      defaultValue: null,
+      operationName: 'check response text on vacancy page',
+    });
+
+    // If navigation occurred during evaluation, just return false
+    if (evalResult.navigationError || !evalResult.value) {
+      return false;
+    }
+
+    const pageInfo = evalResult.value;
+    const hasResponseTextOnPage = pageInfo.hasResponseText || pageInfo.hasAlreadyResponded || pageInfo.hasResponseSent;
+
+    log.debug(() => `"Вы откликнулись" on page: ${pageInfo.hasResponseText}`);
+    log.debug(() => `"Вы уже откликались" on page: ${pageInfo.hasAlreadyResponded}`);
+    log.debug(() => `"Отклик отправлен" on page: ${pageInfo.hasResponseSent}`);
+
+    // Redirect if sessionStorage flag is set OR if response text is on the page
+    const shouldRedirect = hasSessionFlag || hasResponseTextOnPage;
 
     if (shouldRedirect) {
-      console.log('Detected "Откликнуться" button was clicked on vacancy page!');
-      if (getIsOnVacancyPageFromResponse() && !getIsNavigating()) {
+      if (hasSessionFlag) {
+        console.log('Detected "Откликнуться" button was clicked on vacancy page!');
+      } else {
+        console.log('Detected application submission via response text on vacancy page!');
+      }
+
+      if (!getIsNavigating()) {
         console.log('Response submitted from vacancy page, redirecting back to search page...');
+
+        // Clear the session flag if it was set
+        if (hasSessionFlag) {
+          await buttonTracker.clear();
+        }
 
         // Set navigation lock
         setIsNavigating(true);
@@ -122,11 +175,7 @@ export async function checkAndRedirectIfNeeded({
           setIsNavigating(false);
         }
       } else {
-        if (!getIsOnVacancyPageFromResponse()) {
-          console.log('shouldRedirect=true but isOnVacancyPageFromResponse=false - this should not happen');
-        } else {
-          console.log('Already navigating, skipping redirect');
-        }
+        console.log('Already navigating, skipping redirect');
       }
     }
 
