@@ -16,30 +16,44 @@ export async function extractPageQuestions(options = {}) {
     fn: () => {
       const questions = [];
 
-      // Extract textarea questions
-      const textareas = document.querySelectorAll('textarea');
-      textareas.forEach((textarea, index) => {
-        const taskBody = textarea.closest('[data-qa="task-body"]');
-        if (!taskBody) return;
-
+      // Extract textarea questions - only from task-body elements to avoid mixing with cover letter
+      const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
+      taskBodies.forEach((taskBody, taskIndex) => {
         const questionEl = taskBody.querySelector('[data-qa="task-question"]');
         if (!questionEl) return;
 
         const question = questionEl.textContent.trim();
-        if (question) {
-          const selector = textarea.name ? `textarea[name="${textarea.name}"]` : `textarea:nth-of-type(${index + 1})`;
-          questions.push({
-            type: 'textarea',
-            question,
-            selector,
-            index,
-            currentValue: textarea.value.trim(),
-          });
+        if (!question) return;
+
+        // Find textarea within this specific task-body
+        const textarea = taskBody.querySelector('textarea');
+        if (!textarea) return;
+
+        // Generate a unique selector - prefer name attribute for reliability
+        // Using name attribute ensures we target the exact textarea without index confusion
+        let selector;
+        if (textarea.name) {
+          selector = `textarea[name="${textarea.name}"]`;
+        } else if (textarea.id) {
+          selector = `textarea#${textarea.id}`;
+        } else {
+          // Fallback: Mark the textarea with a temporary attribute for identification
+          // This ensures we target the exact element even if page structure is complex
+          const uniqueId = `qa-temp-${Date.now()}-${taskIndex}`;
+          textarea.setAttribute('data-qa-temp-id', uniqueId);
+          selector = `textarea[data-qa-temp-id="${uniqueId}"]`;
         }
+
+        questions.push({
+          type: 'textarea',
+          question,
+          selector,
+          index: taskIndex,
+          currentValue: textarea.value.trim(),
+        });
       });
 
-      // Extract radio and checkbox questions
-      const taskBodies = document.querySelectorAll('[data-qa="task-body"]');
+      // Extract radio and checkbox questions (reuse taskBodies from above)
       taskBodies.forEach((taskBody) => {
         const questionEl = taskBody.querySelector('[data-qa="task-question"]');
         if (!questionEl) return;
