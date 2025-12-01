@@ -52,6 +52,7 @@ export function createSearchPageCondition() {
  * @param {Function} options.handleVacancyResponsePage - Handler for vacancy response page
  * @param {Function} options.onVacancyPageFromResponse - Callback when navigating to vacancy from response
  * @param {Function} options.onApplicationSubmitted - Callback when application is submitted
+ * @param {Function} options.onSearchPageVisited - Callback when search page URL changes (for tracking pagination)
  * @param {string} options.START_URL - URL to redirect to after submission
  * @returns {Function} Cleanup function to unregister all triggers
  */
@@ -61,12 +62,16 @@ export function registerPageTriggers({
   handleVacancyResponsePage,
   onVacancyPageFromResponse,
   onApplicationSubmitted,
+  onSearchPageVisited,
   START_URL,
 }) {
   const unregisterFunctions = [];
 
   // Track state across page transitions
   let lastVacancyResponseId = null;
+  // Track the last search page URL to return to after application confirmation
+  // This allows returning to the exact page (e.g., page 2) instead of START_URL
+  let lastSearchPageUrl = START_URL;
 
   /**
    * Vacancy Response Page Trigger
@@ -219,7 +224,9 @@ export function registerPageTriggers({
                 const hasSubmitted = info.hasResponseText || info.hasAlreadyResponded || info.hasResponseSent;
 
                 if (hasSubmitted) {
-                  console.log('Application submission detected, redirecting to search page...');
+                  // Use the last tracked search page URL (may include pagination)
+                  const returnUrl = lastSearchPageUrl || START_URL;
+                  console.log(`Application submission detected, redirecting to: ${returnUrl}`);
 
                   // Notify callback
                   if (onApplicationSubmitted) {
@@ -229,9 +236,9 @@ export function registerPageTriggers({
                   // Clear the tracking
                   lastVacancyResponseId = null;
 
-                  // Redirect to start page
+                  // Redirect to last search page (not START_URL)
                   clearInterval(checkInterval);
-                  await ctx.rawCommander.goto({ url: START_URL });
+                  await ctx.rawCommander.goto({ url: returnUrl });
                 }
               }
             }
@@ -256,9 +263,54 @@ export function registerPageTriggers({
   });
   unregisterFunctions.push(unregisterVacancyPage);
 
+  /**
+   * Search Page Trigger
+   *
+   * Tracks the last search page URL for returning after application confirmation.
+   * This allows the user to manually navigate to a different page number and
+   * have the automation return to that exact page after submitting an application.
+   */
+  const unregisterSearchPage = commander.pageTrigger({
+    name: 'search-page',
+    priority: 3, // Lower priority - background tracking
+    condition: createSearchPageCondition(),
+    action: async (ctx) => {
+      // Update the last search page URL whenever we visit a search page
+      lastSearchPageUrl = ctx.url;
+      log.debug(() => `📋 [search-page] Updated lastSearchPageUrl to: ${ctx.url}`);
+      if (onSearchPageVisited) {
+        onSearchPageVisited(ctx.url);
+      }
+
+      // Keep action alive - it will be stopped when navigation occurs
+      while (!ctx.isStopped()) {
+        // Periodically update the URL in case of in-page navigation (e.g., pagination)
+        const currentUrl = ctx.commander.getUrl ? ctx.commander.getUrl() : ctx.rawCommander.getUrl();
+        if (currentUrl && URL_PATTERNS.searchVacancy.test(currentUrl) && currentUrl !== lastSearchPageUrl) {
+          lastSearchPageUrl = currentUrl;
+          log.debug(() => `📋 [search-page] Updated lastSearchPageUrl (in-page navigation) to: ${currentUrl}`);
+          if (onSearchPageVisited) {
+            onSearchPageVisited(currentUrl);
+          }
+        }
+        await ctx.wait(2000);
+      }
+    },
+  });
+  unregisterFunctions.push(unregisterSearchPage);
+
   // Clear the tracking when leaving vacancy response page to go elsewhere
   // (not to the vacancy page)
   commander.navigationManager?.on('onUrlChange', ({ newUrl }) => {
+    // Track search page URL changes
+    if (URL_PATTERNS.searchVacancy.test(newUrl)) {
+      lastSearchPageUrl = newUrl;
+      log.debug(() => `📋 Updated lastSearchPageUrl via onUrlChange to: ${newUrl}`);
+      if (onSearchPageVisited) {
+        onSearchPageVisited(newUrl);
+      }
+    }
+
     if (lastVacancyResponseId) {
       const newVacancyId = extractVacancyId(newUrl);
       if (newVacancyId !== lastVacancyResponseId) {
@@ -291,7 +343,8 @@ export function registerPageTriggers({
  * @param {Function} options.handleVacancyResponsePageWrapper - Wrapped handler for vacancy response page
  * @param {string} options.START_URL - URL to redirect to after submission
  * @param {Function} options.setIsOnVacancyPageFromResponse - State setter (optional, for legacy compatibility)
- * @returns {Function} Cleanup function
+ * @param {Function} options.setLastSearchPageUrl - Setter for last search page URL (optional, for legacy compatibility)
+ * @returns {Object} Object with cleanup function and getLastSearchPageUrl getter
  */
 export function setupPageTriggers({
   commander,
@@ -299,10 +352,14 @@ export function setupPageTriggers({
   handleVacancyResponsePageWrapper,
   START_URL,
   setIsOnVacancyPageFromResponse,
+  setLastSearchPageUrl,
 }) {
   const { addOrUpdateQA } = qaDB;
 
-  return registerPageTriggers({
+  // Store reference to last search page URL for external access
+  let externalLastSearchPageUrl = START_URL;
+
+  const cleanup = registerPageTriggers({
     commander,
     addOrUpdateQA,
     handleVacancyResponsePage: handleVacancyResponsePageWrapper,
@@ -318,6 +375,18 @@ export function setupPageTriggers({
         setIsOnVacancyPageFromResponse(false);
       }
     },
+    onSearchPageVisited: (url) => {
+      externalLastSearchPageUrl = url;
+      if (setLastSearchPageUrl) {
+        setLastSearchPageUrl(url);
+      }
+    },
     START_URL,
   });
+
+  // Return an object with cleanup function and getter
+  return {
+    cleanup,
+    getLastSearchPageUrl: () => externalLastSearchPageUrl,
+  };
 }

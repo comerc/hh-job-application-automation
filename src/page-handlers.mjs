@@ -71,7 +71,8 @@ export function createClickListenerHandler(/* options */) {
  * @param {Function} options.setIsNavigating - Set navigation lock
  * @param {Function} options.setClickListenerInstalled - Set click listener flag
  * @param {Function} options.setLastVacancyPageUrl - Set last vacancy page URL
- * @param {string} options.START_URL - URL to return to
+ * @param {string} options.START_URL - URL to return to (fallback)
+ * @param {Function} options.getLastSearchPageUrl - Get last tracked search page URL (for pagination)
  * @returns {Promise<boolean>} True if redirect was triggered
  */
 export async function checkAndRedirectIfNeeded({
@@ -83,6 +84,7 @@ export async function checkAndRedirectIfNeeded({
   setClickListenerInstalled,
   setLastVacancyPageUrl,
   START_URL,
+  getLastSearchPageUrl,
 }) {
   try {
     const currentUrl = commander.getUrl();
@@ -153,7 +155,9 @@ export async function checkAndRedirectIfNeeded({
       }
 
       if (!getIsNavigating()) {
-        console.log('Response submitted from vacancy page, redirecting back to search page...');
+        // Use the last tracked search page URL (may include pagination) or fall back to START_URL
+        const returnUrl = (getLastSearchPageUrl && getLastSearchPageUrl()) || START_URL;
+        console.log(`Response submitted from vacancy page, redirecting to: ${returnUrl}`);
 
         // Clear the session flag if it was set
         if (hasSessionFlag) {
@@ -164,7 +168,7 @@ export async function checkAndRedirectIfNeeded({
         setIsNavigating(true);
 
         try {
-          await commander.goto({ url: START_URL });
+          await commander.goto({ url: returnUrl });
 
           // Reset the tracking flags
           setIsOnVacancyPageFromResponse(false);
