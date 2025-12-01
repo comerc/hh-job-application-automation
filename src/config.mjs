@@ -27,6 +27,8 @@ github.com/deep-assistant
 github.com/linksplatform
 github.com/link-foundation
 
+Для оперативной связи предлагаю использовать мой Telegram: @drakonard (+79582000567).
+
 С уважением,
 Константин Дьяченко`;
 
