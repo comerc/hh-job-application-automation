@@ -168,6 +168,7 @@ export function createOrchestrator({
   let pageClosedByUser = false;
   let isOnVacancyPageFromResponse = false;  // Kept for legacy compatibility with redirect check
   let isNavigating = false;  // Kept for redirect check
+  let lastSearchPageUrl = START_URL;  // Track the last search page URL for returning after application
 
   // Getters and setters for state
   const getPageClosedByUser = () => pageClosedByUser;
@@ -176,6 +177,8 @@ export function createOrchestrator({
   const setIsOnVacancyPageFromResponse = (value) => { isOnVacancyPageFromResponse = value; };
   const getIsNavigating = () => isNavigating;
   const setIsNavigating = (value) => { isNavigating = value; };
+  const getLastSearchPageUrl = () => lastSearchPageUrl;
+  const setLastSearchPageUrl = (value) => { lastSearchPageUrl = value; };
 
   // Create waitForUrlCondition function
   const waitForUrlCondition = createWaitForUrlCondition({
@@ -200,6 +203,7 @@ export function createOrchestrator({
     setClickListenerInstalled: () => {}, // No-op - managed by pageTriggers
     setLastVacancyPageUrl: () => {}, // No-op - managed by pageTriggers
     START_URL,
+    getLastSearchPageUrl,  // Pass the getter to use tracked URL
   });
 
   return {
@@ -244,12 +248,13 @@ export function createOrchestrator({
 
       // Setup page triggers for declarative page handling
       // This replaces the manual onUrlChange handlers with the pageTrigger pattern
-      const cleanupTriggers = setupPageTriggers({
+      const { cleanup: cleanupTriggers } = setupPageTriggers({
         commander,
         qaDB,
         handleVacancyResponsePageWrapper,
         START_URL,
         setIsOnVacancyPageFromResponse,
+        setLastSearchPageUrl,  // Track the last search page for returning after application
       });
 
       process.on('exit', () => cleanupTriggers());
