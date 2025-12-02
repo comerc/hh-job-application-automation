@@ -9,9 +9,58 @@
  * - Easier to add new engines (e.g., Selenium)
  * - Easier to test with mock adapters
  * - Clearer separation of concerns
+ *
+ * IMPORTANT: Global Typing Mutex (Issue #115 fix)
+ * Puppeteer's page.keyboard.type() types to whatever element has focus.
+ * If two operations run concurrently, they can steal focus from each other,
+ * causing character interleaving and text corruption. The global typing mutex
+ * ensures only one typing operation runs at a time, preventing this issue.
  */
 
 import { TIMING } from './constants.js';
+
+// ============================================================================
+// Global Typing Mutex (Issue #115 fix)
+// ============================================================================
+// Puppeteer's page.keyboard.type() sends keystrokes to whatever element
+// currently has focus. When multiple fill operations run concurrently:
+//   1. Operation A focuses textarea A
+//   2. Operation B focuses textarea B (steals focus!)
+//   3. Operation A types → goes to textarea B instead!
+//   4. Characters from both operations interleave
+//
+// This mutex ensures only ONE typing operation can occur at a time across
+// all textareas, preventing the focus-stealing race condition.
+// ============================================================================
+
+let globalTypingLock = null;
+let typingLockOwner = null; // For debugging: track who holds the lock
+
+/**
+ * Acquire the global typing lock
+ * Waits if another operation is currently typing
+ * @param {string} operationId - Identifier for debugging (e.g., selector)
+ * @returns {Promise<Function>} Release function to call when done typing
+ */
+async function acquireTypingLock(operationId = 'unknown') {
+  // Wait for any existing lock to be released
+  while (globalTypingLock) {
+    await globalTypingLock;
+  }
+
+  // Create new lock
+  let releaseLock;
+  globalTypingLock = new Promise(resolve => {
+    releaseLock = () => {
+      globalTypingLock = null;
+      typingLockOwner = null;
+      resolve();
+    };
+  });
+  typingLockOwner = operationId;
+
+  return releaseLock;
+}
 
 /**
  * Base class defining the engine adapter interface
@@ -399,9 +448,18 @@ export class PuppeteerAdapter extends EngineAdapter {
   }
 
   async type(locatorOrElement, text) {
-    // Puppeteer requires focus before typing
-    await locatorOrElement.focus();
-    await this.page.keyboard.type(text);
+    // CRITICAL: Acquire global typing lock before focus+type
+    // This prevents race conditions where another operation steals focus
+    // between our focus() and type() calls, causing character interleaving.
+    // See Issue #115 for details on this bug.
+    const release = await acquireTypingLock('puppeteer-type');
+    try {
+      // Puppeteer requires focus before typing
+      await locatorOrElement.focus();
+      await this.page.keyboard.type(text);
+    } finally {
+      release();
+    }
   }
 
   async fill(locatorOrElement, text) {
