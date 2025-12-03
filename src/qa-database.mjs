@@ -314,10 +314,8 @@ export function createQADatabase(filePath) {
   /**
    * Adds or updates a Q&A pair in the database
    * Uses file locking to prevent race conditions
-   *
    * @param {string} question - The question
    * @param {string} answer - The answer
-   * @returns {Promise<{saved: boolean}>} Result
    */
   async function addOrUpdateQA(question, answer) {
     const lockKey = 'qa-database';
@@ -327,7 +325,6 @@ export function createQADatabase(filePath) {
       const qaMap = await readQADatabase();
       qaMap.set(question, answer);
       await writeQADatabase(qaMap);
-      return { saved: true };
     } finally {
       releaseLock(lockKey, release);
     }
@@ -406,74 +403,6 @@ export function createQADatabase(filePath) {
 }
 
 // Export utility functions that don't require file path
-
-/**
- * Detects if text appears to be corrupted by concurrent typing interleaving
- *
- * Issue #115: When two typing operations run concurrently in Puppeteer,
- * characters can interleave, producing garbage like:
- *   "github.com/kОoт n4a5r0d0" instead of "github.com/konard" + "От 450000"
- *
- * Detection heuristics:
- * 1. Alternating Cyrillic/Latin character patterns (sign of interleaving)
- * 2. Repeated characters that suggest keyboard buffer issues
- * 3. Unusual character density patterns
- *
- * @param {string} text - Text to check for corruption
- * @returns {{corrupted: boolean, reason: string}} Detection result with reason
- */
-export function detectCorruptedText(text) {
-  if (!text || typeof text !== 'string') {
-    return { corrupted: false, reason: 'empty or non-string' };
-  }
-
-  // Pattern 1: Alternating Cyrillic-Latin-Cyrillic (strong signal)
-  // Example: "kОoт" (k=Latin, О=Cyrillic, o=Latin, т=Cyrillic)
-  const cyrillicLatinPattern = /[а-яА-ЯёЁ][a-zA-Z][а-яА-ЯёЁ]/g;
-  const latinCyrillicPattern = /[a-zA-Z][а-яА-ЯёЁ][a-zA-Z]/g;
-  const cyrLatMatches = (text.match(cyrillicLatinPattern) || []).length;
-  const latCyrMatches = (text.match(latinCyrillicPattern) || []).length;
-  const interleavingCount = cyrLatMatches + latCyrMatches;
-
-  // More than 5 instances of interleaving is suspicious
-  if (interleavingCount > 5) {
-    return {
-      corrupted: true,
-      reason: `High Cyrillic-Latin interleaving detected (${interleavingCount} instances)`,
-    };
-  }
-
-  // Pattern 2: Excessive character doubling (sign of concurrent typing)
-  // Example: "ООт 445500000000 ррууббллнееййй"
-  const doublingPattern = /(.)\1{2,}/g; // 3+ repeated characters
-  const doublings = text.match(doublingPattern) || [];
-  const suspiciousDoublings = doublings.filter(d => {
-    // Filter out legitimate patterns (spaces, punctuation)
-    return !/^[\s.,-]+$/.test(d) && !/^\d+$/.test(d);
-  });
-
-  if (suspiciousDoublings.length > 3) {
-    return {
-      corrupted: true,
-      reason: `Excessive character repetition detected (${suspiciousDoublings.length} instances: ${suspiciousDoublings.slice(0, 3).join(', ')})`,
-    };
-  }
-
-  // Pattern 3: Newlines followed immediately by single characters repeatedly
-  // Example: "код на GitHub\nн\na\nP" (sign of interleaved typing with newlines)
-  const fragmentedNewlinePattern = /\n.\n/g;
-  const fragmentedMatches = (text.match(fragmentedNewlinePattern) || []).length;
-
-  if (fragmentedMatches > 3) {
-    return {
-      corrupted: true,
-      reason: `Fragmented newline pattern detected (${fragmentedMatches} instances)`,
-    };
-  }
-
-  return { corrupted: false, reason: 'no corruption patterns detected' };
-}
-
 /**
  * Calculate Levenshtein distance between two strings
  * @param {string} a - First string
