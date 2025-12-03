@@ -18,6 +18,7 @@
  */
 
 import { TIMING } from './constants.js';
+import { isVerboseEnabled } from './logger.js';
 
 // ============================================================================
 // Global Typing Mutex (Issue #115 fix)
@@ -47,8 +48,11 @@ let lockWaitCounter = 0; // For debugging: track how many operations are waiting
 async function acquireTypingLock(operationId = 'unknown') {
   const acquisitionId = ++lockAcquisitionCounter;
   const startTime = Date.now();
+  const verbose = isVerboseEnabled();
 
-  console.log(`🔒 [TYPING-LOCK-${acquisitionId}] Requesting lock for: ${operationId}`);
+  if (verbose) {
+    console.log(`🔒 [TYPING-LOCK-${acquisitionId}] Requesting lock for: ${operationId}`);
+  }
 
   // Atomically chain onto the existing lock to prevent race conditions
   // This ensures operations are serialized in the order they arrive
@@ -58,7 +62,9 @@ async function acquireTypingLock(operationId = 'unknown') {
   const needsToWait = typingLockOwner !== null;
   if (needsToWait) {
     lockWaitCounter++;
-    console.log(`⏳ [TYPING-LOCK-${acquisitionId}] Waiting for lock (current owner: ${typingLockOwner}, waiting operations: ${lockWaitCounter})`);
+    if (verbose) {
+      console.log(`⏳ [TYPING-LOCK-${acquisitionId}] Waiting for lock (current owner: ${typingLockOwner}, waiting operations: ${lockWaitCounter})`);
+    }
   }
 
   // Wait for the current lock to complete
@@ -67,9 +73,13 @@ async function acquireTypingLock(operationId = 'unknown') {
   const waitTime = Date.now() - startTime;
   if (needsToWait) {
     lockWaitCounter--;
-    console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired after ${waitTime}ms wait for: ${operationId}`);
+    if (verbose) {
+      console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired after ${waitTime}ms wait for: ${operationId}`);
+    }
   } else {
-    console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired immediately (no wait) for: ${operationId}`);
+    if (verbose) {
+      console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired immediately (no wait) for: ${operationId}`);
+    }
   }
 
   // Create new lock for the next operation
@@ -77,7 +87,9 @@ async function acquireTypingLock(operationId = 'unknown') {
   globalTypingLock = new Promise(resolve => {
     releaseLock = () => {
       const lockDuration = Date.now() - (startTime + waitTime);
-      console.log(`🔓 [TYPING-LOCK-${acquisitionId}] Lock released after ${lockDuration}ms by: ${operationId}`);
+      if (verbose) {
+        console.log(`🔓 [TYPING-LOCK-${acquisitionId}] Lock released after ${lockDuration}ms by: ${operationId}`);
+      }
       typingLockOwner = null;
       resolve();
     };
@@ -492,16 +504,23 @@ export class PuppeteerAdapter extends EngineAdapter {
 
     const textPreview = text.length > 50 ? text.substring(0, 50) + '...' : text;
     const release = await acquireTypingLock(`puppeteer-type:${elementInfo}`);
+    const verbose = isVerboseEnabled();
 
     try {
-      console.log(`⌨️  [TYPING] Starting focus+type for ${elementInfo}: "${textPreview}"`);
+      if (verbose) {
+        console.log(`⌨️  [TYPING] Starting focus+type for ${elementInfo}: "${textPreview}"`);
+      }
 
       // Puppeteer requires focus before typing
       await locatorOrElement.focus();
-      console.log(`👁️  [TYPING] Focused ${elementInfo}, about to type ${text.length} characters`);
+      if (verbose) {
+        console.log(`👁️  [TYPING] Focused ${elementInfo}, about to type ${text.length} characters`);
+      }
 
       await this.page.keyboard.type(text);
-      console.log(`✍️  [TYPING] Completed typing ${text.length} characters to ${elementInfo}`);
+      if (verbose) {
+        console.log(`✍️  [TYPING] Completed typing ${text.length} characters to ${elementInfo}`);
+      }
     } finally {
       release();
     }
