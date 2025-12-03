@@ -33,8 +33,10 @@ import { TIMING } from './constants.js';
 // all textareas, preventing the focus-stealing race condition.
 // ============================================================================
 
-let globalTypingLock = null;
+let globalTypingLock = Promise.resolve(); // Start with resolved promise
 let typingLockOwner = null; // For debugging: track who holds the lock
+let lockAcquisitionCounter = 0; // For debugging: track lock acquisitions
+let lockWaitCounter = 0; // For debugging: track how many operations are waiting
 
 /**
  * Acquire the global typing lock
@@ -43,16 +45,39 @@ let typingLockOwner = null; // For debugging: track who holds the lock
  * @returns {Promise<Function>} Release function to call when done typing
  */
 async function acquireTypingLock(operationId = 'unknown') {
-  // Wait for any existing lock to be released
-  while (globalTypingLock) {
-    await globalTypingLock;
+  const acquisitionId = ++lockAcquisitionCounter;
+  const startTime = Date.now();
+
+  console.log(`🔒 [TYPING-LOCK-${acquisitionId}] Requesting lock for: ${operationId}`);
+
+  // Atomically chain onto the existing lock to prevent race conditions
+  // This ensures operations are serialized in the order they arrive
+  const currentLock = globalTypingLock;
+
+  // Check if we need to wait
+  const needsToWait = typingLockOwner !== null;
+  if (needsToWait) {
+    lockWaitCounter++;
+    console.log(`⏳ [TYPING-LOCK-${acquisitionId}] Waiting for lock (current owner: ${typingLockOwner}, waiting operations: ${lockWaitCounter})`);
   }
 
-  // Create new lock
+  // Wait for the current lock to complete
+  await currentLock;
+
+  const waitTime = Date.now() - startTime;
+  if (needsToWait) {
+    lockWaitCounter--;
+    console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired after ${waitTime}ms wait for: ${operationId}`);
+  } else {
+    console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired immediately (no wait) for: ${operationId}`);
+  }
+
+  // Create new lock for the next operation
   let releaseLock;
   globalTypingLock = new Promise(resolve => {
     releaseLock = () => {
-      globalTypingLock = null;
+      const lockDuration = Date.now() - (startTime + waitTime);
+      console.log(`🔓 [TYPING-LOCK-${acquisitionId}] Lock released after ${lockDuration}ms by: ${operationId}`);
       typingLockOwner = null;
       resolve();
     };
@@ -452,11 +477,31 @@ export class PuppeteerAdapter extends EngineAdapter {
     // This prevents race conditions where another operation steals focus
     // between our focus() and type() calls, causing character interleaving.
     // See Issue #115 for details on this bug.
-    const release = await acquireTypingLock('puppeteer-type');
+
+    // Get element info for logging
+    let elementInfo = 'unknown-element';
     try {
+      const tagName = await this.page.evaluate(el => el.tagName, locatorOrElement);
+      const dataQa = await this.page.evaluate(el => el.getAttribute('data-qa'), locatorOrElement);
+      const id = await this.page.evaluate(el => el.id, locatorOrElement);
+      const name = await this.page.evaluate(el => el.name, locatorOrElement);
+      elementInfo = `${tagName}${dataQa ? `[data-qa="${dataQa}"]` : ''}${id ? `#${id}` : ''}${name ? `[name="${name}"]` : ''}`;
+    } catch (e) {
+      // If we can't get info, just use 'unknown'
+    }
+
+    const textPreview = text.length > 50 ? text.substring(0, 50) + '...' : text;
+    const release = await acquireTypingLock(`puppeteer-type:${elementInfo}`);
+
+    try {
+      console.log(`⌨️  [TYPING] Starting focus+type for ${elementInfo}: "${textPreview}"`);
+
       // Puppeteer requires focus before typing
       await locatorOrElement.focus();
+      console.log(`👁️  [TYPING] Focused ${elementInfo}, about to type ${text.length} characters`);
+
       await this.page.keyboard.type(text);
+      console.log(`✍️  [TYPING] Completed typing ${text.length} characters to ${elementInfo}`);
     } finally {
       release();
     }
