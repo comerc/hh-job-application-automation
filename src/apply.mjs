@@ -93,6 +93,11 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
   console.log(`Using ${commander.engine} automation engine`);
 
+  // Issue #115: Log when verbose mode enables typing mutex logging
+  if (argv.verbose) {
+    console.log('🔧 Verbose mode enabled: typing mutex logging active (prevents character interleaving)');
+  }
+
   // URL patterns from centralized config
   const targetPagePattern = URL_PATTERNS.searchVacancy;
   const vacancyResponsePattern = URL_PATTERNS.vacancyResponse;
