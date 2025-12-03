@@ -19,6 +19,7 @@ import {
   notCondition,
 } from './core/page-trigger-manager.js';
 import { createBoundFunctions } from './bindings.js';
+import { TIMING } from './core/constants.js';
 
 /**
  * Create a browser commander instance for a specific page
@@ -45,14 +46,14 @@ export function makeBrowserCommander(options = {}) {
   const log = createLogger({ verbose });
 
   // Create NetworkTracker if enabled
-  // Use 30 second idle timeout to ensure page is fully loaded
+  // Use 5 second idle timeout to ensure page is fully loaded
   let networkTracker = null;
   if (enableNetworkTracking) {
     networkTracker = createNetworkTracker({
       page,
       engine,
       log,
-      idleTimeout: 30000, // Wait 30 seconds without requests before considering network idle
+      idleTimeout: TIMING.DEFAULT_TIMEOUT, // Wait 5 seconds without requests before considering network idle
     });
     networkTracker.startTracking();
   }

@@ -5,6 +5,8 @@
  * methods to wait until all requests are complete (network idle).
  */
 
+import { TIMING } from "./constants.js";
+
 /**
  * Create a NetworkTracker instance for a page
  * @param {Object} options - Configuration options
@@ -12,7 +14,7 @@
  * @param {string} options.engine - 'playwright' or 'puppeteer'
  * @param {Function} options.log - Logger instance
  * @param {number} options.idleTimeout - Time to wait after last request completes (default: 500ms)
- * @param {number} options.requestTimeout - Maximum time to wait for a single request (default: 30000ms)
+ * @param {number} options.requestTimeout - Maximum time to wait for a single request (default: TIMING.DEFAULT_TIMEOUT)
  * @returns {Object} - NetworkTracker API
  */
 export function createNetworkTracker(options = {}) {
@@ -21,7 +23,7 @@ export function createNetworkTracker(options = {}) {
     engine,
     log,
     idleTimeout = 500,
-    requestTimeout = 30000,
+    requestTimeout = TIMING.DEFAULT_TIMEOUT,
   } = options;
 
   if (!page) {
@@ -191,13 +193,13 @@ export function createNetworkTracker(options = {}) {
   /**
    * Wait for network to become idle
    * @param {Object} options - Configuration options
-   * @param {number} options.timeout - Maximum time to wait (default: 30000ms)
+   * @param {number} options.timeout - Maximum time to wait (default: TIMING.DEFAULT_TIMEOUT)
    * @param {number} options.idleTime - Time network must be idle (default: idleTimeout)
    * @returns {Promise<boolean>} - True if idle, false if timeout
    */
   async function waitForNetworkIdle(opts = {}) {
     const {
-      timeout = 30000,
+      timeout = TIMING.DEFAULT_TIMEOUT,
       idleTime = idleTimeout,
     } = opts;
 

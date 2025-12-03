@@ -129,7 +129,7 @@ export async function verifyNavigation(options = {}) {
  * @param {Object} options.navigationManager - NavigationManager instance (optional)
  * @param {number} options.stableChecks - Number of consecutive stable checks required (default: 3)
  * @param {number} options.checkInterval - Interval between stability checks in ms (default: 1000)
- * @param {number} options.timeout - Maximum time to wait for stabilization in ms (default: 30000)
+ * @param {number} options.timeout - Maximum time to wait for stabilization in ms (default: TIMING.DEFAULT_TIMEOUT)
  * @param {string} options.reason - Reason for stabilization (for logging)
  * @returns {Promise<boolean>} - True if stabilized, false if timeout
  */
@@ -141,7 +141,7 @@ export async function waitForUrlStabilization(options = {}) {
     navigationManager,
     stableChecks = 3,
     checkInterval = 1000,
-    timeout = 30000,
+    timeout = TIMING.DEFAULT_TIMEOUT,
     reason = 'URL stabilization',
   } = options;
 
@@ -355,7 +355,7 @@ export async function waitForNavigation(options = {}) {
  * @param {Object} options.networkTracker - NetworkTracker instance (optional)
  * @param {Function} options.log - Logger instance
  * @param {Function} options.wait - Wait function
- * @param {number} options.timeout - Maximum time to wait (default: 30000ms)
+ * @param {number} options.timeout - Maximum time to wait (default: TIMING.DEFAULT_TIMEOUT)
  * @param {string} options.reason - Reason for waiting (for logging)
  * @returns {Promise<boolean>} - True if ready, false if timeout
  */
@@ -366,7 +366,7 @@ export async function waitForPageReady(options = {}) {
     networkTracker,
     log,
     wait,
-    timeout = 30000,
+    timeout = TIMING.DEFAULT_TIMEOUT,
     reason = 'page ready',
   } = options;
 
@@ -412,7 +412,7 @@ export async function waitForPageReady(options = {}) {
  * @param {Function} options.log - Logger instance
  * @param {Function} options.wait - Wait function
  * @param {number} options.navigationCheckDelay - Time to wait for potential navigation to start (default: 500ms)
- * @param {number} options.timeout - Maximum time to wait (default: 30000ms)
+ * @param {number} options.timeout - Maximum time to wait (default: TIMING.DEFAULT_TIMEOUT)
  * @param {string} options.reason - Reason for waiting (for logging)
  * @returns {Promise<{navigated: boolean, ready: boolean}>}
  */
@@ -424,7 +424,7 @@ export async function waitAfterAction(options = {}) {
     log,
     wait,
     navigationCheckDelay = 500,
-    timeout = 30000,
+    timeout = TIMING.DEFAULT_TIMEOUT,
     reason = 'after action',
   } = options;
 

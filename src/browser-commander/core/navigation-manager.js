@@ -8,6 +8,7 @@
  * - Page session management
  */
 
+import { TIMING } from './constants.js';
 import { isNavigationError } from './navigation-safety.js';
 
 /**
@@ -218,7 +219,7 @@ export function createNavigationManager(options = {}) {
 
         const networkIdle = await networkTracker.waitForNetworkIdle({
           timeout: remainingTimeout,
-          // idleTime defaults to 30000ms from tracker config
+          // idleTime defaults to TIMING.DEFAULT_TIMEOUT from tracker config
         });
 
         if (!networkIdle) {
@@ -335,7 +336,7 @@ export function createNavigationManager(options = {}) {
    * @returns {Promise<boolean>} - True if navigation completed
    */
   async function waitForNavigation(opts = {}) {
-    const { timeout = 30000 } = opts;
+    const { timeout = TIMING.DEFAULT_TIMEOUT } = opts;
 
     if (!isNavigating) {
       return true; // Already ready

@@ -417,7 +417,7 @@ async function handleNavigationAfterClick(options = {}) {
         // Without navigation manager, use network tracker directly with 30s idle time
         await networkTracker.waitForNetworkIdle({
           timeout: 120000,
-          // idleTime defaults to 30000ms from tracker config
+          // idleTime defaults to TIMING.DEFAULT_TIMEOUT from tracker config
         });
       } else {
         // Fallback: wait a bit for page to settle
