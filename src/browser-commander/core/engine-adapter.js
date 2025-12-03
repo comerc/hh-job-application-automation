@@ -9,9 +9,95 @@
  * - Easier to add new engines (e.g., Selenium)
  * - Easier to test with mock adapters
  * - Clearer separation of concerns
+ *
+ * IMPORTANT: Global Typing Mutex (Issue #115 fix)
+ * Puppeteer's page.keyboard.type() types to whatever element has focus.
+ * If two operations run concurrently, they can steal focus from each other,
+ * causing character interleaving and text corruption. The global typing mutex
+ * ensures only one typing operation runs at a time, preventing this issue.
  */
 
 import { TIMING } from './constants.js';
+import { isVerboseEnabled } from './logger.js';
+
+// ============================================================================
+// Global Typing Mutex (Issue #115 fix)
+// ============================================================================
+// Puppeteer's page.keyboard.type() sends keystrokes to whatever element
+// currently has focus. When multiple fill operations run concurrently:
+//   1. Operation A focuses textarea A
+//   2. Operation B focuses textarea B (steals focus!)
+//   3. Operation A types → goes to textarea B instead!
+//   4. Characters from both operations interleave
+//
+// This mutex ensures only ONE typing operation can occur at a time across
+// all textareas, preventing the focus-stealing race condition.
+// ============================================================================
+
+let globalTypingLock = Promise.resolve(); // Start with resolved promise
+let typingLockOwner = null; // For debugging: track who holds the lock
+let lockAcquisitionCounter = 0; // For debugging: track lock acquisitions
+let lockWaitCounter = 0; // For debugging: track how many operations are waiting
+
+/**
+ * Acquire the global typing lock
+ * Waits if another operation is currently typing
+ * @param {string} operationId - Identifier for debugging (e.g., selector)
+ * @returns {Promise<Function>} Release function to call when done typing
+ */
+async function acquireTypingLock(operationId = 'unknown') {
+  const acquisitionId = ++lockAcquisitionCounter;
+  const startTime = Date.now();
+  const verbose = isVerboseEnabled();
+
+  if (verbose) {
+    console.log(`🔒 [TYPING-LOCK-${acquisitionId}] Requesting lock for: ${operationId}`);
+  }
+
+  // Atomically chain onto the existing lock to prevent race conditions
+  // This ensures operations are serialized in the order they arrive
+  const currentLock = globalTypingLock;
+
+  // Check if we need to wait
+  const needsToWait = typingLockOwner !== null;
+  if (needsToWait) {
+    lockWaitCounter++;
+    if (verbose) {
+      console.log(`⏳ [TYPING-LOCK-${acquisitionId}] Waiting for lock (current owner: ${typingLockOwner}, waiting operations: ${lockWaitCounter})`);
+    }
+  }
+
+  // Wait for the current lock to complete
+  await currentLock;
+
+  const waitTime = Date.now() - startTime;
+  if (needsToWait) {
+    lockWaitCounter--;
+    if (verbose) {
+      console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired after ${waitTime}ms wait for: ${operationId}`);
+    }
+  } else {
+    if (verbose) {
+      console.log(`✅ [TYPING-LOCK-${acquisitionId}] Lock acquired immediately (no wait) for: ${operationId}`);
+    }
+  }
+
+  // Create new lock for the next operation
+  let releaseLock;
+  globalTypingLock = new Promise(resolve => {
+    releaseLock = () => {
+      const lockDuration = Date.now() - (startTime + waitTime);
+      if (verbose) {
+        console.log(`🔓 [TYPING-LOCK-${acquisitionId}] Lock released after ${lockDuration}ms by: ${operationId}`);
+      }
+      typingLockOwner = null;
+      resolve();
+    };
+  });
+  typingLockOwner = operationId;
+
+  return releaseLock;
+}
 
 /**
  * Base class defining the engine adapter interface
@@ -399,9 +485,45 @@ export class PuppeteerAdapter extends EngineAdapter {
   }
 
   async type(locatorOrElement, text) {
-    // Puppeteer requires focus before typing
-    await locatorOrElement.focus();
-    await this.page.keyboard.type(text);
+    // CRITICAL: Acquire global typing lock before focus+type
+    // This prevents race conditions where another operation steals focus
+    // between our focus() and type() calls, causing character interleaving.
+    // See Issue #115 for details on this bug.
+
+    // Get element info for logging
+    let elementInfo = 'unknown-element';
+    try {
+      const tagName = await this.page.evaluate(el => el.tagName, locatorOrElement);
+      const dataQa = await this.page.evaluate(el => el.getAttribute('data-qa'), locatorOrElement);
+      const id = await this.page.evaluate(el => el.id, locatorOrElement);
+      const name = await this.page.evaluate(el => el.name, locatorOrElement);
+      elementInfo = `${tagName}${dataQa ? `[data-qa="${dataQa}"]` : ''}${id ? `#${id}` : ''}${name ? `[name="${name}"]` : ''}`;
+    } catch (e) {
+      // If we can't get info, just use 'unknown'
+    }
+
+    const textPreview = text.length > 50 ? text.substring(0, 50) + '...' : text;
+    const release = await acquireTypingLock(`puppeteer-type:${elementInfo}`);
+    const verbose = isVerboseEnabled();
+
+    try {
+      if (verbose) {
+        console.log(`⌨️  [TYPING] Starting focus+type for ${elementInfo}: "${textPreview}"`);
+      }
+
+      // Puppeteer requires focus before typing
+      await locatorOrElement.focus();
+      if (verbose) {
+        console.log(`👁️  [TYPING] Focused ${elementInfo}, about to type ${text.length} characters`);
+      }
+
+      await this.page.keyboard.type(text);
+      if (verbose) {
+        console.log(`✍️  [TYPING] Completed typing ${text.length} characters to ${elementInfo}`);
+      }
+    } finally {
+      release();
+    }
   }
 
   async fill(locatorOrElement, text) {
