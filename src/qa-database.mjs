@@ -315,28 +315,11 @@ export function createQADatabase(filePath) {
    * Adds or updates a Q&A pair in the database
    * Uses file locking to prevent race conditions
    *
-   * IMPORTANT (Issue #115): Validates answer for corruption before saving.
-   * Concurrent typing bugs can cause character interleaving, producing garbage
-   * that should NOT be persisted to the database.
-   *
    * @param {string} question - The question
    * @param {string} answer - The answer
-   * @returns {Promise<{saved: boolean, reason?: string}>} Result with reason if not saved
+   * @returns {Promise<{saved: boolean}>} Result
    */
   async function addOrUpdateQA(question, answer) {
-    // Validate answer for corruption before saving (Issue #115)
-    // This is a safety net - the typing mutex should prevent corruption,
-    // but if it somehow slips through, don't persist the garbage.
-    const answerText = Array.isArray(answer) ? answer.join('\n') : answer;
-    const corruptionCheck = detectCorruptedTextInternal(answerText);
-
-    if (corruptionCheck.corrupted) {
-      console.warn(`[QA] BLOCKED saving corrupted answer for: "${question.substring(0, 50)}..."`);
-      console.warn(`[QA] Corruption reason: ${corruptionCheck.reason}`);
-      console.warn(`[QA] Corrupted text preview: "${answerText.substring(0, 100)}..."`);
-      return { saved: false, reason: corruptionCheck.reason };
-    }
-
     const lockKey = 'qa-database';
     const release = await acquireLock(lockKey);
 
@@ -348,55 +331,6 @@ export function createQADatabase(filePath) {
     } finally {
       releaseLock(lockKey, release);
     }
-  }
-
-  /**
-   * Internal corruption detection (mirrors the exported function)
-   * Kept internal to avoid circular dependency issues
-   */
-  function detectCorruptedTextInternal(text) {
-    if (!text || typeof text !== 'string') {
-      return { corrupted: false, reason: 'empty or non-string' };
-    }
-
-    // Pattern 1: Alternating Cyrillic-Latin-Cyrillic (strong signal)
-    const cyrillicLatinPattern = /[а-яА-ЯёЁ][a-zA-Z][а-яА-ЯёЁ]/g;
-    const latinCyrillicPattern = /[a-zA-Z][а-яА-ЯёЁ][a-zA-Z]/g;
-    const cyrLatMatches = (text.match(cyrillicLatinPattern) || []).length;
-    const latCyrMatches = (text.match(latinCyrillicPattern) || []).length;
-    const interleavingCount = cyrLatMatches + latCyrMatches;
-
-    if (interleavingCount > 5) {
-      return {
-        corrupted: true,
-        reason: `High Cyrillic-Latin interleaving detected (${interleavingCount} instances)`,
-      };
-    }
-
-    // Pattern 2: Excessive character doubling
-    const doublingPattern = /(.)\1{2,}/g;
-    const doublings = text.match(doublingPattern) || [];
-    const suspiciousDoublings = doublings.filter(d => !/^[\s.,-]+$/.test(d) && !/^\d+$/.test(d));
-
-    if (suspiciousDoublings.length > 3) {
-      return {
-        corrupted: true,
-        reason: `Excessive character repetition (${suspiciousDoublings.length} instances)`,
-      };
-    }
-
-    // Pattern 3: Fragmented newlines
-    const fragmentedNewlinePattern = /\n.\n/g;
-    const fragmentedMatches = (text.match(fragmentedNewlinePattern) || []).length;
-
-    if (fragmentedMatches > 3) {
-      return {
-        corrupted: true,
-        reason: `Fragmented newline pattern (${fragmentedMatches} instances)`,
-      };
-    }
-
-    return { corrupted: false, reason: 'no corruption detected' };
   }
 
   /**
