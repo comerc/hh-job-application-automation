@@ -1056,3 +1056,17 @@ github.com/link-foundation"
   "2 (Базовые понятия)"
 "Рассматриваете ли вы возможность работать в офисе? У нас предусмотрен гибридный формат работы только после прохождения испытательного срока (5 дней удаленной работы в месяц)."
   Только удалённо.
+Ваши зарплатные ожидания в $ gross?
+  От $11000.
+В какой стране вы сейчас живете на постоянной основе?
+  Я сейчас нахожусь в путешествиях, планирую быть в Гоа, в Индии, а затем во Вьетнаме.
+What’s your level of experience with PostgreSQL in production?
+  Strong — schema design, migrations, query optimization, JSONB/pgvector
+What’s your experience with infrastructure and deployment tools?
+  Extensive — Docker, Terraform, CI/CD, Cloud Run, or Kubernetes
+Do you write and maintain unit tests for your Python services?
+  Yes — regularly with unittest/pytest and CI integration
+How do you ensure production reliability of your code?
+  "Unit + integration tests, CI/CD, and type checking (mypy, pytest)"
+"Have you built internal MCP or orchestration services (e.g., model pipelines, async task managers)?"
+  Some — integrated with existing MCP-style services
