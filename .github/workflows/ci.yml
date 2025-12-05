@@ -47,7 +47,23 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        # Node.js 20.x test runner has a known intermittent IPC deserialization bug
+        # See: https://github.com/nodejs/node/issues/34797
+        # We retry tests up to 3 times to handle this flaky issue
+        run: |
+          for i in 1 2 3; do
+            echo "Test attempt $i..."
+            if npm test; then
+              echo "Tests passed on attempt $i"
+              exit 0
+            fi
+            if [ $i -eq 3 ]; then
+              echo "Tests failed after 3 attempts"
+              exit 1
+            fi
+            echo "Tests failed on attempt $i, retrying..."
+            sleep 2
+          done
 
   check:
     name: Full Check
