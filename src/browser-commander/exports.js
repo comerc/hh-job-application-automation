@@ -8,7 +8,7 @@ export { CHROME_ARGS, TIMING } from './core/constants.js';
 export { isVerboseEnabled, createLogger } from './core/logger.js';
 export { disableTranslateInPreferences } from './core/preferences.js';
 export { detectEngine } from './core/engine-detection.js';
-export { isNavigationError, safeOperation, makeNavigationSafe, withNavigationSafety } from './core/navigation-safety.js';
+export { isNavigationError, isTimeoutError, safeOperation, makeNavigationSafe, withNavigationSafety } from './core/navigation-safety.js';
 
 // Re-export new core components
 export { createNetworkTracker } from './core/network-tracker.js';

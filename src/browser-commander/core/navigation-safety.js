@@ -33,6 +33,33 @@ export function isNavigationError(error) {
 }
 
 /**
+ * Check if an error is a timeout error from selector waiting
+ * These errors should be treated as non-fatal in automation loops
+ * @param {Error} error - The error to check
+ * @returns {boolean} - True if this is a timeout error
+ */
+export function isTimeoutError(error) {
+  if (!error) return false;
+
+  // Check error name first (most reliable)
+  if (error.name === 'TimeoutError') return true;
+
+  // Check error message patterns (case-insensitive)
+  const message = (error.message || '').toLowerCase();
+  const timeoutErrorPatterns = [
+    'waiting for selector',
+    'timeout',
+    'timeouterror',
+    'timeout exceeded',
+    'timed out',
+  ];
+
+  return timeoutErrorPatterns.some(pattern =>
+    message.includes(pattern)
+  );
+}
+
+/**
  * Safe wrapper for async operations that may fail during navigation
  * @param {Function} asyncFn - Async function to execute
  * @param {Object} options - Configuration options
