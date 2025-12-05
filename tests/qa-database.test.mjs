@@ -743,6 +743,7 @@ What about paths?
       const question = 'What are your GitHub links?';
       const multilineAnswer = `github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation`;
 
@@ -758,8 +759,9 @@ github.com/link-foundation`;
       assert.equal(retrieved, multilineAnswer, 'Multiline answer should be preserved exactly');
       assert.ok(retrieved.includes('github.com/konard'), 'Should contain first line');
       assert.ok(retrieved.includes('github.com/deep-assistant'), 'Should contain second line');
-      assert.ok(retrieved.includes('github.com/linksplatform'), 'Should contain third line');
-      assert.ok(retrieved.includes('github.com/link-foundation'), 'Should contain fourth line');
+      assert.ok(retrieved.includes('github.com/link-assistant'), 'Should contain third line');
+      assert.ok(retrieved.includes('github.com/linksplatform'), 'Should contain fourth line');
+      assert.ok(retrieved.includes('github.com/link-foundation'), 'Should contain fifth line');
     });
 
     test('should NOT escape newlines as \\n in the file (Links Notation native multiline)', async () => {

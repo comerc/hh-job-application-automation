@@ -27,6 +27,7 @@ async function main() {
   const question1 = 'What are your GitHub links?';
   const multilineAnswer1 = `github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation`;
 

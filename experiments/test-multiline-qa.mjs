@@ -26,6 +26,7 @@ async function main() {
   const question1 = 'What are your GitHub profiles?';
   const multilineAnswer = `github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation`;
 

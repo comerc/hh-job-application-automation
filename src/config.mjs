@@ -24,6 +24,7 @@ const DEFAULT_MESSAGE = `Здравствуйте,
 
 github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation
 

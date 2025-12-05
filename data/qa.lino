@@ -149,6 +149,7 @@ fi'
 "Прикрепи, пожалуйста, ссылку на пример своего кода(GitHub/ GitLab/BitBucket)"
   github.com/konard
   github.com/deep-assistant
+  github.com/link-assistant
   github.com/linksplatform
   github.com/link-foundation
 Ваши зарплатные ожидания на новом месте работы?
@@ -187,6 +188,7 @@ fi'
 "Прикрепите, пожалуйста, ссылку на профиль, который может рассказать о вас как о разработчике (например, GitHub, GitLab, Bitbucket или другой ресурс)"
   "github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation"
 Сколько у вас лет коммерческого опыта разработки на Go?
@@ -286,6 +288,7 @@ key: suricata, dpi, pcap, wireshark, zeek"
 "Добавьте, пожалуйста, ссылку на репозиторий или вышлите код в формате Google Doc или любым другим удобным способом. Если есть что показать:) Если нет, поставьте прочерк."
   github.com/konard
   github.com/deep-assistant
+  github.com/link-assistant
   github.com/linksplatform
   github.com/link-foundation
 "Укажите, пожалуйста, Ваши зарплатные ожидания (сумма на руки, после вычета всех налогов)"
@@ -1031,6 +1034,7 @@ Deep.Foundation - ассоциативная архитектура позвол
   "Да (приложу ссылку на портфолио)"
   "github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation"
 Как вы оцениваете свои знания по Unit-тестам?

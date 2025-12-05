@@ -18,6 +18,7 @@ https://github.com/user-attachments/assets/6884b2fe-e322-4358-aab8-7f3c20ccdc46
 
 github.com/konard
 github.com/deep-assistant
+github.com/link-assistant
 github.com/linksplatform
 github.com/link-foundation
 
