@@ -12,7 +12,7 @@
 
 import path from 'path';
 import { createQADatabase } from './qa-database.mjs';
-import { launchBrowser, makeBrowserCommander, isNavigationError } from './browser-commander/index.js';
+import { launchBrowser, makeBrowserCommander, isNavigationError, isTimeoutError } from './browser-commander/index.js';
 import { handleVacancyResponsePage } from './vacancy-response.mjs';
 import { enableDebugLevel } from './logging.mjs';
 import { createConfig, getUserDataDir } from './config.mjs';
@@ -143,6 +143,22 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     // Don't exit with error for navigation issues
     process.exit(0);
   }
+
+  // Check if this is a timeout error - these are non-fatal, continue automation
+  if (isTimeoutError(error)) {
+    console.log('⚠️  Timeout error occurred while waiting for page elements');
+    console.log(`   Error: ${error.message}`);
+    console.log('   This is usually caused by:');
+    console.log('     - Slow page loading due to network conditions');
+    console.log('     - Page structure differs from expected');
+    console.log('     - Third-party scripts blocking page rendering');
+    console.log('   The automation will continue with the next vacancy');
+    console.log('   (The automation loop should handle this gracefully)');
+    // Don't exit - this should not crash the application
+    // Note: The orchestrator's main loop will continue automatically
+    process.exit(0);
+  }
+
   console.error('Error occurred:', error.message);
   process.exit(1);
 });
