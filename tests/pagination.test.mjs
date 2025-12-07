@@ -14,19 +14,8 @@ describe('Pagination Selectors', () => {
 
 describe('Pagination HTML Structure', () => {
   test('Should correctly identify current page from HTML markup', () => {
-    // Simulate the HTML structure from issue #120
-    const mockHTML = `
-      <nav data-qa="pager-block">
-        <ul>
-          <li><a data-qa="pager-page" aria-current="true" href="/search/vacancy?page=0">1</a></li>
-          <li><a data-qa="pager-page" aria-current="false" href="/search/vacancy?page=1">2</a></li>
-          <li><a data-qa="pager-page" aria-current="false" href="/search/vacancy?page=2">3</a></li>
-        </ul>
-      </nav>
-    `;
-
-    // Mock DOM
-    global.document = {
+    // Mock DOM to simulate browser environment
+    globalThis.document = {
       querySelector: (selector) => {
         if (selector === '[data-qa="pager-block"]') {
           return {
@@ -56,7 +45,7 @@ describe('Pagination HTML Structure', () => {
     };
 
     // Simulate the pagination detection logic
-    const pagerBlock = global.document.querySelector('[data-qa="pager-block"]');
+    const pagerBlock = globalThis.document.querySelector('[data-qa="pager-block"]');
     const pageLinks = pagerBlock.querySelectorAll('a[data-qa="pager-page"]');
     const currentPageIndex = Array.from(pageLinks).findIndex(
       link => link.getAttribute('aria-current') === 'true',
@@ -67,12 +56,12 @@ describe('Pagination HTML Structure', () => {
     assert.equal(pageLinks[1].href, '/search/vacancy?page=1', 'Next page should be page 1');
 
     // Cleanup
-    delete global.document;
+    delete globalThis.document;
   });
 
   test('Should detect when on last page', () => {
     // Mock DOM for last page scenario
-    global.document = {
+    globalThis.document = {
       querySelector: (selector) => {
         if (selector === '[data-qa="pager-block"]') {
           return {
@@ -101,7 +90,7 @@ describe('Pagination HTML Structure', () => {
       },
     };
 
-    const pagerBlock = global.document.querySelector('[data-qa="pager-block"]');
+    const pagerBlock = globalThis.document.querySelector('[data-qa="pager-block"]');
     const pageLinks = pagerBlock.querySelectorAll('a[data-qa="pager-page"]');
     const currentPageIndex = Array.from(pageLinks).findIndex(
       link => link.getAttribute('aria-current') === 'true',
@@ -111,7 +100,7 @@ describe('Pagination HTML Structure', () => {
     assert.equal(currentPageIndex >= pageLinks.length - 1, true, 'Should detect last page');
 
     // Cleanup
-    delete global.document;
+    delete globalThis.document;
   });
 });
 
