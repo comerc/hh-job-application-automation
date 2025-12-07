@@ -749,6 +749,97 @@ export async function findAndProcessVacancyButton({
 }
 
 /**
+ * Find and click the next page link in pagination
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @returns {Promise<{found: boolean, clicked?: boolean}>}
+ */
+async function findAndClickNextPage({ commander }) {
+  try {
+    // Check if pagination exists
+    const pagerCount = await commander.count({ selector: SELECTORS.pagerBlock });
+    if (pagerCount === 0) {
+      log.debug(() => '🔍 No pagination found on page');
+      return { found: false };
+    }
+
+    // Find the current page and next page link
+    const paginationInfo = await commander.evaluate({
+      fn: () => {
+        const pagerBlock = document.querySelector('[data-qa="pager-block"]');
+        if (!pagerBlock) return null;
+
+        const pageLinks = Array.from(pagerBlock.querySelectorAll('a[data-qa="pager-page"]'));
+        if (pageLinks.length === 0) return null;
+
+        // Find current page (aria-current="true")
+        const currentPageIndex = pageLinks.findIndex(link => link.getAttribute('aria-current') === 'true');
+        if (currentPageIndex === -1) return null;
+
+        // Check if there's a next page
+        if (currentPageIndex >= pageLinks.length - 1) {
+          return { hasNextPage: false, currentPage: currentPageIndex + 1, totalPages: pageLinks.length };
+        }
+
+        const nextPageLink = pageLinks[currentPageIndex + 1];
+        return {
+          hasNextPage: true,
+          currentPage: currentPageIndex + 1,
+          nextPage: currentPageIndex + 2,
+          totalPages: pageLinks.length,
+          nextPageHref: nextPageLink.href,
+        };
+      },
+    });
+
+    if (!paginationInfo) {
+      log.debug(() => '🔍 Could not find pagination info');
+      return { found: false };
+    }
+
+    if (!paginationInfo.hasNextPage) {
+      console.log(`📄 On last page (${paginationInfo.currentPage}/${paginationInfo.totalPages}), no more pages available`);
+      return { found: true, clicked: false };
+    }
+
+    console.log(`📄 Found pagination: currently on page ${paginationInfo.currentPage}/${paginationInfo.totalPages}`);
+    console.log(`🔄 Automatically navigating to page ${paginationInfo.nextPage}...`);
+
+    // Click the next page link by finding it again (avoid stale element reference)
+    const nextPageSelector = `${SELECTORS.pagerPage}[aria-current="false"]`;
+    const allNextPages = await commander.count({ selector: nextPageSelector });
+
+    if (allNextPages > 0) {
+      // Find the exact next page by checking href or position
+      // We need to click the page that comes right after current
+      await commander.evaluate({
+        fn: () => {
+          const pagerBlock = document.querySelector('[data-qa="pager-block"]');
+          const pageLinks = Array.from(pagerBlock.querySelectorAll('a[data-qa="pager-page"]'));
+          const currentPageIndex = pageLinks.findIndex(link => link.getAttribute('aria-current') === 'true');
+          const nextPageLink = pageLinks[currentPageIndex + 1];
+          if (nextPageLink) {
+            nextPageLink.click();
+          }
+        },
+      });
+
+      console.log('✅ Clicked next page link, waiting for page to load...');
+      return { found: true, clicked: true };
+    }
+
+    return { found: false };
+  } catch (error) {
+    if (isNavigationError(error)) {
+      log.debug(() => '🔍 Navigation detected during pagination check');
+      return { found: false };
+    }
+    console.log(`⚠️  Error while checking pagination: ${error.message}`);
+    return { found: false };
+  }
+}
+
+/**
  * Wait for buttons to appear after page navigation
  * Now respects abort signals - will stop waiting IMMEDIATELY if navigation is detected
  * The wait() function is now abortable, so we exit as soon as navigation starts
@@ -758,7 +849,26 @@ export async function waitForButtonsAfterNavigation({
   pageClosedByUser,
 }) {
   console.log('💡 No more "Откликнуться" buttons on this page.');
-  console.log('💡 You can manually navigate to another page (e.g., change filters, go to next page)');
+
+  // Try to find and click next page automatically
+  const paginationResult = await findAndClickNextPage({ commander });
+
+  if (paginationResult.found && paginationResult.clicked) {
+    // Successfully clicked next page, wait for navigation to complete
+    console.log('💡 Waiting for next page to load...');
+    await commander.wait({ ms: 2000, reason: 'waiting for next page to start loading' });
+    return { status: 'navigation_detected' };
+  }
+
+  if (paginationResult.found && !paginationResult.clicked) {
+    // On last page, no more pages to process
+    console.log('💡 All pages have been processed!');
+    console.log('💡 You can manually navigate to another search or change filters');
+  } else {
+    // No pagination found
+    console.log('💡 You can manually navigate to another page (e.g., change filters, go to next page)');
+  }
+
   console.log('💡 The automation will continue once buttons are detected on the new page.');
 
   // Wait and keep checking for URL changes or new buttons
