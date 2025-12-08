@@ -41,6 +41,10 @@ export const SELECTORS = {
 
   // Navigation
   loginLink: 'a[data-qa="login"]',
+
+  // Pagination
+  pagerBlock: '[data-qa="pager-block"]',
+  pagerPage: 'a[data-qa="pager-page"]',
 };
 
 /**
