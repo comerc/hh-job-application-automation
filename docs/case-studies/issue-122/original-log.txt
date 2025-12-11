@@ -1,0 +1,994 @@
+```
+📥 Request ended: https://i.hh.ru/images/Components/VacancyMap/hh-placemark.svg... (pending: 28)
+📥 Request ended: https://cdn.uxfeedback.ru/widget.js... (pending: 27)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/2.5313fa3315e9b130a307.js... (pending: 28)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/151d94058e914b2b23882.css... (pending: 29)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/1.9ea6db0894afeabc0e7d.js... (pending: 30)
+📥 Request ended: https://api-maps.yandex.ru/services/coverage/v2/?l=map&ll=37.50999900,55.8111590... (pending: 29)
+📥 Request ended: https://employer-reviews-front.hh.ru/static/3230.7218de2ef7a47551.js... (pending: 28)
+📥 Request ended: https://api-maps.yandex.ru/services/coverage/v2/?l=map&ll=37.50999900,55.8111590... (pending: 27)
+📥 Request ended: https://employer-reviews-front.hh.ru/static/5675.7eedc94029ebe4f2.js... (pending: 26)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=0fRf6D... (pending: 27)
+📥 Request ended: https://employer-reviews-front.hh.ru/static/98.b78765c1315d529d.js... (pending: 26)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 25)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 24)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=0fRf6D... (pending: 23)
+📥 Request ended: https://employer-reviews-front.hh.ru/static/notSharedVendors.052509088b09d54b.js... (pending: 22)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 23)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 22)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/2.5313fa3315e9b130a307.js... (pending: 21)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/151d94058e914b2b23882.css... (pending: 20)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/1.9ea6db0894afeabc0e7d.js... (pending: 19)
+📤 Request started: https://widget-api.uxfeedback.ru/v6/widgets/vipcyfobvmjpxs33c0nszyyl?uid=c841ad8... (pending: 20)
+📤 Request started: https://emd.hybrid.ai/plgt.js?exl=20&foadh=&gapl=&cs=&pcs=&vcs=... (pending: 21)
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+📥 Request ended: https://employer-reviews-front.hh.ru/employer_reviews/proxy_components/small_wid... (pending: 20)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 21)
+📤 Request started: https://employer-reviews-front.hh.ru/static/static/images/star-magritte__min_.sv... (pending: 22)
+📥 Request ended: https://employer-reviews-front.hh.ru/static/static/images/star-magritte__min_.sv... (pending: 21)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 22)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 23)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 22)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=bmHsTa... (pending: 23)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/4.336e01fd94e33156ca1f.js... (pending: 24)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/30485b4870e8e408cd799.css... (pending: 25)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/3.89d6da867ba5a304dca4.js... (pending: 26)
+📤 Request started: https://fonts.googleapis.com/css?family=Roboto:400&amp;subset=cyrillic... (pending: 27)
+📥 Request ended: https://fonts.googleapis.com/css?family=Roboto:400&amp;subset=cyrillic... (pending: 26)
+📥 Request ended: https://widget-api.uxfeedback.ru/v6/widgets/vipcyfobvmjpxs33c0nszyyl?uid=c841ad8... (pending: 25)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 24)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 23)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 22)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 21)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=bmHsTa... (pending: 20)
+📥 Request ended: https://emd.hybrid.ai/plgt.js?exl=20&foadh=&gapl=&cs=&pcs=&vcs=... (pending: 19)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 18)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/4.336e01fd94e33156ca1f.js... (pending: 17)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/30485b4870e8e408cd799.css... (pending: 16)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/3.89d6da867ba5a304dca4.js... (pending: 15)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 14)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 13)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 12)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 11)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 10)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 9)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 8)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 7)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 6)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 5)
+📤 Request started: https://webcall-front.hh.ru/static/remote.webcall_front.33b3b1874f31747d.js... (pending: 6)
+📥 Request ended: https://webcall-front.hh.ru/webcall/proxy_components/webcall_dynamic?preload=1... (pending: 5)
+📥 Request ended: https://webcall-front.hh.ru/static/remote.webcall_front.33b3b1874f31747d.js... (pending: 4)
+📤 Request started: https://webcall-front.hh.ru/static/notSharedVendors.d6f9a90b25477960.js... (pending: 5)
+📤 Request started: https://webcall-front.hh.ru/static/40.5ab8e512634fd335.css... (pending: 6)
+📤 Request started: https://webcall-front.hh.ru/static/40.de9cdc9d7ddc46e1.js... (pending: 7)
+📤 Request started: https://webcall-front.hh.ru/static/152.809459ccd741b814.css... (pending: 8)
+📤 Request started: https://webcall-front.hh.ru/static/152.68e2c753adb99e10.js... (pending: 9)
+📥 Request ended: https://webcall-front.hh.ru/static/152.809459ccd741b814.css... (pending: 8)
+📥 Request ended: https://webcall-front.hh.ru/static/40.5ab8e512634fd335.css... (pending: 7)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 6)
+📥 Request ended: https://webcall-front.hh.ru/static/152.68e2c753adb99e10.js... (pending: 5)
+📥 Request ended: https://webcall-front.hh.ru/static/40.de9cdc9d7ddc46e1.js... (pending: 4)
+📥 Request ended: https://core-renderer-tiles.maps.yandex.net/tiles?l=map&v=25.12.08-0~b:251203122... (pending: 3)
+📥 Request ended: https://webcall-front.hh.ru/static/notSharedVendors.d6f9a90b25477960.js... (pending: 2)
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.5441712412950632;id=3209834;u=https%3A%2F%2... (pending: 3)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.890484768641507;id=3399615;u=https%3A%2F%2F... (pending: 4)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 5)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.5441712412950632;id=3209834;u=https%3A%2F%2... (pending: 4)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.890484768641507;id=3399615;u=https%3A%2F%2F... (pending: 3)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 2)
+📥 Request ended: https://employer-reviews-front.hh.ru/employer_reviews/proxy_components/big_widge... (pending: 1)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 2)
+📥 Request ended: https://employer-reviews-front.hh.ru/employer_reviews/proxy_components/complain_... (pending: 1)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 1)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 2)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 1)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 0)
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Waiting 1000ms: polling interval before next URL check
+🌐 Network idle detected
+✅ Navigation complete (session 4, 11043ms)
+🚀 Starting action "vacancy-page" for: https://hh.ru/vacancy/128061989
+📋 [vacancy-page] Action started for: https://hh.ru/vacancy/128061989
+📋 [vacancy-page] Came from vacancy_response for ID: 128061989
+Navigated to vacancy details page (ID: 128061989) from vacancy_response
+Setting flag isOnVacancyPageFromResponse = true (vacancy ID: 128061989)
+Installing click listener for "Откликнуться"
+✅ Page ready after 11046ms (external navigation)
+✅ Click listener for "Откликнуться" setup completed
+Click listener installed for vacancy page
+🔍 [VERBOSE] Wait complete (1000ms)
+Checking redirect on vacancy page: https://hh.ru/vacancy/128061989
+sessionStorage flag: false
+"Вы откликнулись": true
+"Вы уже откликались": false
+"Отклик отправлен": false
+Has "Откликнуться" button: true
+Detected application submission via "Вы откликнулись" text on page!
+checkAndRedirectIfNeeded called
+Current URL: https://hh.ru/vacancy/128061989
+isOnVacancyPageFromResponse: true
+shouldRedirect from sessionStorage: false
+"Вы откликнулись" on page: true
+"Вы уже откликались" on page: false
+"Отклик отправлен" on page: false
+Detected application submission via response text on vacancy page!
+Response submitted from vacancy page, redirecting to: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+🚀 Navigating to: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+🛑 Aborting previous operations due to navigation
+📤 Triggering onBeforeNavigate callbacks...
+🛑 Stopping action "vacancy-page"...
+📋 [vacancy-page] Cleaned up check interval
+🛑 Action "vacancy-page" stopped (caught ActionStoppedError)
+✅ Action stopped
+🧹 Running 0 session cleanup callbacks...
+🔄 Network tracker reset
+📤 Request started: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=... (pending: 1)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=sfwGXa... (pending: 2)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=sfwGXa... (pending: 1)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.14445099537396955;id=3209834;u=https%3A%2F%... (pending: 2)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.5156584033536686;id=3399615;u=https%3A%2F%2... (pending: 3)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 4)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 4)
+📤 Request started: https://sentry.hh.ru/api/607/envelope/?sentry_key=55d08dbf26984dd4b9206c097b9cc2... (pending: 5)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 6)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 5)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy&hhtmFrom=vacancy_response&hhtmSourc... (pending: 4)
+📥 Request ended: https://sentry.hh.ru/api/607/envelope/?sentry_key=55d08dbf26984dd4b9206c097b9cc2... (pending: 3)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.14445099537396955;id=3209834;u=https%3A%2F%... (pending: 2)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.5156584033536686;id=3399615;u=https%3A%2F%2... (pending: 1)
+🔗 URL change detected: https://hh.ru/vacancy/128061989 → https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+📋 Updated lastSearchPageUrl via onUrlChange to: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+📋 Cleared lastVacancyResponseId - navigated away
+📤 Request started: https://i.hh.ru/build/vendors.4dd3e7d3e3489932.css... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/vendors.4dd3e7d3e3489932.css... (pending: 1)
+📤 Request started: https://i.hh.ru/build/magritte.6f0faedfa755a04f.css... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/magritte.6f0faedfa755a04f.css... (pending: 1)
+📤 Request started: https://i.hh.ru/styles/globals/pages/__bloko-imports_8bd68da9e5e6139c1ac7dca1e17... (pending: 2)
+📥 Request ended: https://i.hh.ru/styles/globals/pages/__bloko-imports_8bd68da9e5e6139c1ac7dca1e17... (pending: 1)
+📤 Request started: https://i.hh.ru/styles/globals/pages/__globals_0f49349c250d7da0bfc256daf51a94e9.... (pending: 2)
+📥 Request ended: https://i.hh.ru/styles/globals/pages/__globals_0f49349c250d7da0bfc256daf51a94e9.... (pending: 1)
+📤 Request started: https://i.hh.ru/styles/applicant/pages/__applicant_dc700932386766afbb25d68b48938... (pending: 2)
+📥 Request ended: https://i.hh.ru/styles/applicant/pages/__applicant_dc700932386766afbb25d68b48938... (pending: 1)
+📤 Request started: https://i.hh.ru/build/App.105abd3450e4f578.css... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/App.105abd3450e4f578.css... (pending: 1)
+📤 Request started: https://i.hh.ru/build/VacancySearch-route.2313da45d3dcd4c5.css... (pending: 2)
+📤 Request started: https://i.hh.ru/build/vendors.617d2e07ecb4eaf9.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/vendors.617d2e07ecb4eaf9.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/bloko.54f25f783ea239b7.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/bloko.54f25f783ea239b7.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/magritte.89b8d31f50b38e90.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/magritte.89b8d31f50b38e90.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/App.d189d8edfc92c261.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/App.d189d8edfc92c261.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/8151.534b6c88f2bc1bcd.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/8151.534b6c88f2bc1bcd.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/6832.92da7e0728c86490.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/6832.92da7e0728c86490.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/6683.f6ea5c08c0a9db78.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/6683.f6ea5c08c0a9db78.js... (pending: 2)
+📤 Request started: https://i.hh.ru/build/7475.33ad7b7949a73274.js... (pending: 3)
+📤 Request started: https://i.hh.ru/build/7862.5489bbdd6d3447be.js... (pending: 4)
+📤 Request started: https://i.hh.ru/build/5209.c4731e3094fdf41e.js... (pending: 5)
+📥 Request ended: https://i.hh.ru/build/5209.c4731e3094fdf41e.js... (pending: 4)
+📤 Request started: https://i.hh.ru/build/VacancySearch-route.e8ecbf9e1ce49330.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/runtime.0d4ead3ea9957a97.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/runtime.0d4ead3ea9957a97.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/appEntryPoint.99b4b214e9cb4740.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/appEntryPoint.99b4b214e9cb4740.js... (pending: 5)
+📥 Request ended: https://i.hh.ru/build/VacancySearch-route.2313da45d3dcd4c5.css... (pending: 4)
+📥 Request ended: https://i.hh.ru/build/7475.33ad7b7949a73274.js... (pending: 3)
+⚠️  Navigation detected during periodic save check, recovering gracefully
+📥 Request ended: https://i.hh.ru/build/7862.5489bbdd6d3447be.js... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/VacancySearch-route.e8ecbf9e1ce49330.js... (pending: 1)
+📤 Request started: https://i.hh.ru/images/logos/svg/hh.ru.svg?v=05022025... (pending: 2)
+📥 Request ended: https://i.hh.ru/images/logos/svg/hh.ru.svg?v=05022025... (pending: 1)
+📤 Request started: https://i.hh.ru/styles/images/logos/hh.ru__min_.svg?v=23122024... (pending: 2)
+📥 Request ended: https://i.hh.ru/styles/images/logos/hh.ru__min_.svg?v=23122024... (pending: 1)
+📤 Request started: https://i.hh.ru/build/static/images/map__min_147f6b68844344ba.webp... (pending: 2)
+📤 Request started: https://i.hh.ru/build/static/images/pins__min_5cf2c44b7ebbc2b3.svg... (pending: 3)
+📥 Request ended: https://i.hh.ru/build/static/images/pins__min_5cf2c44b7ebbc2b3.svg... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/static/images/map__min_147f6b68844344ba.webp... (pending: 1)
+📤 Request started: https://career.hh.ru/static/main.0b18ec0870596430.css... (pending: 2)
+📥 Request ended: https://career.hh.ru/static/main.0b18ec0870596430.css... (pending: 1)
+📤 Request started: https://i.hh.ru/build/static/images/online__min_f86a081a0561e048.svg... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/static/images/online__min_f86a081a0561e048.svg... (pending: 1)
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/7087075.png... (pending: 2)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/7087075.png... (pending: 1)
+📤 Request started: https://i.hh.ru/build/static/images/qr__min_50875a37e41d81a7.webp... (pending: 2)
+📥 Request ended: https://i.hh.ru/build/static/images/qr__min_50875a37e41d81a7.webp... (pending: 1)
+📤 Request started: https://i.hh.ru/js/External/TargetAds_WebSDK.js... (pending: 2)
+📥 Request ended: https://i.hh.ru/js/External/TargetAds_WebSDK.js... (pending: 1)
+📤 Request started: https://counter.yadro.ru/hit;HeadHunter?t14.6;r;s1728*1117*30;uhttps%3A//hh.ru/s... (pending: 2)
+📤 Request started: https://cpa.hh.ru/api/tracker/sdk.js... (pending: 3)
+📥 Request ended: https://cpa.hh.ru/api/tracker/sdk.js... (pending: 2)
+📤 Request started: https://top-fwz1.mail.ru/js/code.js... (pending: 3)
+📥 Request ended: https://top-fwz1.mail.ru/js/code.js... (pending: 2)
+📤 Request started: https://vk.com/js/api/openapi.js?169... (pending: 3)
+📤 Request started: https://mc.yandex.ru/metrika/tag.js... (pending: 4)
+📥 Request ended: https://mc.yandex.ru/metrika/tag.js... (pending: 3)
+📤 Request started: https://st.hybrid.ai/txsp.js... (pending: 4)
+📥 Request ended: https://st.hybrid.ai/txsp.js... (pending: 3)
+📤 Request started: https://eye.targetads.io/web/collect?dl=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacancy%3... (pending: 4)
+📤 Request started: https://telegram.org/js/pixel.js... (pending: 5)
+📥 Request ended: https://telegram.org/js/pixel.js... (pending: 4)
+📤 Request started: https://cpa.hh.ru/api/tracker/hit?url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacancy%3Fr... (pending: 5)
+📤 Request started: https://i.hh.ru/build/static/images/hhru_applicant__min_004893696d811914.svg... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/static/images/hhru_applicant__min_004893696d811914.svg... (pending: 5)
+📤 Request started: https://i.hh.ru/build/static/images/setka__min_f25aff6a883fda84.svg... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/static/images/setka__min_f25aff6a883fda84.svg... (pending: 5)
+📤 Request started: https://top-fwz1.mail.ru/counter?_=0.4929836508229992;id=3209834;u=https%3A%2F%2... (pending: 6)
+📤 Request started: https://top-fwz1.mail.ru/counter?_=0.6418029136123801;id=3399615;u=https%3A%2F%2... (pending: 7)
+📤 Request started: https://mc.yandex.ru/watch/156828?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fsearch%... (pending: 8)
+📤 Request started: https://mc.yandex.ru/watch/93250637?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fsearc... (pending: 9)
+📤 Request started: https://mc.yandex.ru/watch/83135743?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fsearc... (pending: 10)
+📤 Request started: https://fp.hybrid.ai/bobid.js... (pending: 11)
+📥 Request ended: https://fp.hybrid.ai/bobid.js... (pending: 10)
+📤 Request started: https://telegram.org/pxl... (pending: 11)
+📤 Request started: https://bobid-ip.hybrid.ai/... (pending: 12)
+📥 Request ended: https://top-fwz1.mail.ru/counter?_=0.4929836508229992;id=3209834;u=https%3A%2F%2... (pending: 11)
+📥 Request ended: https://top-fwz1.mail.ru/counter?_=0.6418029136123801;id=3399615;u=https%3A%2F%2... (pending: 10)
+📥 Request ended: https://counter.yadro.ru/hit;HeadHunter?t14.6;r;s1728*1117*30;uhttps%3A//hh.ru/s... (pending: 9)
+📥 Request ended: https://mc.yandex.ru/watch/93250637?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fsearc... (pending: 8)
+📤 Request started: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 9)
+📤 Request started: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 10)
+📥 Request ended: https://eye.targetads.io/web/collect?dl=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacancy%3... (pending: 9)
+📥 Request ended: https://mc.yandex.ru/watch/83135743?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fsearc... (pending: 8)
+📤 Request started: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 9)
+📤 Request started: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 10)
+📤 Request started: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 11)
+📤 Request started: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 12)
+📥 Request ended: https://mc.yandex.ru/watch/156828?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fsearch%... (pending: 11)
+📥 Request ended: https://vk.com/js/api/openapi.js?169... (pending: 10)
+📤 Request started: https://vk.com/dist/public/api/openapi.6ed04a4cc80655f4384429e1d969f6ff.js?169... (pending: 11)
+📥 Request ended: https://vk.com/dist/public/api/openapi.6ed04a4cc80655f4384429e1d969f6ff.js?169... (pending: 10)
+📤 Request started: https://vk.com/rtrg?p=VK-RTRG-318408-3u7id&metatag_url=https%3A%2F%2Fhh.ru%2Fsea... (pending: 11)
+📤 Request started: https://vk.com/rtrg?p=VK-RTRG-737575-4yDN2&metatag_url=https%3A%2F%2Fhh.ru%2Fsea... (pending: 12)
+📥 Request ended: https://bobid-ip.hybrid.ai/... (pending: 11)
+📤 Request started: https://fpf.hybrid.ai/visitor/getcookie... (pending: 12)
+📤 Request started: https://dss.hybrid.ai/Pixel/GetSubstitute?pid=660fb8507bc72f6ce8ce4d72&url=https... (pending: 13)
+📤 Request started: https://dss.hybrid.ai/Pixel/TrackTp?pid=660fb8507bc72f6ce8ce4d72&url=https%3A%2F... (pending: 14)
+📤 Request started: https://dss.hybrid.ai/Pixel/Track2?pid=660fb8507bc72f6ce8ce4d72&bobid=faad76baa0... (pending: 15)
+📥 Request ended: https://telegram.org/pxl... (pending: 14)
+📥 Request ended: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 13)
+📥 Request ended: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 12)
+📥 Request ended: https://fpf.hybrid.ai/visitor/getcookie... (pending: 11)
+📥 Request ended: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 10)
+📥 Request ended: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 9)
+📥 Request ended: https://vk.com/rtrg?p=VK-RTRG-318408-3u7id&metatag_url=https%3A%2F%2Fhh.ru%2Fsea... (pending: 8)
+📥 Request ended: https://vk.com/rtrg?p=VK-RTRG-737575-4yDN2&metatag_url=https%3A%2F%2Fhh.ru%2Fsea... (pending: 7)
+📥 Request ended: https://dss.hybrid.ai/Pixel/GetSubstitute?pid=660fb8507bc72f6ce8ce4d72&url=https... (pending: 6)
+📥 Request ended: https://dss.hybrid.ai/Pixel/TrackTp?pid=660fb8507bc72f6ce8ce4d72&url=https%3A%2F... (pending: 5)
+📥 Request ended: https://dss.hybrid.ai/Pixel/Track2?pid=660fb8507bc72f6ce8ce4d72&bobid=faad76baa0... (pending: 4)
+📥 Request ended: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 3)
+📥 Request ended: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=... (pending: 2)
+📤 Request started: https://i.hh.ru/js/External/smart-script.js... (pending: 3)
+📥 Request ended: https://i.hh.ru/js/External/smart-script.js... (pending: 2)
+📤 Request started: chrome-extension://invalid/... (pending: 3)
+📤 Request started: chrome-extension://invalid/... (pending: 3)
+📤 Request started: https://sentry.hh.ru/api/607/envelope/?sentry_key=55d08dbf26984dd4b9206c097b9cc2... (pending: 4)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 5)
+📤 Request started: https://i.hh.ru/shared/remote.xhhshared.88ed46bf7806d27b.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/shared/remote.xhhshared.88ed46bf7806d27b.js... (pending: 5)
+📤 Request started: https://top-fwz1.mail.ru/js/dyn-goal-config.js?ids=3209834,3399615... (pending: 6)
+📥 Request ended: https://top-fwz1.mail.ru/js/dyn-goal-config.js?ids=3209834,3399615... (pending: 5)
+📤 Request started: https://i.hh.ru/build/3560.d8389696a6752e69.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/3560.d8389696a6752e69.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/4823.33120e71312ab04e.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/4823.33120e71312ab04e.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/3718.804f3216dc35a3e4.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/3718.804f3216dc35a3e4.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/9216.a349fac3fcb662a4.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/9216.a349fac3fcb662a4.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/firebase.5e2b3e015ff7832b.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/firebase.5e2b3e015ff7832b.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/5834.10f57b31a350cfd4.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/5834.10f57b31a350cfd4.js... (pending: 5)
+📤 Request started: https://i.hh.ru/build/7877.0edc2dfabea553bc.js... (pending: 6)
+📥 Request ended: https://i.hh.ru/build/7877.0edc2dfabea553bc.js... (pending: 5)
+⏳ Waiting for page ready (after goto)...
+📥 Request ended: chrome-extension://invalid/... (pending: 4)
+📥 Request ended: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 3)
+📤 Request started: https://i.hh.ru/shared/__federation_expose_security.784e12d02de0e9e4.js... (pending: 4)
+📥 Request ended: https://i.hh.ru/shared/__federation_expose_security.784e12d02de0e9e4.js... (pending: 3)
+📤 Request started: https://wcm-ru.frontend.weborama.fr/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp... (pending: 4)
+📤 Request started: https://wcm.weborama-tech.ru/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp=71&a.c... (pending: 5)
+📤 Request started: https://rap.skcrtxr.com/pub/pix/24272921-582f-4baf-9dbc-63a7736ba138?t=176544471... (pending: 6)
+📤 Request started: https://redirect-frontend.weborama-tech.ru/rd?url=https%3A%2F%2Fhh.ru%2Fshards%2... (pending: 7)
+📤 Request started: https://hhcdn.ru/uxfeedback/widget.html... (pending: 8)
+📥 Request ended: https://hhcdn.ru/uxfeedback/widget.html... (pending: 7)
+📤 Request started: https://cdn.uxfeedback.ru/widget.js... (pending: 8)
+📥 Request ended: https://cdn.uxfeedback.ru/widget.js... (pending: 7)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/2.5313fa3315e9b130a307.js... (pending: 8)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/2.5313fa3315e9b130a307.js... (pending: 7)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/151d94058e914b2b23882.css... (pending: 8)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/151d94058e914b2b23882.css... (pending: 7)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/1.9ea6db0894afeabc0e7d.js... (pending: 8)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/1.9ea6db0894afeabc0e7d.js... (pending: 7)
+📤 Request started: https://career.hh.ru/static/remote.career_platform_front.d3322a493748870f.js... (pending: 8)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 9)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 10)
+📤 Request started: https://websocket.hh.ru/proxy-webapp/index.html... (pending: 11)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 12)
+📤 Request started: https://wcm-ru.frontend.weborama.fr/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp... (pending: 13)
+📤 Request started: https://wcm.weborama-tech.ru/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp=54&a.c... (pending: 14)
+📥 Request ended: https://wcm.weborama-tech.ru/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp=71&a.c... (pending: 13)
+📤 Request started: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 14)
+📥 Request ended: https://redirect-frontend.weborama-tech.ru/rd?url=https%3A%2F%2Fhh.ru%2Fshards%2... (pending: 13)
+📤 Request started: https://hh.ru/shards/vendor_user_sync?weborama_user_id=qTqcGmes6Nip... (pending: 14)
+📥 Request ended: https://wcm-ru.frontend.weborama.fr/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp... (pending: 13)
+📤 Request started: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 13)
+📥 Request ended: https://rap.skcrtxr.com/pub/pix/24272921-582f-4baf-9dbc-63a7736ba138?t=176544471... (pending: 12)
+📥 Request ended: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 11)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 10)
+📤 Request started: https://widget-api.uxfeedback.ru/v6/widgets/vipcyfobvmjpxs33c0nszyyl?uid=c841ad8... (pending: 11)
+📥 Request ended: https://cpa.hh.ru/api/tracker/hit?url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacancy%3Fr... (pending: 10)
+📥 Request ended: https://career.hh.ru/static/remote.career_platform_front.d3322a493748870f.js... (pending: 9)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/4.336e01fd94e33156ca1f.js... (pending: 10)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/4.336e01fd94e33156ca1f.js... (pending: 9)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/30485b4870e8e408cd799.css... (pending: 10)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/30485b4870e8e408cd799.css... (pending: 9)
+📤 Request started: https://cdn.uxfeedback.ru/assets-5.10.0/3.89d6da867ba5a304dca4.js... (pending: 10)
+📥 Request ended: https://cdn.uxfeedback.ru/assets-5.10.0/3.89d6da867ba5a304dca4.js... (pending: 9)
+📤 Request started: https://fonts.googleapis.com/css?family=Roboto:400&amp;subset=cyrillic... (pending: 10)
+📥 Request ended: https://fonts.googleapis.com/css?family=Roboto:400&amp;subset=cyrillic... (pending: 9)
+📥 Request ended: https://widget-api.uxfeedback.ru/v6/widgets/vipcyfobvmjpxs33c0nszyyl?uid=c841ad8... (pending: 8)
+📥 Request ended: https://wcm.weborama-tech.ru/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp=54&a.c... (pending: 7)
+📤 Request started: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 8)
+📥 Request ended: https://hh.ru/shards/vendor_user_sync?weborama_user_id=qTqcGmes6Nip... (pending: 7)
+📥 Request ended: https://wcm-ru.frontend.weborama.fr/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp... (pending: 6)
+📤 Request started: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 6)
+📥 Request ended: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 5)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 6)
+📤 Request started: https://career.hh.ru/static/notSharedVendors.a1845f268d8af484.js... (pending: 7)
+📤 Request started: https://career.hh.ru/static/fallbackSharedVendors.c2a8f19efc6a5c9a.js... (pending: 8)
+📤 Request started: https://career.hh.ru/static/105.537ad0f883708115.css... (pending: 9)
+📥 Request ended: https://career.hh.ru/static/105.537ad0f883708115.css... (pending: 8)
+📤 Request started: https://career.hh.ru/static/105.afd859c6f984eec7.js... (pending: 9)
+📤 Request started: https://career.hh.ru/static/443.7c42fd29031ac475.css... (pending: 10)
+📤 Request started: https://career.hh.ru/static/443.f66f12b27e70e34a.js... (pending: 11)
+📥 Request ended: https://career.hh.ru/static/443.7c42fd29031ac475.css... (pending: 10)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 9)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 8)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 7)
+📤 Request started: https://emd.hybrid.ai/plgt.js?exl=20&foadh=&gapl=&cs=&pcs=&vcs=... (pending: 8)
+📥 Request ended: https://websocket.hh.ru/proxy-webapp/index.html... (pending: 7)
+📤 Request started: https://websocket.hh.ru/proxy-webapp-config... (pending: 8)
+📥 Request ended: https://career.hh.ru/static/fallbackSharedVendors.c2a8f19efc6a5c9a.js... (pending: 7)
+📥 Request ended: https://career.hh.ru/static/443.f66f12b27e70e34a.js... (pending: 6)
+📥 Request ended: https://career.hh.ru/static/105.afd859c6f984eec7.js... (pending: 5)
+📥 Request ended: https://career.hh.ru/static/notSharedVendors.a1845f268d8af484.js... (pending: 4)
+📥 Request ended: https://sentry.hh.ru/api/607/envelope/?sentry_key=55d08dbf26984dd4b9206c097b9cc2... (pending: 3)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 2)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 3)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 4)
+📤 Request started: https://i.hh.ru/shared/650.696cd6ab57025f1a.js... (pending: 5)
+📤 Request started: https://i.hh.ru/shared/__federation_expose_security__secureportal.test_ver.82df5... (pending: 6)
+📤 Request started: https://yandex.ru/ads/system/context.js... (pending: 7)
+📤 Request started: https://yandex.ru/ads/system/header-bidding.js... (pending: 8)
+📥 Request ended: https://i.hh.ru/shared/__federation_expose_security__secureportal.test_ver.82df5... (pending: 7)
+📤 Request started: https://webcall-front.hh.ru/webcall/proxy_components/webcall_dynamic?preload=1... (pending: 8)
+📥 Request ended: https://i.hh.ru/shared/650.696cd6ab57025f1a.js... (pending: 7)
+📥 Request ended: https://yandex.ru/ads/system/header-bidding.js... (pending: 6)
+📥 Request ended: https://yandex.ru/ads/system/context.js... (pending: 5)
+📤 Request started: https://matchid.adfox.yandex.ru/getcookie... (pending: 6)
+📤 Request started: https://yastatic.net/s3/home/fonts/ys/3/text-variable-full.woff2... (pending: 7)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/272a76ccf80ae9c8fabc.js... (pending: 8)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/d3f02c8bfef9b0e4b26e.js... (pending: 9)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/89ff0f4b9b30100deb8b.js... (pending: 10)
+📤 Request started: https://yastatic.net/safeframe-bundles/0.83/host.js... (pending: 11)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/14aed3db341c809e870e.js... (pending: 12)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/af962ef3232fffdda6ba.js... (pending: 13)
+📥 Request ended: https://yastatic.net/s3/home/fonts/ys/3/text-variable-full.woff2... (pending: 12)
+📤 Request started: https://matchid.adfox.yandex.ru/getcookie... (pending: 13)
+📥 Request ended: https://emd.hybrid.ai/plgt.js?exl=20&foadh=&gapl=&cs=&pcs=&vcs=... (pending: 12)
+📤 Request started: https://hh.ru/api/fl/idgib-w-hh... (pending: 13)
+📥 Request ended: https://websocket.hh.ru/proxy-webapp-config... (pending: 12)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 13)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 14)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 13)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 12)
+📤 Request started: https://webcall-front.hh.ru/static/remote.webcall_front.33b3b1874f31747d.js... (pending: 13)
+📥 Request ended: https://webcall-front.hh.ru/webcall/proxy_components/webcall_dynamic?preload=1... (pending: 12)
+📥 Request ended: https://hh.ru/api/fl/idgib-w-hh... (pending: 11)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/d3f02c8bfef9b0e4b26e.js... (pending: 10)
+📥 Request ended: https://yastatic.net/safeframe-bundles/0.83/host.js... (pending: 9)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/272a76ccf80ae9c8fabc.js... (pending: 8)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/14aed3db341c809e870e.js... (pending: 7)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/af962ef3232fffdda6ba.js... (pending: 6)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/89ff0f4b9b30100deb8b.js... (pending: 5)
+📥 Request ended: https://webcall-front.hh.ru/static/remote.webcall_front.33b3b1874f31747d.js... (pending: 4)
+📤 Request started: https://webcall-front.hh.ru/static/notSharedVendors.d6f9a90b25477960.js... (pending: 5)
+📤 Request started: https://webcall-front.hh.ru/static/40.5ab8e512634fd335.css... (pending: 6)
+📤 Request started: https://webcall-front.hh.ru/static/40.de9cdc9d7ddc46e1.js... (pending: 7)
+📤 Request started: https://webcall-front.hh.ru/static/152.809459ccd741b814.css... (pending: 8)
+📤 Request started: https://webcall-front.hh.ru/static/152.68e2c753adb99e10.js... (pending: 9)
+📥 Request ended: https://webcall-front.hh.ru/static/152.809459ccd741b814.css... (pending: 8)
+📥 Request ended: https://webcall-front.hh.ru/static/40.5ab8e512634fd335.css... (pending: 7)
+📥 Request ended: https://webcall-front.hh.ru/static/152.68e2c753adb99e10.js... (pending: 6)
+📥 Request ended: https://webcall-front.hh.ru/static/40.de9cdc9d7ddc46e1.js... (pending: 5)
+📥 Request ended: https://webcall-front.hh.ru/static/notSharedVendors.d6f9a90b25477960.js... (pending: 4)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.5485725145462631;id=3209834;u=https%3A%2F%2... (pending: 5)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.5693884231013289;id=3399615;u=https%3A%2F%2... (pending: 6)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 7)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 6)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 5)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/6990671bd622e954703e.js... (pending: 6)
+📤 Request started: https://yastatic.net/partner-code-bundles/1303257/b9fbc1cc536fdfffc93c.js... (pending: 7)
+📤 Request started: https://adsrv.hh.ru/hb/bids... (pending: 8)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/6990671bd622e954703e.js... (pending: 7)
+📥 Request ended: https://yastatic.net/partner-code-bundles/1303257/b9fbc1cc536fdfffc93c.js... (pending: 6)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.5485725145462631;id=3209834;u=https%3A%2F%2... (pending: 5)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.5693884231013289;id=3399615;u=https%3A%2F%2... (pending: 4)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 3)
+📥 Request ended: https://matchid.adfox.yandex.ru/getcookie... (pending: 2)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=QuB21B... (pending: 3)
+📥 Request ended: https://matchid.adfox.yandex.ru/getcookie... (pending: 2)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=2w0mJ5... (pending: 3)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=QuB21B... (pending: 2)
+📤 Request started: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=1434395139&dl=ht... (pending: 3)
+📤 Request started: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 4)
+📤 Request started: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 5)
+📤 Request started: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 6)
+📥 Request ended: https://adsrv.hh.ru/hb/bids... (pending: 5)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=2w0mJ5... (pending: 4)
+📥 Request ended: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 3)
+📥 Request ended: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 2)
+📥 Request ended: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 1)
+📤 Request started: https://adsrv.hh.ru/banner-files/utils/build/header-bidding-script.js... (pending: 2)
+📤 Request started: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 3)
+📥 Request ended: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=1434395139&dl=ht... (pending: 2)
+📥 Request ended: https://adsrv.hh.ru/banner-files/utils/build/header-bidding-script.js... (pending: 1)
+📤 Request started: https://adsrv.hh.ru/banner-files/core/build/banner-core.js... (pending: 2)
+📥 Request ended: https://adsrv.hh.ru/banner-files/core/build/banner-core.js... (pending: 1)
+📤 Request started: https://hhcdn.ru/nposter/3929920.png... (pending: 2)
+📥 Request ended: https://hhcdn.ru/nposter/3929920.png... (pending: 1)
+📥 Request ended: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 0)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 1)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 0)
+⚠️  Action "undefined" did not stop gracefully within 10000ms
+✅ Navigation complete (session 5, 12080ms)
+🚀 Starting action "search-page" for: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+📋 [search-page] Updated lastSearchPageUrl to: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+✅ Page ready after 9236ms (after goto)
+⏳ Waiting for page ready (after redirect)...
+🌐 Network idle detected
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 1)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 0)
+📤 Request started: https://dss.hybrid.ai/Pixel/Track2?pid=660fb8507bc72f6ce8ce4d72&bobid=faad76baa0... (pending: 1)
+📥 Request ended: https://dss.hybrid.ai/Pixel/Track2?pid=660fb8507bc72f6ce8ce4d72&bobid=faad76baa0... (pending: 0)
+✅ Page ready after 6005ms (after redirect)
+checkAndRedirectIfNeeded called
+Current URL: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed
+isOnVacancyPageFromResponse: false
+📋 Found 4 "Откликнуться" button(s). Processing next button...
+🔍 1. Scroll BEFORE button click: x=0, y=0
+🔍 2. About to click button in list (scrollIntoView: true, smoothScroll: true)
+🔍 [VERBOSE] Target element: A: "Откликнуться..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/6665975.png... (pending: 1)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/6665975.png... (pending: 0)
+📤 Request started: https://hh.ru/anatskytics?hhtmFrom=&hhtmFromLabel=&hhtmSource=vacancy_search_lis... (pending: 1)
+📤 Request started: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=1395705753&dl=ht... (pending: 2)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 3)
+📥 Request ended: https://hh.ru/anatskytics?hhtmFrom=&hhtmFromLabel=&hhtmSource=vacancy_search_lis... (pending: 2)
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/3177057.png... (pending: 3)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/3177057.png... (pending: 2)
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/2982497.png... (pending: 3)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/2982497.png... (pending: 2)
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/5597569.png... (pending: 3)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/5597569.png... (pending: 2)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 1)
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/5688469.jpeg... (pending: 2)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/5688469.jpeg... (pending: 1)
+📤 Request started: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 2)
+📤 Request started: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=647589402&dl=htt... (pending: 3)
+📥 Request ended: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=1395705753&dl=ht... (pending: 2)
+📤 Request started: https://img.hhcdn.ru/employer-logo/7271985.png... (pending: 3)
+📥 Request ended: https://img.hhcdn.ru/employer-logo/7271985.png... (pending: 2)
+📥 Request ended: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 1)
+📤 Request started: https://img.hhcdn.ru/employer-logo-round/6239895.png... (pending: 2)
+📥 Request ended: https://img.hhcdn.ru/employer-logo-round/6239895.png... (pending: 1)
+📤 Request started: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 2)
+📤 Request started: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=668436876&dl=htt... (pending: 3)
+📥 Request ended: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=647589402&dl=htt... (pending: 2)
+🔍 [VERBOSE] Wait complete (1000ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] About to click element
+📤 Request started: https://hhcdn.ru/nposter/3990069.png... (pending: 3)
+📥 Request ended: https://hhcdn.ru/nposter/3990069.png... (pending: 2)
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacanc... (pending: 3)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 4)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 5)
+📤 Request started: https://eye.targetads.io/web/collect?dl=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacancy%3... (pending: 6)
+📤 Request started: https://dss.hybrid.ai/Pixel/Track2?pid=660fb8507bc72f6ce8ce4d72&bobid=faad76baa0... (pending: 7)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.6985222151768311;id=3209834;u=https%3A%2F%2... (pending: 8)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.7923085528277216;id=3399615;u=https%3A%2F%2... (pending: 9)
+📤 Request started: https://vk.com/rtrg?p=VK-RTRG-318408-3u7id&event=applicant_response-sent-attempt... (pending: 10)
+📤 Request started: https://wcm-ru.frontend.weborama.fr/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp... (pending: 11)
+📤 Request started: https://wcm.weborama-tech.ru/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp=55&a.c... (pending: 12)
+📤 Request started: https://rap.skcrtxr.com/pub/pix/ef37a103-83a2-4111-a25d-dcb734743645?t=176544473... (pending: 13)
+📤 Request started: https://mc.yandex.ru/watch/156828/1?page-url=goal%3A%2F%2Fhh.ru%2Fapplicant_resp... (pending: 14)
+📤 Request started: https://mc.yandex.ru/watch/93250637/1?page-url=goal%3A%2F%2Fhh.ru%2Fapplicant_re... (pending: 15)
+📤 Request started: https://mc.yandex.ru/watch/83135743/1?page-url=goal%3A%2F%2Fhh.ru%2Fapplicant_re... (pending: 16)
+📤 Request started: https://hh.ru/shards/vacancy/register_interaction... (pending: 17)
+📤 Request started: https://hh.ru/applicant/vacancy_response/popup?vacancyId=128094725&isTest=no&wit... (pending: 18)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.3333622341467344;id=3209834;u=https%3A%2F%2... (pending: 19)
+✅ Click verification passed: className changed
+🔍 [VERBOSE] Click completed
+🔍 [VERBOSE] Waiting 500ms: checking for navigation after click
+📥 Request ended: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 18)
+📥 Request ended: https://dss.hybrid.ai/Pixel/Track2?pid=660fb8507bc72f6ce8ce4d72&bobid=faad76baa0... (pending: 17)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.6985222151768311;id=3209834;u=https%3A%2F%2... (pending: 16)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.7923085528277216;id=3399615;u=https%3A%2F%2... (pending: 15)
+📥 Request ended: https://eye.targetads.io/web/collect?dl=https%3A%2F%2Fhh.ru%2Fsearch%2Fvacancy%3... (pending: 14)
+📤 Request started: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 15)
+📥 Request ended: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=2478490712&pr1=668436876&dl=htt... (pending: 14)
+📤 Request started: https://hhcdn.ru/nposter/4024834.png... (pending: 15)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.3333622341467344;id=3209834;u=https%3A%2F%2... (pending: 14)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 13)
+📥 Request ended: https://mc.yandex.ru/watch/93250637/1?page-url=goal%3A%2F%2Fhh.ru%2Fapplicant_re... (pending: 12)
+📥 Request ended: https://mc.yandex.ru/watch/156828/1?page-url=goal%3A%2F%2Fhh.ru%2Fapplicant_resp... (pending: 11)
+📥 Request ended: https://mc.yandex.ru/watch/83135743/1?page-url=goal%3A%2F%2Fhh.ru%2Fapplicant_re... (pending: 10)
+📥 Request ended: https://vk.com/rtrg?p=VK-RTRG-318408-3u7id&event=applicant_response-sent-attempt... (pending: 9)
+📥 Request ended: https://hhcdn.ru/nposter/4024834.png... (pending: 8)
+📥 Request ended: https://yandex.ru/adfox/400505/event?ad-session-id=2788751765443069313&adfox-ver... (pending: 7)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.6221411302464612;id=3209834;u=https%3A%2F%2... (pending: 8)
+📤 Request started: https://top-fwz1.mail.ru/tracker?_=0.2020044557269549;id=3399615;u=https%3A%2F%2... (pending: 9)
+🔍 [VERBOSE] Wait complete (500ms)
+🔍 [VERBOSE] Waiting 1000ms: post-click settling time for modal scroll capture
+📥 Request ended: https://wcm.weborama-tech.ru/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp=55&a.c... (pending: 8)
+📤 Request started: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 9)
+📥 Request ended: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 8)
+📥 Request ended: https://rap.skcrtxr.com/pub/pix/ef37a103-83a2-4111-a25d-dcb734743645?t=176544473... (pending: 7)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.6221411302464612;id=3209834;u=https%3A%2F%2... (pending: 6)
+📥 Request ended: https://top-fwz1.mail.ru/tracker?_=0.2020044557269549;id=3399615;u=https%3A%2F%2... (pending: 5)
+📥 Request ended: https://wcm-ru.frontend.weborama.fr/fcgi-bin/dispatch.fcgi?a.A=co&a.si=8899&a.cp... (pending: 4)
+📤 Request started: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 5)
+📥 Request ended: https://cstatic-ru-cv.weborama-tech.ru/public/weborama/images/transp.gif... (pending: 4)
+📥 Request ended: https://hh.ru/shards/vacancy/register_interaction... (pending: 3)
+📤 Request started: https://i.hh.ru/build/VacancyResponse-route.90cac7c73acceaaa.css... (pending: 4)
+📤 Request started: https://i.hh.ru/build/VacancyResponse-route.c2d0f3867cd85d27.js... (pending: 5)
+📤 Request started: https://hh.ru/applicant/vacancy_response?vacancyId=128094725&startedWithQuestion... (pending: 6)
+📥 Request ended: https://hh.ru/applicant/vacancy_response/popup?vacancyId=128094725&isTest=no&wit... (pending: 5)
+📥 Request ended: https://i.hh.ru/build/VacancyResponse-route.90cac7c73acceaaa.css... (pending: 4)
+📥 Request ended: https://i.hh.ru/build/VacancyResponse-route.c2d0f3867cd85d27.js... (pending: 3)
+🔍 [VERBOSE] Wait complete (1000ms)
+🔗 URL change detected: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist&page=1&searchSessionId=40f62576-5444-4d9b-8df6-3dd7711adfed → https://hh.ru/applicant/vacancy_response?vacancyId=128094725&startedWithQuestion=false
+🔄 External navigation detected (JS redirect or link click)
+🛑 Aborting previous operations due to navigation
+📤 Triggering onBeforeNavigate callbacks...
+🛑 Stopping action "search-page"...
+🛑 Action "search-page" stopped (caught ActionStoppedError)
+✅ Action stopped
+🧹 Running 0 session cleanup callbacks...
+🔄 Network tracker reset
+⏳ Waiting for page ready (external navigation)...
+🔍 3. Button click completed + 1s wait after click (via waitAfterClick)
+📤 Request started: https://top-fwz1.mail.ru/counter?_=0.6853845564031271;id=3209834;u=https%3A%2F%2... (pending: 1)
+📤 Request started: https://top-fwz1.mail.ru/counter?_=0.5263056011564129;id=3399615;u=https%3A%2F%2... (pending: 2)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmFromLabel... (pending: 3)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 4)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 5)
+📤 Request started: https://hh.ru/photo/765477766.jpeg?t=1765528932&h=8KhMIyKEHbehEsL8G4psQQ... (pending: 6)
+📤 Request started: https://hh.ru/employer-logo-round/5597569.png... (pending: 7)
+📤 Request started: https://mc.yandex.ru/watch/156828?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fapplica... (pending: 8)
+📤 Request started: https://mc.yandex.ru/watch/93250637?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fappli... (pending: 9)
+📤 Request started: https://mc.yandex.ru/watch/83135743?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fappli... (pending: 10)
+📥 Request ended: https://top-fwz1.mail.ru/counter?_=0.6853845564031271;id=3209834;u=https%3A%2F%2... (pending: 9)
+📥 Request ended: https://top-fwz1.mail.ru/counter?_=0.5263056011564129;id=3399615;u=https%3A%2F%2... (pending: 8)
+📤 Request started: https://widget-api.uxfeedback.ru/v6/widgets/vipcyfobvmjpxs33c0nszyyl?uid=c841ad8... (pending: 9)
+🔍 4. State immediately after click:
+   - scroll: x=0, y=0
+   - body.position: relative
+   - body.top: ""
+   - body.overflow: visible
+   - html.overflow: visible
+   - modal overlay exists: false
+   - form exists: true
+🔍 5. Waiting for modal to appear (or navigation to complete, 2 seconds)...
+🔍 [VERBOSE] Waiting 2000ms: modal to appear
+📤 Request started: https://webcall-front.hh.ru/webcall/proxy_components/webcall_dynamic?preload=1... (pending: 10)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmFromLabel... (pending: 9)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 8)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 7)
+📥 Request ended: https://mc.yandex.ru/watch/93250637?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fappli... (pending: 6)
+📥 Request ended: https://widget-api.uxfeedback.ru/v6/widgets/vipcyfobvmjpxs33c0nszyyl?uid=c841ad8... (pending: 5)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 6)
+📥 Request ended: https://mc.yandex.ru/watch/156828?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fapplica... (pending: 5)
+📥 Request ended: https://mc.yandex.ru/watch/83135743?wmode=7&page-url=https%3A%2F%2Fhh.ru%2Fappli... (pending: 4)
+📥 Request ended: https://hh.ru/employer-logo-round/5597569.png... (pending: 3)
+📥 Request ended: https://hh.ru/photo/765477766.jpeg?t=1765528932&h=8KhMIyKEHbehEsL8G4psQQ... (pending: 2)
+📥 Request ended: https://webcall-front.hh.ru/webcall/proxy_components/webcall_dynamic?preload=1... (pending: 1)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 0)
+🔍 [VERBOSE] Wait complete (2000ms)
+🔍 6. Scroll AFTER 2s wait: x=0, y=0
+🔍 7. Waiting for delayed redirects (2 more seconds)...
+🔍 [VERBOSE] Waiting 2000ms: delayed redirects to complete
+🔍 [VERBOSE] Wait complete (2000ms)
+🔍 8. Scroll AFTER 4s total wait: x=0, y=0
+⚠️  Redirected to a different page: https://hh.ru/applicant/vacancy_response?vacancyId=128094725&startedWithQuestion=false
+💡 This is a vacancy_response page, handling automatically...
+Detected vacancy_response page, handling application form...
+Engine: puppeteer
+About to wait for body selector
+Body selector found
+About to count textareas
+Initial scan: Found 4 textarea(s) on page
+Processing textarea 0 with selector: textarea:nth-of-type(1)
+Initial textarea 0: data-qa="(none)", visible=false
+Processing textarea 1 with selector: textarea:nth-of-type(2)
+Initial textarea 1: data-qa="(none)", visible=false
+Processing textarea 2 with selector: textarea:nth-of-type(3)
+Initial textarea 2: data-qa="(none)", visible=false
+Processing textarea 3 with selector: textarea:nth-of-type(4)
+Initial textarea 3: data-qa="(none)", visible=false
+Checking if textarea is already visible
+Checking selector: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+Count for textarea[data-qa="vacancy-response-popup-form-letter-input"]: 0
+Checking selector: textarea[data-qa="vacancy-response-form-letter-input"]
+Count for textarea[data-qa="vacancy-response-form-letter-input"]: 0
+Found toggle element: text="Сопроводительное письмоДобавить", data-qa="vacancy-response-letter-toggle"
+Cover letter section is collapsed, clicking toggle (text: "Сопроводительное письмоДобавить", data-qa: "vacancy-response-letter-toggle") to expand...
+🔍 [VERBOSE] Target element: DIV: "Сопроводительное письмоДобавит..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 1)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 2)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 3)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 4)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 3)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 2)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 1)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 0)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=630eu7... (pending: 1)
+🔍 [VERBOSE] Wait complete (1000ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] About to click element
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 2)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 3)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 4)
+✅ Click verification passed: element removed from DOM (UI updated)
+🔍 [VERBOSE] Click completed
+🔍 [VERBOSE] Waiting 500ms: checking for navigation after click
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=630eu7... (pending: 3)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_response&hhtmFrom=vacancy_search_li... (pending: 2)
+🔍 [VERBOSE] Wait complete (500ms)
+🔄 Navigation detected via NavigationManager
+🔄 Click triggered navigation to: https://hh.ru/applicant/vacancy_response?vacancyId=128094725&startedWithQuestion=false
+⏳ Waiting for existing page ready operation (after click navigation)...
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=Xzv%2B... (pending: 3)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=Xzv%2B... (pending: 2)
+⚠️  Action "undefined" did not stop gracefully within 10000ms
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A1019217147%3Ax%3A37779%3Ay%3A32767%3At%3A248%3Ap%3AWAAAAAAA1A6FAAAAAA1AA3AA4%3AX%3A596%3AY%3A1629&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444740&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A771049093%3Ax%3A37779%3Ay%3A32767%3At%3A248%3Ap%3AWAAAAAAA1A6FAAAAAA1AA3AA4%3AX%3A596%3AY%3A1629&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444740&t=gdpr(14)ti(1)
+📤 Request started: https://mc.yandex.ru/watch/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 1)
+📤 Request started: https://mc.yandex.ru/watch/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 2)
+📤 Request started: https://mc.yandex.ru/watch/83135743?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 3)
+📥 Request ended: https://mc.yandex.ru/watch/83135743?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 2)
+📥 Request ended: https://mc.yandex.ru/watch/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 1)
+📥 Request ended: https://mc.yandex.ru/watch/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 0)
+✅ Navigation complete (session 6, 15552ms)
+🚀 Starting action "vacancy-response-page" for: https://hh.ru/applicant/vacancy_response?vacancyId=128094725&startedWithQuestion=false
+📋 [vacancy-response-page] Action started for: https://hh.ru/applicant/vacancy_response?vacancyId=128094725&startedWithQuestion=false
+📋 [vacancy-response-page] Tracking vacancy ID: 128094725
+Detected vacancy_response page, handling application form...
+Engine: puppeteer
+About to wait for body selector
+✅ Page ready after 15552ms (external navigation)
+Toggle click completed
+🔍 [VERBOSE] Waiting 1700ms: expand animation to complete
+Body selector found
+About to count textareas
+Initial scan: Found 5 textarea(s) on page
+Processing textarea 0 with selector: textarea:nth-of-type(1)
+Initial textarea 0: data-qa="(none)", visible=false
+Processing textarea 1 with selector: textarea:nth-of-type(2)
+Initial textarea 1: data-qa="(none)", visible=false
+Processing textarea 2 with selector: textarea:nth-of-type(3)
+Initial textarea 2: data-qa="(none)", visible=false
+Processing textarea 3 with selector: textarea:nth-of-type(4)
+Initial textarea 3: data-qa="(none)", visible=false
+Processing textarea 4 with selector: textarea:nth-of-type(5)
+Initial textarea 4: data-qa="(none)", visible=false
+Checking if textarea is already visible
+Checking selector: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+Count for textarea[data-qa="vacancy-response-popup-form-letter-input"]: 1
+Visible for textarea[data-qa="vacancy-response-popup-form-letter-input"]: true
+Cover letter section already expanded, textarea visible
+Waiting for textarea selector: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+Textarea found and visible: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+About to fill textarea with selector: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+🔍 [VERBOSE] Element already in view (within 10% threshold), skipping scroll
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 1)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 2)
+✅ Click verification passed: element still connected (assumed success)
+🔒 [TYPING-LOCK-21] Requesting lock for: puppeteer-type:TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"]
+✅ [TYPING-LOCK-21] Lock acquired immediately (no wait) for: puppeteer-type:TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"]
+⌨️  [TYPING] Starting focus+type for TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"]: "Здравствуйте,
+
+Мне понравилась ваша компания, я ду..."
+👁️  [TYPING] Focused TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"], about to type 489 characters
+✍️  [TYPING] Completed typing 489 characters to TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"]
+🔓 [TYPING-LOCK-21] Lock released after 1464ms by: puppeteer-type:TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"]
+✅ Fill verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Filled textarea with text: "Здравствуйте,
+
+Мне понравилась ваша компания, я ду..."
+✅ Fill verification passed
+Prefilled cover letter message into: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+Found 5 textarea(s) on the page
+[QA] Fuzzy match for "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?" (score: 1.000)
+[QA] Matched to: "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?"
+[QA] Answer: "Да"
+[QA] Fuzzy match for "Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)" (score: 1.000)
+[QA] Matched to: "Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)"
+[QA] Answer: "От 550000 рублей в месяц в gross"
+[QA] Fuzzy match for "Сколько лет коммерческого опыта у вас имеется в роли Технического лидера?" (score: 0.471)
+[QA] Matched to: "Сколько лет коммерческого опыта с С#?"
+[QA] Answer: "Более 5 лет"
+[QA] Fuzzy match for "Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?" (score: 0.489)
+[QA] Matched to: "Сколько лет коммерческого опыта с С#?"
+[QA] Answer: "Более 5 лет"
+[QA] Fuzzy match for "Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?" (score: 1.000)
+[QA] Matched to: "Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?"
+[QA] Answer: "Нет"
+[QA] Fuzzy match for "Вы находитесь в РФ?" (score: 1.000)
+[QA] Matched to: "Вы находитесь в РФ?"
+[QA] Answer: "Нет"
+[QA] Fuzzy match for "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?" (score: 1.000)
+[QA] Matched to: "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?"
+[QA] Answer: "Да"
+[QA] Fuzzy match for "Сколько лет коммерческого опыта у вас имеется в роли Технического лидера?" (score: 0.471)
+[QA] Matched to: "Сколько лет коммерческого опыта с С#?"
+[QA] Answer: "Более 5 лет"
+🔍 [VERBOSE] Target element: INPUT: "..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (1700ms)
+Cover letter section expanded
+After toggle click: Found 5 textarea(s) on page
+Waiting for textarea selector: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+Textarea found and visible: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+About to fill textarea with selector: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+🔍 [VERBOSE] Textarea already has content, skipping: "Здравствуйте,
+
+Мне понравилась..."
+Prefilled cover letter message into: textarea[data-qa="vacancy-response-popup-form-letter-input"]
+Found 5 textarea(s) on the page
+[QA] Fuzzy match for "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?" (score: 1.000)
+[QA] Matched to: "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?"
+[QA] Answer: "Да"
+[QA] Fuzzy match for "Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)" (score: 1.000)
+[QA] Matched to: "Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)"
+[QA] Answer: "От 550000 рублей в месяц в gross"
+[QA] Fuzzy match for "Сколько лет коммерческого опыта у вас имеется в роли Технического лидера?" (score: 0.471)
+[QA] Matched to: "Сколько лет коммерческого опыта с С#?"
+[QA] Answer: "Более 5 лет"
+[QA] Fuzzy match for "Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?" (score: 0.489)
+[QA] Matched to: "Сколько лет коммерческого опыта с С#?"
+[QA] Answer: "Более 5 лет"
+[QA] Fuzzy match for "Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?" (score: 1.000)
+[QA] Matched to: "Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?"
+[QA] Answer: "Нет"
+[QA] Fuzzy match for "Вы находитесь в РФ?" (score: 1.000)
+[QA] Matched to: "Вы находитесь в РФ?"
+[QA] Answer: "Нет"
+[QA] Fuzzy match for "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?" (score: 1.000)
+[QA] Matched to: "Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?"
+[QA] Answer: "Да"
+[QA] Fuzzy match for "Сколько лет коммерческого опыта у вас имеется в роли Технического лидера?" (score: 0.471)
+[QA] Matched to: "Сколько лет коммерческого опыта с С#?"
+[QA] Answer: "Более 5 лет"
+🔍 [VERBOSE] Target element: INPUT: "..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (1000ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] About to click element
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 3)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 4)
+✅ Click verification passed: checked state changed
+🔍 [VERBOSE] Click completed
+🔍 [VERBOSE] Waiting 500ms: checking for navigation after click
+🔍 [VERBOSE] Wait complete (1000ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] About to click element
+✅ Click verification passed: element still connected (assumed success)
+🔍 [VERBOSE] Click completed
+🔍 [VERBOSE] Waiting 500ms: checking for navigation after click
+🔍 [VERBOSE] Wait complete (500ms)
+🔍 [VERBOSE] Waiting 1000ms: post-click settling time for modal scroll capture
+🔍 [VERBOSE] Wait complete (500ms)
+🔍 [VERBOSE] Waiting 1000ms: post-click settling time for modal scroll capture
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 1 Q&A pair(s)
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Wait complete (1000ms)
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 1 Q&A pair(s)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A419812029%3Ax%3A32721%3Ay%3A32767%3At%3A351%3Ap%3A%5EAAAA1A6FAAAAAA1AA3AA4%3AX%3A596%3AY%3A1657&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444750&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A972661619%3Ax%3A32721%3Ay%3A32767%3At%3A351%3Ap%3A%5EAAAA1A6FAAAAAA1AA3AA4%3AX%3A596%3AY%3A1657&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444750&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A298510760%3Ax%3A32767%3Ay%3A32767%3At%3A378%3Ap%3APWAAsA2A2A4FAAAAAA1AA3AA4%3AX%3A251%3AY%3A730&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444753&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A120140659%3Ax%3A32767%3Ay%3A32767%3At%3A378%3Ap%3APWAAsA2A2A4FAAAAAA1AA3AA4%3AX%3A251%3AY%3A730&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444753&t=gdpr(14)ti(1)
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 1 Q&A pair(s)
+[QA] Selected radio option "Да" for: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+🔍 [VERBOSE] Waiting 300ms: visual feedback after radio selection
+[QA] Selected radio option "Да" for: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+🔍 [VERBOSE] Waiting 300ms: visual feedback after radio selection
+🔍 [VERBOSE] Wait complete (300ms)
+🔍 [VERBOSE] Wait complete (300ms)
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 1 Q&A pair(s)
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Scrolling with behavior: smooth
+✅ Scroll verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Waiting 300ms: smooth scroll animation to complete
+✅ Scroll verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Waiting 300ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (300ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] Wait complete (300ms)
+✅ Scroll verification passed - element is in viewport
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 1)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 2)
+✅ Click verification passed: element still connected (assumed success)
+✅ Click verification passed: element still connected (assumed success)
+🔒 [TYPING-LOCK-22] Requesting lock for: puppeteer-type:TEXTAREA[name="task_283162215_text"]
+✅ [TYPING-LOCK-22] Lock acquired immediately (no wait) for: puppeteer-type:TEXTAREA[name="task_283162215_text"]
+⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162215_text"]: "От 550000 рублей в месяц в gross"
+🔒 [TYPING-LOCK-23] Requesting lock for: puppeteer-type:TEXTAREA[name="task_283162215_text"]
+⏳ [TYPING-LOCK-23] Waiting for lock (current owner: puppeteer-type:TEXTAREA[name="task_283162215_text"], waiting operations: 1)
+👁️  [TYPING] Focused TEXTAREA[name="task_283162215_text"], about to type 32 characters
+✍️  [TYPING] Completed typing 32 characters to TEXTAREA[name="task_283162215_text"]
+🔓 [TYPING-LOCK-22] Lock released after 156ms by: puppeteer-type:TEXTAREA[name="task_283162215_text"]
+✅ [TYPING-LOCK-23] Lock acquired after 155ms wait for: puppeteer-type:TEXTAREA[name="task_283162215_text"]
+⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162215_text"]: "От 550000 рублей в месяц в gross"
+✅ Fill verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Filled textarea with text: "От 550000 рублей в месяц в gross..."
+✅ Fill verification passed
+[QA] Prefilled textarea for: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+🔍 [VERBOSE] Waiting 2000ms: stability delay between textarea fills
+👁️  [TYPING] Focused TEXTAREA[name="task_283162215_text"], about to type 32 characters
+✍️  [TYPING] Completed typing 32 characters to TEXTAREA[name="task_283162215_text"]
+🔓 [TYPING-LOCK-23] Lock released after 102ms by: puppeteer-type:TEXTAREA[name="task_283162215_text"]
+✅ Fill verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Filled textarea with text: "От 550000 рублей в месяц в gross..."
+✅ Fill verification passed
+[QA] Prefilled textarea for: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+🔍 [VERBOSE] Waiting 2000ms: stability delay between textarea fills
+🔍 [VERBOSE] Wait complete (2000ms)
+[QA] No matching radio option found for: Сколько лет коммерческого опыта у вас имеется в роли Технического лидера?
+🔍 [VERBOSE] Scrolling with behavior: smooth
+✅ Scroll verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Waiting 300ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (2000ms)
+[QA] No matching radio option found for: Сколько лет коммерческого опыта у вас имеется в роли Технического лидера?
+🔍 [VERBOSE] Scrolling with behavior: smooth
+✅ Scroll verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Waiting 300ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (300ms)
+✅ Scroll verification passed - element is in viewport
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 3)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 4)
+✅ Click verification passed: element still connected (assumed success)
+🔒 [TYPING-LOCK-24] Requesting lock for: puppeteer-type:TEXTAREA[name="task_283162219_text"]
+✅ [TYPING-LOCK-24] Lock acquired immediately (no wait) for: puppeteer-type:TEXTAREA[name="task_283162219_text"]
+⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162219_text"]: "Более 5 лет"
+👁️  [TYPING] Focused TEXTAREA[name="task_283162219_text"], about to type 11 characters
+✍️  [TYPING] Completed typing 11 characters to TEXTAREA[name="task_283162219_text"]
+🔓 [TYPING-LOCK-24] Lock released after 62ms by: puppeteer-type:TEXTAREA[name="task_283162219_text"]
+✅ Fill verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Filled textarea with text: "Более 5 лет..."
+✅ Fill verification passed
+[QA] Prefilled textarea for: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+🔍 [VERBOSE] Waiting 2000ms: stability delay between textarea fills
+🔍 [VERBOSE] Wait complete (300ms)
+✅ Scroll verification passed - element is in viewport
+✅ Click verification passed: element still connected (assumed success)
+🔒 [TYPING-LOCK-25] Requesting lock for: puppeteer-type:TEXTAREA[name="task_283162219_text"]
+✅ [TYPING-LOCK-25] Lock acquired immediately (no wait) for: puppeteer-type:TEXTAREA[name="task_283162219_text"]
+⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162219_text"]: "Более 5 лет"
+👁️  [TYPING] Focused TEXTAREA[name="task_283162219_text"], about to type 11 characters
+✍️  [TYPING] Completed typing 11 characters to TEXTAREA[name="task_283162219_text"]
+🔓 [TYPING-LOCK-25] Lock released after 53ms by: puppeteer-type:TEXTAREA[name="task_283162219_text"]
+✅ Fill verification succeeded after 1 attempt(s)
+🔍 [VERBOSE] Filled textarea with text: "Более 5 лет..."
+✅ Fill verification passed
+[QA] Prefilled textarea for: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+🔍 [VERBOSE] Waiting 2000ms: stability delay between textarea fills
+Saved Q&A: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+Saved Q&A: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 3 Q&A pair(s)
+🔍 [VERBOSE] Wait complete (2000ms)
+🔍 [VERBOSE] Target element: INPUT: "..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+Saved Q&A: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+Saved Q&A: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+🔍 [VERBOSE] Wait complete (2000ms)
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 3 Q&A pair(s)
+🔍 [VERBOSE] Target element: INPUT: "..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (1000ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] About to click element
+📤 Request started: https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvac... (pending: 5)
+📤 Request started: https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fv... (pending: 6)
+✅ Click verification passed: checked state changed
+🔍 [VERBOSE] Click completed
+🔍 [VERBOSE] Waiting 500ms: checking for navigation after click
+🔍 [VERBOSE] Wait complete (1000ms)
+✅ Scroll verification passed - element is in viewport
+🔍 [VERBOSE] About to click element
+✅ Click verification passed: element still connected (assumed success)
+🔍 [VERBOSE] Click completed
+🔍 [VERBOSE] Waiting 500ms: checking for navigation after click
+🔍 [VERBOSE] Wait complete (500ms)
+🔍 [VERBOSE] Waiting 1000ms: post-click settling time for modal scroll capture
+🔍 [VERBOSE] Wait complete (500ms)
+🔍 [VERBOSE] Waiting 1000ms: post-click settling time for modal scroll capture
+🔍 [VERBOSE] Wait complete (1000ms)
+🔍 [VERBOSE] Wait complete (1000ms)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A723333373%3Ax%3A32721%3Ay%3A32767%3At%3A455%3Ap%3A%5EAAAA3A3A4FAAAAAA1AA3AA4%3AX%3A596%3AY%3A968&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444760&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A324808890%3Ax%3A32721%3Ay%3A32767%3At%3A455%3Ap%3A%5EAAAA3A3A4FAAAAAA1AA3AA4%3AX%3A596%3AY%3A968&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444760&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A512136917%3Ax%3A32721%3Ay%3A32767%3At%3A480%3Ap%3A%5EAAAA3A5A4FAAAAAA1AA3AA4%3AX%3A596%3AY%3A1365&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444763&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A376406460%3Ax%3A32721%3Ay%3A32767%3At%3A480%3Ap%3A%5EAAAA3A5A4FAAAAAA1AA3AA4%3AX%3A596%3AY%3A1365&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444763&t=gdpr(14)ti(1)
+Saved Q&A: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+Saved Q&A: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+Saved Q&A: Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 4 Q&A pair(s)
+Saved Q&A: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+Saved Q&A: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+Saved Q&A: Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 4 Q&A pair(s)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/156828?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A633231488%3Ax%3A32767%3Ay%3A32767%3At%3A511%3Ap%3APWAAs1A2AA4FAAAAAA1AA3AA4%3AX%3A251%3AY%3A470&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444766&t=gdpr(14)ti(1)
+⚠️  Request timed out, removing: GET:https://mc.yandex.ru/clmap/93250637?page-url=https%3A%2F%2Fhh.ru%2Fapplicant%2Fvacancy_response%3FvacancyId%3D128094725%26startedWithQuestion%3Dfalse&pointer-click=rn%3A602422043%3Ax%3A32767%3Ay%3A32767%3At%3A511%3Ap%3APWAAs1A2AA4FAAAAAA1AA3AA4%3AX%3A251%3AY%3A470&browser-info=u%3A1762065483413391688%3Av%3A2300%3Avf%3A6dxo56vtzxzyyc4em9c7ihxjzousf%3Arqnl%3A1%3Ast%3A1765444766&t=gdpr(14)ti(1)
+📤 Request started: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=x4TmRE... (pending: 1)
+📥 Request ended: https://hh.ru/api/fl?u=04523920-9ddf-11ef-9087-6eb44a000000&cfidsgib-w-hh=x4TmRE... (pending: 0)
+[QA] Selected radio option "Нет" for: Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?
+🔍 [VERBOSE] Waiting 300ms: visual feedback after radio selection
+[QA] Selected radio option "Нет" for: Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?
+🔍 [VERBOSE] Waiting 300ms: visual feedback after radio selection
+🔍 [VERBOSE] Wait complete (300ms)
+🔍 [VERBOSE] Target element: INPUT: "..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+🔍 [VERBOSE] Wait complete (300ms)
+🔍 [VERBOSE] Target element: INPUT: "..."
+🔍 [VERBOSE] Scrolling with behavior: smooth
+🔍 [VERBOSE] Waiting 1000ms: smooth scroll animation to complete
+Saved Q&A: Какой уровень заработной платы вы рассматриваете для смены работы? 
+(Прошу указать уровень ЗП в gross)
+Saved Q&A: Сколько лет коммерческого опыта написания кода на языке Kotlin вы имеете?
+Saved Q&A: Вы имеете оконченное высшее ТЕХНИЧЕСКОЕ образование?
+Saved Q&A: Весь ваш опыт указанный в резюме также отображен в электронной трудовой книге, в случае успешного прохождения технического интервью вы сможете предоставить выписку из ЭТК подтверждающий ваш опыт?
+Auto-saved 4 Q&A pair(s)

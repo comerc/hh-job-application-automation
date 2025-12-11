@@ -1,0 +1,5 @@
+720:⌨️  [TYPING] Starting focus+type for TEXTAREA[data-qa="vacancy-response-popup-form-letter-input"]: "Здравствуйте,
+856:⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162215_text"]: "От 550000 рублей в месяц в gross"
+863:⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162215_text"]: "От 550000 рублей в месяц в gross"
+896:⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162219_text"]: "Более 5 лет"
+910:⌨️  [TYPING] Starting focus+type for TEXTAREA[name="task_283162219_text"]: "Более 5 лет"
