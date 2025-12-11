@@ -28,10 +28,23 @@ export async function setupQAHandling({ commander, readQADatabase, addOrUpdateQA
     // Extract all questions from the page using qa.mjs
     const pageQuestions = await extractPageQuestions({ evaluate: commander.evaluate });
 
+    // Deduplicate questions by selector to prevent filling same textarea twice
+    // This fixes issue #122 where multiple questions could target the same textarea
+    const uniqueQuestions = [];
+    const seenSelectors = new Set();
+    for (const item of pageQuestions) {
+      if (!seenSelectors.has(item.selector)) {
+        seenSelectors.add(item.selector);
+        uniqueQuestions.push(item);
+      } else {
+        console.log(`[QA] Skipping duplicate question with same selector: ${item.selector}`);
+      }
+    }
+
     const questionToAnswer = new Map();
 
     // Match questions with answers from database
-    for (const item of pageQuestions) {
+    for (const item of uniqueQuestions) {
       const match = findBestMatch(item.question, qaMap);
       if (match) {
         questionToAnswer.set(item.question, {
@@ -53,15 +66,19 @@ export async function setupQAHandling({ commander, readQADatabase, addOrUpdateQA
     for (const [question, data] of questionToAnswer) {
       try {
         if (data.type === 'textarea') {
-          // Skip if this selector was already filled (prevents duplicate fills)
+          // Mark selector as being filled BEFORE starting fill operation
+          // This prevents race conditions where second fill starts before first completes
+          // Fixes issue #122 duplicate text filling
           if (filledSelectors.has(data.selector)) {
             console.log(`[QA] Skipping duplicate fill for selector: ${data.selector}`);
             continue;
           }
+          filledSelectors.add(data.selector); // Mark as being filled before fill starts
+
           const filled = await fillTextareaQuestion({ commander, questionData: data, verbose });
-          if (filled) {
-            filledSelectors.add(data.selector);
-          }
+          // Note: We keep the selector in the set regardless of fill result
+          // to prevent retry attempts on the same element
+
           // Small delay between textarea fills to ensure stability
           await commander.wait({ ms: 2000, reason: 'stability delay between textarea fills' });
         } else if (data.type === 'radio') {
