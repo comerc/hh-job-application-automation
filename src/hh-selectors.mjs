@@ -34,6 +34,9 @@ export const SELECTORS = {
   // Error states
   limitExceededError: '[data-qa-popup-error-code="negotiations-limit-exceeded"]',
 
+  // Direct application (external site) modal
+  directApplicationCancelButton: '[data-qa="vacancy-response-link-advertising-cancel"]',
+
   // Question blocks
   questionBlock: '[data-qa="task-body"]',
   radioOption: 'input[type="radio"]',

@@ -376,6 +376,13 @@ export function createOrchestrator({
           continue;
         }
 
+        if (result.status === 'direct_application_skipped') {
+          console.log('✅ Direct application skipped, continuing with next vacancy...');
+          // Don't wait the full interval for skipped applications
+          await commander.wait({ ms: 1000, reason: 'brief pause after skipping direct application' });
+          continue;
+        }
+
         if (result.status === 'success') {
           console.log(`Waiting ${BUTTON_CLICK_INTERVAL / 1000} seconds before processing next button...`);
 
