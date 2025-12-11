@@ -75,7 +75,7 @@ export async function setupQAHandling({ commander, readQADatabase, addOrUpdateQA
           }
           filledSelectors.add(data.selector); // Mark as being filled before fill starts
 
-          const filled = await fillTextareaQuestion({ commander, questionData: data, verbose });
+          await fillTextareaQuestion({ commander, questionData: data, verbose });
           // Note: We keep the selector in the set regardless of fill result
           // to prevent retry attempts on the same element
 
