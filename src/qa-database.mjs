@@ -514,34 +514,116 @@ export function keywordSimilarity(a, b) {
 }
 
 /**
- * Find the best matching question from a database using fuzzy matching
- * @param {string} question - Question to match
- * @param {Map<string, string>} qaDatabase - Q&A database
- * @param {number} threshold - Minimum similarity threshold (0-1)
- * @returns {{question: string, answer: string, score: number} | null}
+ * Extract key words from a question (case-sensitive version)
+ * @param {string} question - Question string
+ * @returns {Set<string>} Set of key words
  */
-export function findBestMatch(question, qaDatabase, threshold = 0.4) {
-  if (qaDatabase.has(question)) {
-    return { question, answer: qaDatabase.get(question), score: 1.0 };
-  }
+export function extractKeywordsCaseSensitive(question) {
+  const stopwords = new Set([
+    'пожалуйста', 'свои', 'ваши', 'от', 'до', 'в', 'на', 'с', 'по',
+    'о', 'об', 'и', 'а', 'но', 'или', 'то', 'как', 'что', 'это',
+    'вы', 'ты', 'он', 'она', 'они', 'мы', 'я', 'к', 'для', 'при',
+    'чуть', 'данный', 'момент',
+  ]);
 
-  let bestMatch = null;
-  let bestScore = threshold;
+  // Remove punctuation but preserve case
+  const cleaned = question
+    .replace(/[.,!?;:]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const words = cleaned.split(/\s+/);
 
-  for (const [dbQuestion, answer] of qaDatabase.entries()) {
-    const editSimilarity = stringSimilarity(
-      normalizeQuestion(question),
-      normalizeQuestion(dbQuestion),
-    );
-    const kwSimilarity = keywordSimilarity(question, dbQuestion);
+  // For case-sensitive mode, we compare against lowercase stopwords
+  const keywords = new Set(
+    words.filter(word => word.length > 2 && !stopwords.has(word.toLowerCase())),
+  );
 
-    const combinedScore = (editSimilarity * 0.4) + (kwSimilarity * 0.6);
-
-    if (combinedScore > bestScore) {
-      bestScore = combinedScore;
-      bestMatch = { question: dbQuestion, answer, score: combinedScore };
+  const stems = new Set();
+  for (const word of keywords) {
+    if (word.length > 6) {
+      stems.add(word.substring(0, 5));
     }
   }
 
-  return bestMatch;
+  return new Set([...keywords, ...stems]);
+}
+
+/**
+ * Calculate keyword overlap similarity (case-sensitive version)
+ * @param {string} a - First question
+ * @param {string} b - Second question
+ * @returns {number} Similarity score (0-1)
+ */
+export function keywordSimilarityCaseSensitive(a, b) {
+  const keywordsA = extractKeywordsCaseSensitive(a);
+  const keywordsB = extractKeywordsCaseSensitive(b);
+
+  if (keywordsA.size === 0 && keywordsB.size === 0) return 1.0;
+  if (keywordsA.size === 0 || keywordsB.size === 0) return 0.0;
+
+  const intersection = new Set([...keywordsA].filter(x => keywordsB.has(x)));
+  const union = new Set([...keywordsA, ...keywordsB]);
+
+  return intersection.size / union.size;
+}
+
+/**
+ * Find all matching questions from a database using fuzzy matching
+ * @param {string} question - Question to match
+ * @param {Map<string, string>} qaDatabase - Q&A database
+ * @param {Object} options - Matching options
+ * @param {number} options.threshold - Minimum similarity threshold (0-1), default 0.4
+ * @param {boolean} options.caseSensitive - Whether to use case-sensitive matching, default false
+ * @param {boolean} options.returnAll - Return all matches sorted by score (true) or just best match (false), default false
+ * @returns {Array<{question: string, answer: string, score: number}>|{question: string, answer: string, score: number}|null}
+ */
+export function findBestMatch(question, qaDatabase, options = {}) {
+  // Handle backward compatibility: if options is a number, treat it as threshold
+  const threshold = typeof options === 'number' ? options : (options.threshold ?? 0.4);
+  const caseSensitive = typeof options === 'object' ? (options.caseSensitive ?? false) : false;
+  const returnAll = typeof options === 'object' ? (options.returnAll ?? false) : false;
+
+  // Normalization function that respects case sensitivity option
+  const normalize = (str) => caseSensitive ? str : normalizeQuestion(str);
+
+  // Check for exact match first
+  if (qaDatabase.has(question)) {
+    const result = { question, answer: qaDatabase.get(question), score: 1.0 };
+    return returnAll ? [result] : result;
+  }
+
+  const matches = [];
+
+  for (const [dbQuestion, answer] of qaDatabase.entries()) {
+    const editSimilarity = stringSimilarity(
+      normalize(question),
+      normalize(dbQuestion),
+    );
+
+    // For keyword similarity, we need to adjust our functions if case sensitive
+    // Since extractKeywords uses normalizeQuestion internally, we need a version that respects case sensitivity
+    let kwSimilarity;
+    if (caseSensitive) {
+      // For case-sensitive mode, use the strings as-is for keyword extraction
+      kwSimilarity = keywordSimilarityCaseSensitive(question, dbQuestion);
+    } else {
+      kwSimilarity = keywordSimilarity(question, dbQuestion);
+    }
+
+    const combinedScore = (editSimilarity * 0.4) + (kwSimilarity * 0.6);
+
+    if (combinedScore >= threshold) {
+      matches.push({ question: dbQuestion, answer, score: combinedScore });
+    }
+  }
+
+  // Sort matches by score in descending order (highest score first)
+  matches.sort((a, b) => b.score - a.score);
+
+  if (returnAll) {
+    return matches;
+  } else {
+    // Return best match (first in sorted array) or null if no matches
+    return matches.length > 0 ? matches[0] : null;
+  }
 }
