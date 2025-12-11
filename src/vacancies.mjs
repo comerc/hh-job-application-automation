@@ -5,7 +5,7 @@
 
 import { isNavigationError } from './browser-commander/index.js';
 import { countUnansweredQuestions } from './qa.mjs';
-import { closeModalIfPresent } from './helpers/modal-helpers.mjs';
+import { closeModalIfPresent, checkAndCloseDirectApplicationModal } from './helpers/modal-helpers.mjs';
 import { SELECTORS } from './hh-selectors.mjs';
 import { log } from './logging.mjs';
 
@@ -574,7 +574,7 @@ async function handlePostClickNavigation({
  * Wait for application modal to appear and check for limit errors
  * @param {Object} options
  * @param {Object} options.commander - Browser commander instance
- * @returns {Promise<{appeared: boolean, limitError: boolean, status?: string}>}
+ * @returns {Promise<{appeared: boolean, limitError: boolean, directApplication?: boolean, status?: string}>}
  */
 async function waitForApplicationModal({ commander }) {
   // Wait for modal
@@ -605,6 +605,13 @@ async function waitForApplicationModal({ commander }) {
       log.debug(() => `🔍 11-12. Modal found but could not check scroll: ${e.message}`);
     }
   } catch {
+    // Modal form didn't appear, but we should still check for direct application modal
+    // Direct application modals don't have the standard application form
+    const directAppResult = await checkAndCloseDirectApplicationModal({ commander });
+    if (directAppResult.isDirectApplication) {
+      return { appeared: false, limitError: false, directApplication: true, status: 'direct_application' };
+    }
+
     console.log('⚠️  Modal did not appear within timeout. This may be a different type of vacancy response.');
     console.log('💡 Skipping this button and moving to the next one...');
     return { appeared: false, limitError: false, status: 'modal_timeout' };
@@ -612,6 +619,12 @@ async function waitForApplicationModal({ commander }) {
 
   if (!modalAppeared) {
     return { appeared: false, limitError: false, status: 'modal_not_appeared' };
+  }
+
+  // Check if this is a direct application modal (application on external site)
+  const directAppResult = await checkAndCloseDirectApplicationModal({ commander });
+  if (directAppResult.isDirectApplication) {
+    return { appeared: true, limitError: false, directApplication: true, status: 'direct_application' };
   }
 
   // Check for limit error
@@ -729,6 +742,11 @@ export async function findAndProcessVacancyButton({
 
   // Wait for modal to appear
   const modalResult = await waitForApplicationModal({ commander });
+
+  if (modalResult.directApplication) {
+    // Direct application was detected and closed, skip this vacancy
+    return { status: 'direct_application_skipped' };
+  }
 
   if (!modalResult.appeared || modalResult.limitError) {
     return { status: modalResult.status };
