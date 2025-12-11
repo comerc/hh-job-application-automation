@@ -63,7 +63,7 @@ export async function setupQAHandling({ commander, readQADatabase, addOrUpdateQA
             filledSelectors.add(data.selector);
           }
           // Small delay between textarea fills to ensure stability
-          await commander.wait({ ms: 100, reason: 'stability delay between textarea fills' });
+          await commander.wait({ ms: 2000, reason: 'stability delay between textarea fills' });
         } else if (data.type === 'radio') {
           await fillRadioQuestion({ commander, questionData: data, verbose });
         } else if (data.type === 'checkbox') {
