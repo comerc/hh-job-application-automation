@@ -370,6 +370,45 @@ async function getSubmitButtonState({ commander, selector }) {
 }
 
 /**
+ * Check if the direct application modal is present and skip it
+ * Returns true if modal was detected and skipped, false otherwise
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @returns {Promise<boolean>}
+ */
+async function checkAndSkipDirectApplicationModal({ commander }) {
+  try {
+    // Check if the direct application modal is present
+    // This modal appears for vacancies that redirect to external employer sites
+    const cancelButtonCount = await commander.count({ selector: SELECTORS.directApplicationCancelButton });
+
+    if (cancelButtonCount > 0) {
+      console.log('⚠️  Detected direct application modal (external site application)');
+      console.log('   This vacancy requires application on the employer\'s website');
+      console.log('   Clicking cancel button to skip this vacancy...');
+
+      // Click the cancel button to close the modal and skip this vacancy
+      await commander.clickButton({
+        selector: SELECTORS.directApplicationCancelButton,
+        scrollIntoView: true,
+      });
+
+      console.log('✅ Direct application modal closed, vacancy skipped');
+
+      // Small wait to ensure the modal is closed and page is ready
+      await commander.wait({ ms: 1000, reason: 'direct application modal to close' });
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    log.debug(() => `Error checking for direct application modal: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Handle the vacancy_response page
  */
 export async function handleVacancyResponsePage({
@@ -390,6 +429,14 @@ export async function handleVacancyResponsePage({
     await commander.waitForSelector({ selector: 'body' });
 
     log.debug(() => 'Body selector found');
+
+    // Check for direct application modal first and skip if present
+    const isDirectApplication = await checkAndSkipDirectApplicationModal({ commander });
+    if (isDirectApplication) {
+      // This is a direct application vacancy, we should skip it
+      // Return early to allow the automation to continue with the next vacancy
+      return;
+    }
 
     // Log all textareas for debugging
     log.debug(() => 'About to count textareas');
