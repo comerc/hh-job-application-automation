@@ -139,6 +139,11 @@ export async function waitForModalToClose(options = {}) {
  * Direct applications redirect to employer's website instead of allowing
  * application through hh.ru. We want to skip these automatically.
  *
+ * The direct application modal has this structure:
+ * - Container: div.magritte-desktop-container with data-qa="magritte-alert" inside
+ * - Title: "Вакансия с прямым откликом"
+ * - Cancel button: data-qa="vacancy-response-link-advertising-cancel"
+ *
  * @param {Object} options - Options
  * @param {Object} options.commander - Browser commander instance
  * @param {boolean} [options.verbose=false] - Enable verbose logging
@@ -162,24 +167,58 @@ export async function checkAndCloseDirectApplicationModal(options = {}) {
     const count = await commander.count({ selector: cancelButtonSelector });
 
     if (verbose) {
-      console.log(`🔍 [VERBOSE] checkAndCloseDirectApplicationModal: found ${count} cancel button(s)`);
+      console.log(`🔍 [VERBOSE] checkAndCloseDirectApplicationModal: found ${count} cancel button(s) with selector: ${cancelButtonSelector}`);
     }
 
     if (count > 0) {
-      // This is a direct application modal - verify by checking for the text
+      // Cancel button found - verify by checking for direct application text
+      // The modal uses "magritte-alert" data-qa attribute, not "modal-overlay"
+      // We check the text near the cancel button or in the page
       const isDirectApp = await commander.safeEvaluate({
         fn: () => {
-          // Check if modal contains the direct application text
-          const modalOverlay = document.querySelector('[data-qa="modal-overlay"]');
-          if (!modalOverlay) return false;
+          // First, verify the cancel button exists
+          const cancelButton = document.querySelector('[data-qa="vacancy-response-link-advertising-cancel"]');
+          if (!cancelButton) return { found: false, reason: 'no cancel button' };
 
-          const modalText = modalOverlay.textContent || '';
-          // Look for the title "Вакансия с прямым откликом"
-          return modalText.includes('Вакансия с прямым откликом') ||
-                 modalText.includes('прямым откликом') ||
-                 modalText.includes('сайте работодателя');
+          // Look for the magritte-alert container which is used for direct application modals
+          // Note: Using hardcoded selector here since we're in browser context
+          const magritteAlert = document.querySelector('[data-qa="magritte-alert"]');
+          if (magritteAlert) {
+            const alertText = magritteAlert.textContent || '';
+            if (alertText.includes('Вакансия с прямым откликом') ||
+                alertText.includes('прямым откликом') ||
+                alertText.includes('сайте работодателя')) {
+              return { found: true, reason: 'magritte-alert with direct application text' };
+            }
+          }
+
+          // Fallback: check if the cancel button's container has the text
+          // Walk up the DOM to find a container with the text
+          let container = cancelButton.parentElement;
+          for (let i = 0; i < 5 && container; i++) {
+            const containerText = container.textContent || '';
+            if (containerText.includes('Вакансия с прямым откликом') ||
+                containerText.includes('прямым откликом') ||
+                containerText.includes('сайте работодателя')) {
+              return { found: true, reason: 'parent container with direct application text' };
+            }
+            container = container.parentElement;
+          }
+
+          // Also check for modal-overlay (original approach) as a fallback
+          const modalOverlay = document.querySelector('[data-qa="modal-overlay"]');
+          if (modalOverlay) {
+            const modalText = modalOverlay.textContent || '';
+            if (modalText.includes('Вакансия с прямым откликом') ||
+                modalText.includes('прямым откликом') ||
+                modalText.includes('сайте работодателя')) {
+              return { found: true, reason: 'modal-overlay with direct application text' };
+            }
+          }
+
+          return { found: false, reason: 'cancel button found but no direct application text nearby' };
         },
-        defaultValue: false,
+        defaultValue: { found: false, reason: 'evaluate failed' },
         operationName: 'direct application check',
       });
 
@@ -190,16 +229,23 @@ export async function checkAndCloseDirectApplicationModal(options = {}) {
         return { isDirectApplication: false, closed: false };
       }
 
-      if (isDirectApp.value) {
+      if (verbose) {
+        console.log(`🔍 [VERBOSE] checkAndCloseDirectApplicationModal: detection result = ${JSON.stringify(isDirectApp.value)}`);
+      }
+
+      if (isDirectApp.value && isDirectApp.value.found) {
         console.log('💡 Detected direct application modal (application on external site)');
+        console.log(`   Detection reason: ${isDirectApp.value.reason}`);
         console.log('⏭️  Automatically skipping this vacancy...');
 
         // Click the cancel button
         await commander.clickButton({ selector: cancelButtonSelector, scrollIntoView: false });
         await commander.wait({ ms: 1000, reason: 'direct application modal to close' });
 
+        console.log('✅ Direct application skipped, continuing with next vacancy...');
+
         if (verbose) {
-          console.log('🔍 [VERBOSE] checkAndCloseDirectApplicationModal: clicked cancel button');
+          console.log('🔍 [VERBOSE] checkAndCloseDirectApplicationModal: clicked cancel button successfully');
         }
 
         return { isDirectApplication: true, closed: true };
