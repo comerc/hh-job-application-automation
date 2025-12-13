@@ -147,3 +147,6 @@ test-data/
 
 # macOS
 .DS_Store
+
+# logs
+log.txt
