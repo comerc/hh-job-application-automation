@@ -35,7 +35,9 @@ export const SELECTORS = {
   limitExceededError: '[data-qa-popup-error-code="negotiations-limit-exceeded"]',
 
   // Direct application (external site) modal
+  // The modal uses "magritte-alert" as container, not "modal-overlay"
   directApplicationCancelButton: '[data-qa="vacancy-response-link-advertising-cancel"]',
+  directApplicationAlert: '[data-qa="magritte-alert"]',
 
   // Question blocks
   questionBlock: '[data-qa="task-body"]',

@@ -7,7 +7,7 @@ import { isNavigationError } from './browser-commander/index.js';
 import { countUnansweredQuestions } from './qa.mjs';
 import { closeModalIfPresent, checkAndCloseDirectApplicationModal } from './helpers/modal-helpers.mjs';
 import { SELECTORS } from './hh-selectors.mjs';
-import { log } from './logging.mjs';
+import { log, isDebugEnabled } from './logging.mjs';
 
 /**
  * Handle limit error when detected
@@ -607,7 +607,14 @@ async function waitForApplicationModal({ commander }) {
   } catch {
     // Modal form didn't appear, but we should still check for direct application modal
     // Direct application modals don't have the standard application form
-    const directAppResult = await checkAndCloseDirectApplicationModal({ commander });
+    // They use data-qa="magritte-alert" instead of data-qa="modal-overlay"
+    log.debug(() => '🔍 Standard modal form not found, checking for direct application modal...');
+
+    // Check for direct application modal (verbose mode enabled for debugging)
+    const directAppResult = await checkAndCloseDirectApplicationModal({
+      commander,
+      verbose: isDebugEnabled(),
+    });
     if (directAppResult.isDirectApplication) {
       return { appeared: false, limitError: false, directApplication: true, status: 'direct_application' };
     }
