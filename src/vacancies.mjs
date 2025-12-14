@@ -339,38 +339,129 @@ async function validateTargetPage({
 }
 
 /**
- * Data attribute name used to mark buttons as already processed
- * This prevents the same button from being clicked multiple times
- * (especially important for direct application modals that close
- * without removing the "Откликнуться" button)
+ * In-memory Set to track processed vacancy IDs across all pages
+ * This prevents the same vacancy from being clicked multiple times,
+ * even if the user navigates to different pages where the same vacancy appears.
+ *
+ * The vacancy ID is extracted from the DOM structure:
+ * <div id="128579290" class="vacancy-card--...">
+ *   ... button inside ...
+ * </div>
+ *
+ * This approach is superior to HTML attribute marking because:
+ * - It persists across page navigation (stays in RAM)
+ * - It works even if the same vacancy appears on multiple pages
+ * - It doesn't require modifying the DOM
  */
-const PROCESSED_BUTTON_ATTR = 'data-hh-automation-processed';
+const processedVacancyIds = new Set();
+
+/**
+ * Get the count of processed vacancy IDs (for logging/debugging)
+ * @returns {number} Number of processed vacancies
+ */
+export function getProcessedVacancyCount() {
+  return processedVacancyIds.size;
+}
+
+/**
+ * Clear all processed vacancy IDs (useful for testing or reset)
+ */
+export function clearProcessedVacancies() {
+  processedVacancyIds.clear();
+}
+
+/**
+ * Check if a vacancy has been processed
+ * @param {string} vacancyId - The vacancy ID to check
+ * @returns {boolean} True if the vacancy has been processed
+ */
+export function isVacancyProcessed(vacancyId) {
+  return processedVacancyIds.has(vacancyId);
+}
+
+/**
+ * Mark a vacancy as processed
+ * @param {string} vacancyId - The vacancy ID to mark as processed
+ */
+export function markVacancyAsProcessed(vacancyId) {
+  processedVacancyIds.add(vacancyId);
+}
 
 /**
  * Find vacancy button on the page with retry logic
- * Excludes buttons that have already been processed (marked with data-hh-automation-processed)
+ * Excludes buttons whose parent vacancy card ID is in the processedVacancyIds Set
  * @param {Object} options
  * @param {Object} options.commander - Browser commander instance
- * @returns {Promise<{selector: string | null, count: number, status?: string}>}
+ * @returns {Promise<{selector: string | null, count: number, vacancyId?: string, status?: string}>}
  */
 async function findVacancyButton({ commander }) {
   // Find "Откликнуться" button using text selector
-  // Exclude buttons that have already been processed (to avoid infinite loops with direct application modals)
   const baseButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
 
-  // Use evaluate to find the first unprocessed button
+  // Get the list of already processed vacancy IDs to pass to the browser context
+  const processedIds = Array.from(processedVacancyIds);
+
+  // Use evaluate to find the first unprocessed button by checking vacancy card IDs
   const unprocessedButtonInfo = await commander.safeEvaluate({
-    fn: (baseSelector, processedAttr) => {
+    fn: (baseSelector, alreadyProcessedIds) => {
       // Find all buttons matching the base selector
       const allButtons = document.querySelectorAll(baseSelector);
       let unprocessedCount = 0;
       let firstUnprocessedIndex = -1;
+      let firstUnprocessedVacancyId = null;
+
+      // Convert to Set for O(1) lookup
+      const processedSet = new Set(alreadyProcessedIds);
 
       for (let i = 0; i < allButtons.length; i++) {
-        if (!allButtons[i].hasAttribute(processedAttr)) {
+        const button = allButtons[i];
+
+        // Find the parent vacancy card to get the vacancy ID
+        // The vacancy card has a numeric ID like "128579290" in id="128579290"
+        // and contains a class starting with "vacancy-card--"
+        let vacancyCard = button.closest('[class*="vacancy-card--"]');
+        let vacancyId = null;
+
+        if (vacancyCard) {
+          // The vacancy card might not have the id directly, check parent divs
+          let parent = vacancyCard;
+          while (parent && !vacancyId) {
+            if (parent.id && /^\d+$/.test(parent.id)) {
+              vacancyId = parent.id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          // Also try to find id in parent containers if not found
+          if (!vacancyId) {
+            const idElement = vacancyCard.querySelector('[id]');
+            if (idElement && /^\d+$/.test(idElement.id)) {
+              vacancyId = idElement.id;
+            }
+          }
+        }
+
+        // If we couldn't find a vacancy ID in the card, try looking up the DOM tree
+        if (!vacancyId) {
+          let parent = button.parentElement;
+          while (parent) {
+            if (parent.id && /^\d+$/.test(parent.id)) {
+              vacancyId = parent.id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        }
+
+        // Check if this vacancy has already been processed
+        const isProcessed = vacancyId && processedSet.has(vacancyId);
+
+        if (!isProcessed) {
           unprocessedCount++;
           if (firstUnprocessedIndex === -1) {
             firstUnprocessedIndex = i;
+            firstUnprocessedVacancyId = vacancyId;
           }
         }
       }
@@ -379,10 +470,12 @@ async function findVacancyButton({ commander }) {
         totalButtons: allButtons.length,
         unprocessedCount,
         firstUnprocessedIndex,
+        firstUnprocessedVacancyId,
+        processedCount: allButtons.length - unprocessedCount,
       };
     },
-    args: [baseButtonSelector, PROCESSED_BUTTON_ATTR],
-    defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1 },
+    args: [baseButtonSelector, processedIds],
+    defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1, firstUnprocessedVacancyId: null, processedCount: 0 },
     operationName: 'find unprocessed vacancy button',
   });
 
@@ -391,11 +484,11 @@ async function findVacancyButton({ commander }) {
     return { selector: null, count: 0, status: 'navigation_detected' };
   }
 
-  const { totalButtons, unprocessedCount, firstUnprocessedIndex } = unprocessedButtonInfo.value;
+  const { totalButtons, unprocessedCount, firstUnprocessedIndex, firstUnprocessedVacancyId, processedCount } = unprocessedButtonInfo.value;
 
   if (unprocessedCount === 0) {
     if (totalButtons > 0) {
-      log.debug(() => `🔍 Found ${totalButtons} button(s) but all are already processed, waiting for page to fully load...`);
+      log.debug(() => `🔍 Found ${totalButtons} button(s) but all are already processed (${processedCount} skipped), waiting for page to fully load...`);
     } else {
       log.debug(() => '🔍 No buttons found, waiting for page to fully load...');
     }
@@ -403,16 +496,35 @@ async function findVacancyButton({ commander }) {
 
     // Try one more time after waiting
     const retryInfo = await commander.safeEvaluate({
-      fn: (baseSelector, processedAttr) => {
+      fn: (baseSelector, alreadyProcessedIds) => {
         const allButtons = document.querySelectorAll(baseSelector);
         let unprocessedCount = 0;
         let firstUnprocessedIndex = -1;
+        let firstUnprocessedVacancyId = null;
+
+        const processedSet = new Set(alreadyProcessedIds);
 
         for (let i = 0; i < allButtons.length; i++) {
-          if (!allButtons[i].hasAttribute(processedAttr)) {
+          const button = allButtons[i];
+
+          // Find vacancy ID from parent elements
+          let vacancyId = null;
+          let parent = button.parentElement;
+          while (parent) {
+            if (parent.id && /^\d+$/.test(parent.id)) {
+              vacancyId = parent.id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          const isProcessed = vacancyId && processedSet.has(vacancyId);
+
+          if (!isProcessed) {
             unprocessedCount++;
             if (firstUnprocessedIndex === -1) {
               firstUnprocessedIndex = i;
+              firstUnprocessedVacancyId = vacancyId;
             }
           }
         }
@@ -421,10 +533,11 @@ async function findVacancyButton({ commander }) {
           totalButtons: allButtons.length,
           unprocessedCount,
           firstUnprocessedIndex,
+          firstUnprocessedVacancyId,
         };
       },
-      args: [baseButtonSelector, PROCESSED_BUTTON_ATTR],
-      defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1 },
+      args: [baseButtonSelector, processedIds],
+      defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1, firstUnprocessedVacancyId: null },
       operationName: 'find unprocessed vacancy button (retry)',
     });
 
@@ -437,56 +550,41 @@ async function findVacancyButton({ commander }) {
       selector: baseButtonSelector,
       count: retryInfo.value.unprocessedCount,
       buttonIndex: retryInfo.value.firstUnprocessedIndex,
+      vacancyId: retryInfo.value.firstUnprocessedVacancyId,
     };
   }
 
   console.log(`📋 Found ${unprocessedCount} "Откликнуться" button(s). Processing next button...`);
-  if (totalButtons > unprocessedCount) {
-    log.debug(() => `🔍 (${totalButtons - unprocessedCount} button(s) already processed and skipped)`);
+  if (processedCount > 0) {
+    log.debug(() => `🔍 (${processedCount} button(s) already processed and skipped based on vacancy IDs)`);
+  }
+  if (firstUnprocessedVacancyId) {
+    log.debug(() => `🔍 Next vacancy to process: ID ${firstUnprocessedVacancyId}`);
   }
   return {
     selector: baseButtonSelector,
     count: unprocessedCount,
     buttonIndex: firstUnprocessedIndex,
+    vacancyId: firstUnprocessedVacancyId,
   };
 }
 
 /**
- * Mark a button as processed by adding the PROCESSED_BUTTON_ATTR attribute
- * This prevents the button from being clicked again on subsequent iterations
+ * Mark a vacancy as processed by adding its ID to the processedVacancyIds Set
+ * This prevents the vacancy from being clicked again on subsequent iterations
+ * or on different pages where the same vacancy might appear
  * @param {Object} options
- * @param {Object} options.commander - Browser commander instance
- * @param {string} options.selector - Base button selector
- * @param {number} options.buttonIndex - Index of the button to mark
- * @returns {Promise<boolean>} - True if button was marked successfully
+ * @param {string} options.vacancyId - The vacancy ID to mark as processed
+ * @returns {boolean} - True if vacancy was marked successfully
  */
-async function markButtonAsProcessed({ commander, selector, buttonIndex }) {
-  try {
-    const result = await commander.safeEvaluate({
-      fn: (baseSelector, index, attrName) => {
-        const allButtons = document.querySelectorAll(baseSelector);
-        if (index >= 0 && index < allButtons.length) {
-          allButtons[index].setAttribute(attrName, 'true');
-          return true;
-        }
-        return false;
-      },
-      args: [selector, buttonIndex, PROCESSED_BUTTON_ATTR],
-      defaultValue: false,
-      operationName: 'mark button as processed',
-    });
-
-    if (result.navigationError) {
-      log.debug(() => '🔍 Navigation detected while marking button as processed');
-      return false;
-    }
-
-    log.debug(() => `🔍 Marked button at index ${buttonIndex} as processed`);
-    return result.value;
-  } catch (error) {
-    log.debug(() => `🔍 Error marking button as processed: ${error.message}`);
-    return false;
+function markVacancyButtonAsProcessed({ vacancyId }) {
+  if (vacancyId) {
+    processedVacancyIds.add(vacancyId);
+    log.debug(() => `🔍 Marked vacancy ID ${vacancyId} as processed (total: ${processedVacancyIds.size})`);
+    return true;
   }
+  log.debug(() => '🔍 No vacancy ID provided, could not mark as processed');
+  return false;
 }
 
 /**
@@ -894,6 +992,7 @@ export async function findAndProcessVacancyButton({
 
   const buttonSelector = buttonResult.selector;
   const buttonIndex = buttonResult.buttonIndex ?? 0;
+  const vacancyId = buttonResult.vacancyId;
 
   // Validate button state
   const stateValidation = await validateButtonState({
@@ -906,11 +1005,16 @@ export async function findAndProcessVacancyButton({
     return { status: stateValidation.status };
   }
 
-  // IMPORTANT: Mark the button as processed BEFORE clicking
+  // IMPORTANT: Mark the vacancy as processed BEFORE clicking
   // This ensures that even if the click opens a direct application modal
-  // that closes without navigating away, the button won't be clicked again
-  await markButtonAsProcessed({ commander, selector: buttonSelector, buttonIndex });
-  log.debug(() => `🔍 Marked button at index ${buttonIndex} as processed before clicking`);
+  // that closes without navigating away, the vacancy won't be clicked again
+  // The vacancy ID is stored in RAM, so it persists across page navigation
+  markVacancyButtonAsProcessed({ vacancyId });
+  if (vacancyId) {
+    log.debug(() => `🔍 Marked vacancy ID ${vacancyId} as processed before clicking`);
+  } else {
+    log.debug(() => `🔍 No vacancy ID found, proceeding with button at index ${buttonIndex}`);
+  }
 
   // Execute button click
   const clickResult = await executeButtonClick({
@@ -943,8 +1047,9 @@ export async function findAndProcessVacancyButton({
 
   if (modalResult.directApplication) {
     // Direct application was detected and closed, skip this vacancy
-    // The button was already marked as processed, so the next iteration
-    // will find a different button
+    // The vacancy ID was already marked as processed, so the next iteration
+    // will find a different vacancy (even on different pages)
+    console.log(`✅ Direct application skipped, continuing with next vacancy... (${processedVacancyIds.size} vacancies processed in session)`);
     return { status: 'direct_application_skipped' };
   }
 
