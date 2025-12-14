@@ -398,6 +398,14 @@ async function findVacancyButton({ commander }) {
   // Find "Откликнуться" button using text selector
   const baseButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
 
+  // Normalize the selector for Puppeteer (converts object to string selector)
+  const normalizedSelector = await commander.normalizeSelector({ selector: baseButtonSelector });
+
+  if (!normalizedSelector) {
+    log.debug(() => '🔍 Could not find button with text "Откликнуться"');
+    return { selector: null, count: 0, status: 'no_buttons_found' };
+  }
+
   // Get the list of already processed vacancy IDs to pass to the browser context
   const processedIds = Array.from(processedVacancyIds);
 
@@ -474,7 +482,7 @@ async function findVacancyButton({ commander }) {
         processedCount: allButtons.length - unprocessedCount,
       };
     },
-    args: [baseButtonSelector, processedIds],
+    args: [normalizedSelector, processedIds],
     defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1, firstUnprocessedVacancyId: null, processedCount: 0 },
     operationName: 'find unprocessed vacancy button',
   });
@@ -536,7 +544,7 @@ async function findVacancyButton({ commander }) {
           firstUnprocessedVacancyId,
         };
       },
-      args: [baseButtonSelector, processedIds],
+      args: [normalizedSelector, processedIds],
       defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1, firstUnprocessedVacancyId: null },
       operationName: 'find unprocessed vacancy button (retry)',
     });
@@ -547,7 +555,7 @@ async function findVacancyButton({ commander }) {
 
     log.debug(() => `🔍 Found ${retryInfo.value.unprocessedCount} unprocessed button(s) after waiting`);
     return {
-      selector: baseButtonSelector,
+      selector: normalizedSelector,
       count: retryInfo.value.unprocessedCount,
       buttonIndex: retryInfo.value.firstUnprocessedIndex,
       vacancyId: retryInfo.value.firstUnprocessedVacancyId,
@@ -562,7 +570,7 @@ async function findVacancyButton({ commander }) {
     log.debug(() => `🔍 Next vacancy to process: ID ${firstUnprocessedVacancyId}`);
   }
   return {
-    selector: baseButtonSelector,
+    selector: normalizedSelector,
     count: unprocessedCount,
     buttonIndex: firstUnprocessedIndex,
     vacancyId: firstUnprocessedVacancyId,
