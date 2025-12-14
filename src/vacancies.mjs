@@ -339,35 +339,252 @@ async function validateTargetPage({
 }
 
 /**
+ * In-memory Set to track processed vacancy IDs across all pages
+ * This prevents the same vacancy from being clicked multiple times,
+ * even if the user navigates to different pages where the same vacancy appears.
+ *
+ * The vacancy ID is extracted from the DOM structure:
+ * <div id="128579290" class="vacancy-card--...">
+ *   ... button inside ...
+ * </div>
+ *
+ * This approach is superior to HTML attribute marking because:
+ * - It persists across page navigation (stays in RAM)
+ * - It works even if the same vacancy appears on multiple pages
+ * - It doesn't require modifying the DOM
+ */
+const processedVacancyIds = new Set();
+
+/**
+ * Get the count of processed vacancy IDs (for logging/debugging)
+ * @returns {number} Number of processed vacancies
+ */
+export function getProcessedVacancyCount() {
+  return processedVacancyIds.size;
+}
+
+/**
+ * Clear all processed vacancy IDs (useful for testing or reset)
+ */
+export function clearProcessedVacancies() {
+  processedVacancyIds.clear();
+}
+
+/**
+ * Check if a vacancy has been processed
+ * @param {string} vacancyId - The vacancy ID to check
+ * @returns {boolean} True if the vacancy has been processed
+ */
+export function isVacancyProcessed(vacancyId) {
+  return processedVacancyIds.has(vacancyId);
+}
+
+/**
+ * Mark a vacancy as processed
+ * @param {string} vacancyId - The vacancy ID to mark as processed
+ */
+export function markVacancyAsProcessed(vacancyId) {
+  processedVacancyIds.add(vacancyId);
+}
+
+/**
  * Find vacancy button on the page with retry logic
+ * Excludes buttons whose parent vacancy card ID is in the processedVacancyIds Set
  * @param {Object} options
  * @param {Object} options.commander - Browser commander instance
- * @returns {Promise<{selector: string | null, count: number, status?: string}>}
+ * @returns {Promise<{selector: string | null, count: number, vacancyId?: string, status?: string}>}
  */
 async function findVacancyButton({ commander }) {
   // Find "Откликнуться" button using text selector
-  const buttonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-  const buttonCount = await commander.count({ selector: buttonSelector });
+  const baseButtonSelector = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
 
-  if (buttonCount === 0) {
-    // Double-check: maybe page is still loading
-    log.debug(() => '🔍 No buttons found, waiting for page to fully load...');
+  // Get the list of already processed vacancy IDs to pass to the browser context
+  const processedIds = Array.from(processedVacancyIds);
+
+  // Use evaluate to find the first unprocessed button by checking vacancy card IDs
+  const unprocessedButtonInfo = await commander.safeEvaluate({
+    fn: (baseSelector, alreadyProcessedIds) => {
+      // Find all buttons matching the base selector
+      const allButtons = document.querySelectorAll(baseSelector);
+      let unprocessedCount = 0;
+      let firstUnprocessedIndex = -1;
+      let firstUnprocessedVacancyId = null;
+
+      // Convert to Set for O(1) lookup
+      const processedSet = new Set(alreadyProcessedIds);
+
+      for (let i = 0; i < allButtons.length; i++) {
+        const button = allButtons[i];
+
+        // Find the parent vacancy card to get the vacancy ID
+        // The vacancy card has a numeric ID like "128579290" in id="128579290"
+        // and contains a class starting with "vacancy-card--"
+        let vacancyCard = button.closest('[class*="vacancy-card--"]');
+        let vacancyId = null;
+
+        if (vacancyCard) {
+          // The vacancy card might not have the id directly, check parent divs
+          let parent = vacancyCard;
+          while (parent && !vacancyId) {
+            if (parent.id && /^\d+$/.test(parent.id)) {
+              vacancyId = parent.id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          // Also try to find id in parent containers if not found
+          if (!vacancyId) {
+            const idElement = vacancyCard.querySelector('[id]');
+            if (idElement && /^\d+$/.test(idElement.id)) {
+              vacancyId = idElement.id;
+            }
+          }
+        }
+
+        // If we couldn't find a vacancy ID in the card, try looking up the DOM tree
+        if (!vacancyId) {
+          let parent = button.parentElement;
+          while (parent) {
+            if (parent.id && /^\d+$/.test(parent.id)) {
+              vacancyId = parent.id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        }
+
+        // Check if this vacancy has already been processed
+        const isProcessed = vacancyId && processedSet.has(vacancyId);
+
+        if (!isProcessed) {
+          unprocessedCount++;
+          if (firstUnprocessedIndex === -1) {
+            firstUnprocessedIndex = i;
+            firstUnprocessedVacancyId = vacancyId;
+          }
+        }
+      }
+
+      return {
+        totalButtons: allButtons.length,
+        unprocessedCount,
+        firstUnprocessedIndex,
+        firstUnprocessedVacancyId,
+        processedCount: allButtons.length - unprocessedCount,
+      };
+    },
+    args: [baseButtonSelector, processedIds],
+    defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1, firstUnprocessedVacancyId: null, processedCount: 0 },
+    operationName: 'find unprocessed vacancy button',
+  });
+
+  if (unprocessedButtonInfo.navigationError) {
+    log.debug(() => '🔍 Navigation detected while finding buttons');
+    return { selector: null, count: 0, status: 'navigation_detected' };
+  }
+
+  const { totalButtons, unprocessedCount, firstUnprocessedIndex, firstUnprocessedVacancyId, processedCount } = unprocessedButtonInfo.value;
+
+  if (unprocessedCount === 0) {
+    if (totalButtons > 0) {
+      log.debug(() => `🔍 Found ${totalButtons} button(s) but all are already processed (${processedCount} skipped), waiting for page to fully load...`);
+    } else {
+      log.debug(() => '🔍 No buttons found, waiting for page to fully load...');
+    }
     await commander.wait({ ms: 2000, reason: 'page to fully load' });
 
-    // Try one more time
-    const buttonSelector2 = await commander.findByText({ text: 'Откликнуться', selector: 'a' });
-    const buttonCount2 = await commander.count({ selector: buttonSelector2 });
+    // Try one more time after waiting
+    const retryInfo = await commander.safeEvaluate({
+      fn: (baseSelector, alreadyProcessedIds) => {
+        const allButtons = document.querySelectorAll(baseSelector);
+        let unprocessedCount = 0;
+        let firstUnprocessedIndex = -1;
+        let firstUnprocessedVacancyId = null;
 
-    if (buttonCount2 === 0) {
+        const processedSet = new Set(alreadyProcessedIds);
+
+        for (let i = 0; i < allButtons.length; i++) {
+          const button = allButtons[i];
+
+          // Find vacancy ID from parent elements
+          let vacancyId = null;
+          let parent = button.parentElement;
+          while (parent) {
+            if (parent.id && /^\d+$/.test(parent.id)) {
+              vacancyId = parent.id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          const isProcessed = vacancyId && processedSet.has(vacancyId);
+
+          if (!isProcessed) {
+            unprocessedCount++;
+            if (firstUnprocessedIndex === -1) {
+              firstUnprocessedIndex = i;
+              firstUnprocessedVacancyId = vacancyId;
+            }
+          }
+        }
+
+        return {
+          totalButtons: allButtons.length,
+          unprocessedCount,
+          firstUnprocessedIndex,
+          firstUnprocessedVacancyId,
+        };
+      },
+      args: [baseButtonSelector, processedIds],
+      defaultValue: { totalButtons: 0, unprocessedCount: 0, firstUnprocessedIndex: -1, firstUnprocessedVacancyId: null },
+      operationName: 'find unprocessed vacancy button (retry)',
+    });
+
+    if (retryInfo.navigationError || retryInfo.value.unprocessedCount === 0) {
       return { selector: null, count: 0, status: 'no_buttons_found' };
     }
 
-    log.debug(() => `🔍 Found ${buttonCount2} button(s) after waiting`);
-    return { selector: buttonSelector2, count: buttonCount2, status: 'retry_needed' };
+    log.debug(() => `🔍 Found ${retryInfo.value.unprocessedCount} unprocessed button(s) after waiting`);
+    return {
+      selector: baseButtonSelector,
+      count: retryInfo.value.unprocessedCount,
+      buttonIndex: retryInfo.value.firstUnprocessedIndex,
+      vacancyId: retryInfo.value.firstUnprocessedVacancyId,
+    };
   }
 
-  console.log(`📋 Found ${buttonCount} "Откликнуться" button(s). Processing next button...`);
-  return { selector: buttonSelector, count: buttonCount };
+  console.log(`📋 Found ${unprocessedCount} "Откликнуться" button(s). Processing next button...`);
+  if (processedCount > 0) {
+    log.debug(() => `🔍 (${processedCount} button(s) already processed and skipped based on vacancy IDs)`);
+  }
+  if (firstUnprocessedVacancyId) {
+    log.debug(() => `🔍 Next vacancy to process: ID ${firstUnprocessedVacancyId}`);
+  }
+  return {
+    selector: baseButtonSelector,
+    count: unprocessedCount,
+    buttonIndex: firstUnprocessedIndex,
+    vacancyId: firstUnprocessedVacancyId,
+  };
+}
+
+/**
+ * Mark a vacancy as processed by adding its ID to the processedVacancyIds Set
+ * This prevents the vacancy from being clicked again on subsequent iterations
+ * or on different pages where the same vacancy might appear
+ * @param {Object} options
+ * @param {string} options.vacancyId - The vacancy ID to mark as processed
+ * @returns {boolean} - True if vacancy was marked successfully
+ */
+function markVacancyButtonAsProcessed({ vacancyId }) {
+  if (vacancyId) {
+    processedVacancyIds.add(vacancyId);
+    log.debug(() => `🔍 Marked vacancy ID ${vacancyId} as processed (total: ${processedVacancyIds.size})`);
+    return true;
+  }
+  log.debug(() => '🔍 No vacancy ID provided, could not mark as processed');
+  return false;
 }
 
 /**
@@ -375,10 +592,34 @@ async function findVacancyButton({ commander }) {
  * @param {Object} options
  * @param {Object} options.commander - Browser commander instance
  * @param {string} options.selector - Button selector
+ * @param {number} [options.buttonIndex=0] - Index of the button to validate
  * @returns {Promise<{enabled: boolean, status?: string}>}
  */
-async function validateButtonState({ commander, selector }) {
-  const isEnabled = await commander.isEnabled({ selector });
+async function validateButtonState({ commander, selector, buttonIndex = 0 }) {
+  // Check if the specific button at the given index is enabled
+  const enabledResult = await commander.safeEvaluate({
+    fn: (baseSelector, index) => {
+      const allButtons = document.querySelectorAll(baseSelector);
+      if (index >= 0 && index < allButtons.length) {
+        const button = allButtons[index];
+        // Check various disabled states
+        const isDisabled = button.hasAttribute('disabled') ||
+                          button.classList.contains('disabled') ||
+                          button.getAttribute('aria-disabled') === 'true';
+        return !isDisabled;
+      }
+      return false;
+    },
+    args: [selector, buttonIndex],
+    defaultValue: true, // Assume enabled if check fails
+    operationName: 'validate button state',
+  });
+
+  if (enabledResult.navigationError) {
+    return { enabled: false, status: 'navigation_detected' };
+  }
+
+  const isEnabled = enabledResult.value;
 
   if (!isEnabled) {
     console.log('⚠️  First button is disabled or loading, waiting 2 seconds...');
@@ -391,12 +632,14 @@ async function validateButtonState({ commander, selector }) {
 
 /**
  * Execute button click with scroll handling and state tracking
+ * Uses buttonIndex to click the specific button at the given position
  * @param {Object} options
  * @param {Object} options.commander - Browser commander instance
- * @param {string} options.selector - Button selector
+ * @param {string} options.selector - Base button selector
+ * @param {number} [options.buttonIndex=0] - Index of the button to click
  * @returns {Promise<{success: boolean, navigated: boolean, status?: string}>}
  */
-async function executeButtonClick({ commander, selector }) {
+async function executeButtonClick({ commander, selector, buttonIndex = 0 }) {
   // Log scroll position before any interaction
   try {
     const scrollBefore = await commander.evaluate({
@@ -411,24 +654,54 @@ async function executeButtonClick({ commander, selector }) {
   }
 
   // Click button with smooth scrolling animation
+  // Use evaluate to click the specific button at buttonIndex
   try {
-    log.debug(() => '🔍 2. About to click button in list (scrollIntoView: true, smoothScroll: true)');
-    const clickResult = await commander.clickButton({
-      selector,
-      scrollIntoView: true,
-      smoothScroll: true,
+    log.debug(() => `🔍 2. About to click button at index ${buttonIndex} (scrollIntoView: true, smoothScroll: true)`);
+
+    // First scroll the button into view
+    await commander.safeEvaluate({
+      fn: (baseSelector, index) => {
+        const allButtons = document.querySelectorAll(baseSelector);
+        if (index >= 0 && index < allButtons.length) {
+          allButtons[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      },
+      args: [selector, buttonIndex],
+      defaultValue: null,
+      operationName: 'scroll button into view',
     });
 
-    // Handle new return format {clicked, navigated}
-    const navigated = typeof clickResult === 'object' ? clickResult.navigated : false;
+    // Wait for smooth scroll
+    await commander.wait({ ms: 500, reason: 'smooth scroll animation' });
 
-    // If navigation happened, stop processing this page
-    if (navigated) {
-      console.log('⚠️  Navigation detected during button click, page ready');
+    // Click the specific button using evaluate
+    const clickResult = await commander.safeEvaluate({
+      fn: (baseSelector, index) => {
+        const allButtons = document.querySelectorAll(baseSelector);
+        if (index >= 0 && index < allButtons.length) {
+          allButtons[index].click();
+          return { clicked: true };
+        }
+        return { clicked: false, error: 'Button not found at index' };
+      },
+      args: [selector, buttonIndex],
+      defaultValue: { clicked: false, error: 'evaluate failed' },
+      operationName: 'click vacancy button',
+    });
+
+    if (clickResult.navigationError) {
       return { success: true, navigated: true, status: 'navigation_detected' };
     }
 
-    log.debug(() => '🔍 3. Button click completed + 1s wait after click (via waitAfterClick)');
+    if (!clickResult.value.clicked) {
+      log.debug(() => `🔍 Click failed: ${clickResult.value.error}`);
+      return { success: false, navigated: false, status: 'click_error' };
+    }
+
+    // Wait for click to complete
+    await commander.wait({ ms: 1000, reason: 'post-click settling time' });
+
+    log.debug(() => '🔍 3. Button click completed + 1s wait after click');
 
     // Check state immediately after click in debug mode
     try {
@@ -712,21 +985,43 @@ export async function findAndProcessVacancyButton({
     return { status: buttonResult.status };
   }
 
-  if (buttonResult.status) {
+  // Handle navigation detected during button finding
+  if (buttonResult.status === 'navigation_detected') {
     return { status: buttonResult.status };
   }
 
   const buttonSelector = buttonResult.selector;
+  const buttonIndex = buttonResult.buttonIndex ?? 0;
+  const vacancyId = buttonResult.vacancyId;
 
   // Validate button state
-  const stateValidation = await validateButtonState({ commander, selector: buttonSelector });
+  const stateValidation = await validateButtonState({
+    commander,
+    selector: buttonSelector,
+    buttonIndex,
+  });
 
   if (!stateValidation.enabled) {
     return { status: stateValidation.status };
   }
 
+  // IMPORTANT: Mark the vacancy as processed BEFORE clicking
+  // This ensures that even if the click opens a direct application modal
+  // that closes without navigating away, the vacancy won't be clicked again
+  // The vacancy ID is stored in RAM, so it persists across page navigation
+  markVacancyButtonAsProcessed({ vacancyId });
+  if (vacancyId) {
+    log.debug(() => `🔍 Marked vacancy ID ${vacancyId} as processed before clicking`);
+  } else {
+    log.debug(() => `🔍 No vacancy ID found, proceeding with button at index ${buttonIndex}`);
+  }
+
   // Execute button click
-  const clickResult = await executeButtonClick({ commander, selector: buttonSelector });
+  const clickResult = await executeButtonClick({
+    commander,
+    selector: buttonSelector,
+    buttonIndex,
+  });
 
   if (!clickResult.success || clickResult.navigated) {
     return { status: clickResult.status };
@@ -752,6 +1047,9 @@ export async function findAndProcessVacancyButton({
 
   if (modalResult.directApplication) {
     // Direct application was detected and closed, skip this vacancy
+    // The vacancy ID was already marked as processed, so the next iteration
+    // will find a different vacancy (even on different pages)
+    console.log(`✅ Direct application skipped, continuing with next vacancy... (${processedVacancyIds.size} vacancies processed in session)`);
     return { status: 'direct_application_skipped' };
   }
 
