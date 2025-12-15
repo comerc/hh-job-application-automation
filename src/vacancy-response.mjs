@@ -410,6 +410,10 @@ async function checkAndSkipDirectApplicationModal({ commander }) {
 
 /**
  * Handle the vacancy_response page
+ *
+ * Note: This function is now called exclusively from the pageTrigger system
+ * in page-triggers.mjs, which ensures it's only called once per page with
+ * proper lifecycle management. Legacy calls from vacancies.mjs have been removed.
  */
 export async function handleVacancyResponsePage({
   commander,
