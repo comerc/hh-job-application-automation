@@ -18,28 +18,6 @@ import { log } from './logging.mjs';
 import { SELECTORS } from './hh-selectors.mjs';
 import { isNavigationError, isTimeoutError } from './browser-commander/index.js';
 
-// Guard to prevent concurrent execution of handleVacancyResponsePage
-// This fixes issue #136 where the handler was called from both legacy code and pageTriggers
-let isHandlingVacancyResponse = false;
-let currentHandlingUrl = null;
-
-/**
- * Reset the vacancy response handling guard (useful for testing)
- * @returns {void}
- */
-export function resetVacancyResponseGuard() {
-  isHandlingVacancyResponse = false;
-  currentHandlingUrl = null;
-}
-
-/**
- * Check if vacancy response handling is in progress
- * @returns {boolean} True if handling is in progress
- */
-export function isVacancyResponseHandlingInProgress() {
-  return isHandlingVacancyResponse;
-}
-
 /**
  * Setup Q&A auto-fill and auto-save for all textareas and radio buttons on the page
  */
@@ -432,6 +410,10 @@ async function checkAndSkipDirectApplicationModal({ commander }) {
 
 /**
  * Handle the vacancy_response page
+ *
+ * Note: This function is now called exclusively from the pageTrigger system
+ * in page-triggers.mjs, which ensures it's only called once per page with
+ * proper lifecycle management. Legacy calls from vacancies.mjs have been removed.
  */
 export async function handleVacancyResponsePage({
   commander,
@@ -442,21 +424,6 @@ export async function handleVacancyResponsePage({
   autoSubmitEnabled,
   verbose,
 }) {
-  // Get current URL for guard check
-  const currentUrl = commander.getUrl();
-
-  // Guard against concurrent execution (fixes issue #136)
-  // This can happen when both legacy code in vacancies.mjs and pageTriggers call this function
-  if (isHandlingVacancyResponse) {
-    console.log(`⚠️  handleVacancyResponsePage already running for: ${currentHandlingUrl}`);
-    console.log(`   Skipping duplicate call for: ${currentUrl}`);
-    return;
-  }
-
-  // Set guard
-  isHandlingVacancyResponse = true;
-  currentHandlingUrl = currentUrl;
-
   try {
     console.log('Detected vacancy_response page, handling application form...');
 
@@ -682,9 +649,5 @@ export async function handleVacancyResponsePage({
     // Re-throw unexpected errors
     console.error('Unexpected error in handleVacancyResponsePage:', error.message);
     throw error;
-  } finally {
-    // Always reset guard when function completes (success or error)
-    isHandlingVacancyResponse = false;
-    currentHandlingUrl = null;
   }
 }

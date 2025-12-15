@@ -292,44 +292,17 @@ export async function processModalApplication({
 async function validateTargetPage({
   commander,
   targetPagePattern,
-  vacancyResponsePattern,
-  handleVacancyResponsePage,
-  waitForUrlCondition,
-  START_URL,
-  pageClosedByUser,
+  _vacancyResponsePattern,
+  _handleVacancyResponsePage,
+  _waitForUrlCondition,
+  _START_URL,
+  _pageClosedByUser,
 }) {
   const currentPageUrl = commander.getUrl();
   if (!targetPagePattern.test(currentPageUrl)) {
-    // Check if we're on a vacancy_response page - if so, handle it
-    if (vacancyResponsePattern.test(currentPageUrl)) {
-      console.log('💡 On vacancy_response page, handling automatically...');
-      await handleVacancyResponsePage();
-
-      // After handling, wait a bit for potential redirect
-      await commander.wait({ ms: 2000, reason: 'potential redirect after vacancy response handling' });
-
-      // Check if we're back on target page
-      const newUrl = commander.getUrl();
-      if (targetPagePattern.test(newUrl)) {
-        console.log('✅ Back on search page after vacancy response handling');
-        return { valid: false, status: 'vacancy_response_handled' };
-      } else if (vacancyResponsePattern.test(newUrl)) {
-        // Still on vacancy_response - user needs to complete manually
-        console.log('💡 Still on vacancy_response page, waiting for user action...');
-        const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
-        if (pageClosedByUser()) {
-          return { valid: false, status: 'page_closed' };
-        }
-        if (waitResult === 'redirect_needed') {
-          return { valid: false, status: 'redirect_needed' };
-        }
-        console.log('✅ Returned to target page after vacancy response');
-        return { valid: false, status: 'returned_to_target' };
-      } else {
-        // Navigated somewhere else
-        return { valid: false, status: 'not_on_target_page' };
-      }
-    }
+    // Note: vacancy_response pages are now handled by the pageTrigger system
+    // in page-triggers.mjs. No need to call handleVacancyResponsePage here.
+    // The pageTrigger will automatically handle the page with proper lifecycle management.
 
     log.debug(() => `🔍 Not on target page, waiting for navigation: ${currentPageUrl}`);
     return { valid: false, status: 'not_on_target_page' };
@@ -766,7 +739,7 @@ async function handlePostClickNavigation({
   commander,
   targetPagePattern,
   vacancyResponsePattern,
-  handleVacancyResponsePage,
+  _handleVacancyResponsePage,
   waitForUrlCondition,
   START_URL,
   pageClosedByUser,
@@ -803,35 +776,20 @@ async function handlePostClickNavigation({
   if (!targetPagePattern.test(currentUrl)) {
     console.log('⚠️  Redirected to a different page:', currentUrl);
 
+    // Note: vacancy_response pages are now handled by the pageTrigger system
+    // in page-triggers.mjs. The pageTrigger will automatically detect the page
+    // and handle the form filling with proper lifecycle management.
+    // No need to manually call handleVacancyResponsePage here.
+
     if (vacancyResponsePattern.test(currentUrl)) {
-      console.log('💡 This is a vacancy_response page, handling automatically...');
-      await handleVacancyResponsePage();
+      // The pageTrigger is already handling this page, just return
+      // to let the main loop continue normally
+      log.debug(() => '💡 Vacancy response page detected - pageTrigger will handle it');
+      return { onTargetPage: false, status: 'vacancy_response_detected' };
+    }
 
-      await commander.wait({ ms: 2000, reason: 'potential redirect or manual navigation' });
-
-      const newUrl = commander.getUrl();
-      if (targetPagePattern.test(newUrl)) {
-        console.log('✅ Back on search page after submission');
-        await commander.wait({ ms: 1000, reason: 'page to fully load' });
-        return { onTargetPage: false, status: 'vacancy_response_handled' };
-      } else if (vacancyResponsePattern.test(newUrl)) {
-        console.log('💡 Waiting for you to complete and navigate back to:', START_URL);
-
-        const waitResult = await waitForUrlCondition(START_URL, 'Waiting for you to return to the target page');
-        if (pageClosedByUser()) {
-          return { onTargetPage: false, status: 'page_closed' };
-        }
-
-        if (waitResult === 'redirect_needed') {
-          return { onTargetPage: false, status: 'redirect_needed' };
-        } else {
-          console.log('✅ Returned to target page! Continuing with button loop...');
-        }
-
-        await commander.wait({ ms: 1000, reason: 'page to fully load after navigation' });
-        return { onTargetPage: false, status: 'returned_to_target' };
-      }
-    } else {
+    // For other non-target pages (e.g., external application forms)
+    if (!vacancyResponsePattern.test(currentUrl)) {
       console.log('💡 This appears to be a separate application form page.');
       console.log('💡 Please fill out the form manually. Take as much time as you need.');
       console.log('💡 Once done, navigate back to:', START_URL);
