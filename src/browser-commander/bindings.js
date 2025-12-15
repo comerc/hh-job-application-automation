@@ -95,7 +95,7 @@ export function createBoundFunctions(options = {}) {
   const querySelectorBound = (opts) => querySelector({ ...opts, page, engine });
   const querySelectorAllBound = (opts) => querySelectorAll({ ...opts, page, engine });
   const findByTextBound = (opts) => findByText({ ...opts, engine });
-  const normalizeSelectorBound = (opts) => normalizeSelector({ ...opts, page });
+  const normalizeSelectorBound = (opts) => normalizeSelector({ ...opts, page, engine });
   const waitForSelectorBound = (opts) => waitForSelector({ ...opts, page, engine });
 
   // Bound visibility
