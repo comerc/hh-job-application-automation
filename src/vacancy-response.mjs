@@ -449,12 +449,19 @@ export async function handleVacancyResponsePage({
 
     // Log all textareas in debug mode
     for (let i = 0; i < initialCount; i++) {
-      const selector = `textarea:nth-of-type(${i + 1})`;
-      log.debug(() => `Processing textarea ${i} with selector: ${selector}`);
-      const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
-      const visible = await commander.isVisible({ selector });
-      const dataQaDisplay = dataQa || '(none)';
-      console.log(`Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
+      try {
+        const selector = `textarea:nth-of-type(${i + 1})`;
+        log.debug(() => `Processing textarea ${i} with selector: ${selector}`);
+        const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
+        const visible = await commander.isVisible({ selector });
+        const dataQaDisplay = dataQa || '(none)';
+        console.log(`Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
+      } catch (error) {
+        // Handle errors gracefully to prevent crashes during textarea logging
+        // Common errors: element detached, navigation in progress, timeout
+        console.log(`Initial textarea ${i}: error getting details (${error.message})`);
+        log.debug(() => `Error details for textarea ${i}: ${error.stack || error.message}`);
+      }
     }
 
     // Check if textarea is already visible
