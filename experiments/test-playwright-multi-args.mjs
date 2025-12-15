@@ -51,7 +51,7 @@ async function testPlaywrightMultiArgs() {
   console.log('Test 1: Single argument');
   const result1 = await adapter.evaluateOnPage(
     (x) => x * 2,
-    [5]
+    [5],
   );
   console.log(`  Input: 5, Expected: 10, Got: ${result1}`);
   console.assert(result1 === 10, 'Single argument test failed');
@@ -61,7 +61,7 @@ async function testPlaywrightMultiArgs() {
   console.log('Test 2: Multiple arguments (the bug case)');
   const result2 = await adapter.evaluateOnPage(
     (a, b) => a + b,
-    [3, 7]
+    [3, 7],
   );
   console.log(`  Input: (3, 7), Expected: 10, Got: ${result2}`);
   console.assert(result2 === 10, 'Multiple arguments test failed');
@@ -71,7 +71,7 @@ async function testPlaywrightMultiArgs() {
   console.log('Test 3: Three arguments');
   const result3 = await adapter.evaluateOnPage(
     (a, b, c) => a + b + c,
-    [1, 2, 3]
+    [1, 2, 3],
   );
   console.log(`  Input: (1, 2, 3), Expected: 6, Got: ${result3}`);
   console.assert(result3 === 6, 'Three arguments test failed');
@@ -85,12 +85,12 @@ async function testPlaywrightMultiArgs() {
       // The bug was that selector was receiving the entire array [selector, processedIds]
       return `Selector: ${selector}, ProcessedCount: ${processedIds.length}`;
     },
-    ['a:has-text("Test")', ['id1', 'id2', 'id3']]
+    ['a:has-text("Test")', ['id1', 'id2', 'id3']],
   );
   console.log(`  Expected: contains "Selector: a:has-text", Got: ${result4}`);
   console.assert(
     result4.includes('Selector: a:has-text') && result4.includes('ProcessedCount: 3'),
-    'Mixed types test failed'
+    'Mixed types test failed',
   );
   console.log('  PASSED\n');
 
@@ -104,12 +104,12 @@ async function testPlaywrightMultiArgs() {
       }
       return { selector: baseSelector, index };
     },
-    ['button.apply', 2]
+    ['button.apply', 2],
   );
   console.log(`  Expected: {selector: 'button.apply', index: 2}, Got: ${JSON.stringify(result5)}`);
   console.assert(
     result5.selector === 'button.apply' && result5.index === 2,
-    'Complex arrow function test failed'
+    'Complex arrow function test failed',
   );
   console.log('  PASSED\n');
 
@@ -126,7 +126,7 @@ async function testPuppeteerMultiArgs() {
   console.log('Test: Multiple arguments (Puppeteer native behavior)');
   const result = await adapter.evaluateOnPage(
     (a, b) => a + b,
-    [3, 7]
+    [3, 7],
   );
   console.log(`  Input: (3, 7), Expected: 10, Got: ${result}`);
   console.assert(result === 10, 'Puppeteer multiple arguments test failed');
