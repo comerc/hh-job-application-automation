@@ -1,0 +1,39 @@
+The browser will automatically continue once you are redirected to: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist
+Waiting: Waiting for you to complete login...
+Login successful! Proceeding with automation...
+📋 Registered page trigger: "vacancy-response-page" (priority: 10)
+📋 Registered page trigger: "vacancy-page" (priority: 5)
+📋 Registered page trigger: "search-page" (priority: 3)
+checkAndRedirectIfNeeded called
+Current URL: https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist
+isOnVacancyPageFromResponse: false
+📤 Request started: https://us.ck-ie.com/hbrd678.gif?gdpr=&gdpr_consent=&puid=5a7a6b861175b2c87549... (pending: 1)
+📤 Request started: https://cr-frontend.weborama-tech.ru/cr?key=hybrid&url=https%3A%2F%2Fdm.hybrid.a... (pending: 2)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 3)
+📤 Request started: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=4250802178&pr1=1133558247&dl=ht... (pending: 4)
+📤 Request started: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 5)
+📤 Request started: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 6)
+📤 Request started: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 7)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 8)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 9)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 10)
+📤 Request started: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 11)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 10)
+📥 Request ended: https://mc.yandex.ru/watch/93250637/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 9)
+📥 Request ended: https://mc.yandex.ru/watch/156828/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fvaca... (pending: 8)
+📥 Request ended: https://mc.yandex.ru/watch/83135743/1?page-url=https%3A%2F%2Fhh.ru%2Fsearch%2Fva... (pending: 7)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 6)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 5)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 4)
+📥 Request ended: https://hh.ru/anatskytics?hhtmSource=vacancy_search_list&hhtmFrom=&hhtmSourceLab... (pending: 3)
+📤 Request started: https://adsrv.hh.ru/banner-files/utils/build/header-bidding-script.js... (pending: 4)
+📤 Request started: https://yandex.ru/adfox/400505/event?ad-session-id=6732541765746741700&adfox-ver... (pending: 5)
+📥 Request ended: https://yandex.ru/ads/adfox/400505/getBulk/v2?pr=4250802178&pr1=1133558247&dl=ht... (pending: 4)
+Error occurred: page.evaluate: SyntaxError: Failed to execute 'querySelectorAll' on 'Document': 'a:has-text("Откликнуться"),' is not a valid selector.
+    at eval (eval at evaluate (:290:30), <anonymous>:3:35)
+    at UtilityScript.evaluate (<anonymous>:292:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+📋 Unregistered page trigger: "vacancy-response-page"
+📋 Unregistered page trigger: "vacancy-page"
+📋 Unregistered page trigger: "search-page"
+📋 All page triggers unregistered
