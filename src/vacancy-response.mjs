@@ -449,18 +449,38 @@ export async function handleVacancyResponsePage({
 
     // Log all textareas in debug mode
     for (let i = 0; i < initialCount; i++) {
-      try {
-        const selector = `textarea:nth-of-type(${i + 1})`;
-        log.debug(() => `Processing textarea ${i} with selector: ${selector}`);
-        const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
-        const visible = await commander.isVisible({ selector });
-        const dataQaDisplay = dataQa || '(none)';
-        console.log(`Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
-      } catch (error) {
-        // Handle errors gracefully to prevent crashes during textarea logging
-        // Common errors: element detached, navigation in progress, timeout
-        console.log(`Initial textarea ${i}: error getting details (${error.message})`);
-        log.debug(() => `Error details for textarea ${i}: ${error.stack || error.message}`);
+      const selector = `textarea:nth-of-type(${i + 1})`;
+      const maxRetries = 3;
+      const retryDelay = 500; // ms
+      let success = false;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          log.debug(() => `Processing textarea ${i} with selector: ${selector} (attempt ${attempt}/${maxRetries})`);
+          const dataQa = await commander.getAttribute({ selector, attribute: 'data-qa' });
+          const visible = await commander.isVisible({ selector });
+          const dataQaDisplay = dataQa || '(none)';
+          console.log(`Initial textarea ${i}: data-qa="${dataQaDisplay}", visible=${visible}`);
+          success = true;
+          break; // Success, exit retry loop
+        } catch (error) {
+          // Common errors: element detached, navigation in progress, timeout
+          const isLastAttempt = attempt === maxRetries;
+
+          if (isLastAttempt) {
+            // After all retries failed, log error and continue
+            console.log(`Initial textarea ${i}: failed after ${maxRetries} attempts (${error.message})`);
+            log.debug(() => `Error details for textarea ${i}: ${error.stack || error.message}`);
+          } else {
+            // Retry after delay
+            log.debug(() => `Textarea ${i} error on attempt ${attempt}, retrying in ${retryDelay}ms: ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+        }
+      }
+
+      if (!success) {
+        log.debug(() => `Textarea ${i} could not be processed after ${maxRetries} attempts, continuing to next`);
       }
     }
 
