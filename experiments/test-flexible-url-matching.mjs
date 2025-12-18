@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * Test the flexible URL matching pattern that only requires the resume parameter

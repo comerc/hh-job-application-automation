@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Experiment to demonstrate the race condition in qa-database
  * This simulates concurrent writes to qa.test.lino file
