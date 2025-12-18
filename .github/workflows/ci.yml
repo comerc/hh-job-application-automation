@@ -69,4 +69,3 @@ jobs:
           bun run lint
           bun test
           bun src/apply.mjs --help > /dev/null
-          bun -c src/inbrowser-clicks.js
