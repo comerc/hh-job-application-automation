@@ -170,7 +170,7 @@ Q&A pairs stored in Links Notation format (`data/qa.lino`):
 
 ## Testing
 
-- **Unit Tests**: 120+ tests using Mocha/Chai
+- **Unit Tests**: 120+ tests using Bun test runner
 - **Test Database**: Separate test fixtures in `tests/fixtures/`
 - **CI**: GitHub Actions runs lint + tests on every push
 

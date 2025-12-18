@@ -55,7 +55,7 @@ The application supports configuration via `.lenv` files using the [lino-argumen
 
 3. Run the application (it will automatically load `.lenv`):
    ```bash
-   npm run apply
+   bun run apply
    ```
 
 **Configuration priority:**
@@ -85,27 +85,27 @@ By default, the script will:
 To enable auto-submission for forms with test questions (when all answers are auto-filled), use the `--auto-submit-vacancy-response-form` flag:
 
 ```bash
-npm run apply -- --auto-submit-vacancy-response-form --verbose
+bun run apply -- --auto-submit-vacancy-response-form --verbose
 ```
 
 **Safety Note:** The default behavior (manual review) is recommended to ensure test answers are correct before submission.
 
 ### Using Playwright (default)
 
-Using npm script (with verbose logging for debugging):
+Using bun script (with verbose logging for debugging):
 ```bash
-npm run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose 2>&1 | tee log.txt
+bun run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose 2>&1 | tee log.txt
 ```
 
 Or explicitly specify Playwright:
 ```bash
-npm run playwright -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose 2>&1 | tee log.txt
+bun run playwright -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose 2>&1 | tee log.txt
 ```
 
 With custom message:
 
 ```bash
-npm run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --message "Your custom application message here" --verbose
+bun run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --message "Your custom application message here" --verbose
 ```
 
 Direct execution:
@@ -113,22 +113,22 @@ Direct execution:
 ./src/apply.mjs --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose
 ```
 
-Using globally installed CLI (after `npm install -g`):
+Using globally installed CLI (after `bun install -g`):
 ```bash
 hh-apply --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose
 ```
 
 ### Using Puppeteer
 
-Using npm script (with verbose logging for debugging):
+Using bun script (with verbose logging for debugging):
 ```bash
-npm run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose
+bun run puppeteer -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose
 ```
 
 With custom message:
 
 ```bash
-npm run apply -- --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --message "Your custom application message here" --verbose
+bun run apply -- --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --message "Your custom application message here" --verbose
 ```
 
 Direct execution:
@@ -136,7 +136,7 @@ Direct execution:
 ./src/apply.mjs --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose
 ```
 
-Using globally installed CLI (after `npm install -g`):
+Using globally installed CLI (after `bun install -g`):
 ```bash
 hh-apply --engine puppeteer --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --verbose
 ```

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 /**
  * Comprehensive test suite for qa-database.mjs
  * Tests for race conditions, concurrent writes, and data integrity

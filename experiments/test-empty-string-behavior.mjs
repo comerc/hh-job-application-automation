@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { addOrUpdateQA, readQADatabase } from '../src/qa-database.mjs';
 import fs from 'fs/promises';
 
