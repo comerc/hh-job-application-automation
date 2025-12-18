@@ -8,13 +8,13 @@
     "hh-apply": "./src/apply.mjs"
   },
   "scripts": {
-    "test": "node --test tests/",
-    "apply": "node src/apply.mjs",
-    "playwright": "node src/apply.mjs --engine playwright",
-    "puppeteer": "node src/apply.mjs --engine puppeteer",
+    "test": "bun --test tests/",
+    "apply": "bun src/apply.mjs",
+    "playwright": "bun src/apply.mjs --engine playwright",
+    "puppeteer": "bun src/apply.mjs --engine puppeteer",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "check": "npm run lint && npm test && node src/apply.mjs --help > /dev/null && node -c src/inbrowser-clicks.js"
+    "check": "bun run lint && bun test && bun src/apply.mjs --help > /dev/null && bun -c src/inbrowser-clicks.js"
   },
   "keywords": [],
   "author": "",
