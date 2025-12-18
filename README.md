@@ -7,6 +7,7 @@ https://github.com/user-attachments/assets/6884b2fe-e322-4358-aab8-7f3c20ccdc46
 
 ## Application message example
 
+Russian version:
 ```
 Здравствуйте,
 
@@ -26,6 +27,28 @@ github.com/link-foundation
 
 С уважением,
 Константин Дьяченко
+```
+
+English version:
+```
+Hello,
+
+I like your company, and I believe my candidacy would be useful to you and that I could bring value to the company’s work.
+
+In what form is the legal arrangement for remote work offered?
+
+You can view my code on GitHub here:
+
+github.com/konard
+github.com/deep-assistant
+github.com/link-assistant
+github.com/linksplatform
+github.com/link-foundation
+
+For quick communication, I suggest using my Telegram: @drakonard (+7 958 200-05-67).
+
+Kind regards,
+Konstantin Dyachenko
 ```
 
 ## Configuration
