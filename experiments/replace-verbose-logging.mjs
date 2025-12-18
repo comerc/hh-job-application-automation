@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * Script to replace verbose console.log patterns with log.debug() lazy evaluation

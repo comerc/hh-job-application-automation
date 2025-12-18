@@ -17,17 +17,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
       - name: Run ESLint
-        run: npm run lint
+        run: bun run lint
 
   test:
     name: Test
@@ -37,33 +36,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
       - name: Run tests
-        # Node.js 20.x test runner has a known intermittent IPC deserialization bug
-        # See: https://github.com/nodejs/node/issues/34797
-        # We retry tests up to 3 times to handle this flaky issue
-        run: |
-          for i in 1 2 3; do
-            echo "Test attempt $i..."
-            if npm test; then
-              echo "Tests passed on attempt $i"
-              exit 0
-            fi
-            if [ $i -eq 3 ]; then
-              echo "Tests failed after 3 attempts"
-              exit 1
-            fi
-            echo "Tests failed on attempt $i, retrying..."
-            sleep 2
-          done
+        run: bun test
 
   check:
     name: Full Check
@@ -74,33 +56,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
-          cache: 'npm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
-      - name: Run full check with retry
-        # Node.js 20.x test runner has a known intermittent IPC deserialization bug
-        # See: https://github.com/nodejs/node/issues/34797
-        # We retry tests up to 3 times to handle this flaky issue
+      - name: Run full check
         run: |
-          npm run lint
-          for i in 1 2 3; do
-            echo "Test attempt $i..."
-            if npm test; then
-              echo "Tests passed on attempt $i"
-              break
-            fi
-            if [ $i -eq 3 ]; then
-              echo "Tests failed after 3 attempts"
-              exit 1
-            fi
-            echo "Tests failed on attempt $i, retrying..."
-            sleep 2
-          done
-          node src/apply.mjs --help > /dev/null
-          node -c src/inbrowser-clicks.js
+          bun run lint
+          bun test
+          bun src/apply.mjs --help > /dev/null

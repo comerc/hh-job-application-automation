@@ -10,10 +10,10 @@ echo "🚀 Initializing repo: $APP_DIR"
 mkdir -p "$APP_DIR"
 cd "$APP_DIR"
 
-# Init Node project
-npm init -y >/dev/null
-npm i -D playwright puppeteer >/dev/null
-npx playwright install chromium >/dev/null
+# Init Bun project
+bun init -y >/dev/null
+bun add -D playwright puppeteer >/dev/null
+bunx playwright install chromium >/dev/null
 
 # .gitignore
 cat > .gitignore <<'EOF'
@@ -62,7 +62,7 @@ EOF
 
 # --- 2️⃣ Playwright version ---
 cat > playwright-apply.mjs <<EOF
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import { chromium } from 'playwright';
 
@@ -93,7 +93,7 @@ EOF
 
 # --- 3️⃣ Puppeteer version ---
 cat > puppeteer-apply.mjs <<EOF
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 import puppeteer from 'puppeteer';
 
@@ -134,8 +134,8 @@ import puppeteer from 'puppeteer';
 })();
 EOF
 
-# --- npm scripts ---
-node -e '
+# --- bun scripts ---
+bun -e '
 const fs=require("fs");
 const pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
 pkg.type="module";
@@ -145,8 +145,8 @@ pkg.bin={
 };
 pkg.scripts={
   "console":"echo '\''Open hh.ru in browser → copy inbrowser-clicks.js → paste in DevTools'\''",
-  "playwright":"node playwright-apply.mjs",
-  "puppeteer":"node puppeteer-apply.mjs"
+  "playwright":"bun playwright-apply.mjs",
+  "puppeteer":"bun puppeteer-apply.mjs"
 };
 fs.writeFileSync("package.json", JSON.stringify(pkg,null,2));
 '
@@ -158,9 +158,9 @@ git commit -m "initial hh.ru automation (console, Playwright, Puppeteer)" >/dev/
 
 echo "✅ Repo created in $(pwd)"
 echo "▶ Run:"
-echo "   npm run playwright   # Playwright automation"
-echo "   npm run puppeteer    # Puppeteer automation"
-echo "   npm run console      # Reminder for browser version"
+echo "   bun run playwright   # Playwright automation"
+echo "   bun run puppeteer    # Puppeteer automation"
+echo "   bun run console      # Reminder for browser version"
 echo
 echo "💡 To push to GitHub:"
 echo "   git remote add origin <YOUR_GITHUB_URL.git>"
