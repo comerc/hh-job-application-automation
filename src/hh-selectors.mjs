@@ -57,10 +57,12 @@ export const SELECTORS = {
  */
 export const URL_PATTERNS = {
   /**
-   * Search vacancy page with resume parameter
+   * Search vacancy page - matches any search page with or without specific parameters
    * @example https://hh.ru/search/vacancy?from=resumelist&resume=abc123
+   * @example https://hh.ru/search/vacancy?from=resumelist&order_by=salary_desc&work_format=REMOTE
+   * @example https://hh.ru/search/vacancy
    */
-  searchVacancy: /^https:\/\/hh\.ru\/search\/vacancy.*[?&]resume=/,
+  searchVacancy: /^https:\/\/hh\.ru\/search\/vacancy(\?|$)/,
 
   /**
    * Vacancy response page
