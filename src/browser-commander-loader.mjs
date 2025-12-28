@@ -19,35 +19,6 @@ import * as internalBrowserCommander from './browser-commander/index.js';
 import * as externalBrowserCommander from 'browser-commander';
 
 /**
- * Check if an error is a timeout error from selector waiting.
- * This function is provided as a fallback since it's not yet in the external package.
- * See: https://github.com/link-foundation/browser-commander/issues/9
- *
- * @param {Error} error - The error to check
- * @returns {boolean} - True if this is a timeout error
- */
-function isTimeoutErrorFallback(error) {
-  if (!error) return false;
-
-  // Check error name first (most reliable)
-  if (error.name === 'TimeoutError') return true;
-
-  // Check error message patterns (case-insensitive)
-  const message = (error.message || '').toLowerCase();
-  const timeoutErrorPatterns = [
-    'waiting for selector',
-    'timeout',
-    'timeouterror',
-    'timeout exceeded',
-    'timed out',
-  ];
-
-  return timeoutErrorPatterns.some(pattern =>
-    message.includes(pattern),
-  );
-}
-
-/**
  * Get browser-commander exports based on configuration
  *
  * @param {Object} options - Configuration options
@@ -60,18 +31,10 @@ export function getBrowserCommander(options = {}) {
   if (useExternal) {
     console.log('📦 Using external browser-commander package (npm)');
 
-    // Check if isTimeoutError is available in external package
-    const hasIsTimeoutError = typeof externalBrowserCommander.isTimeoutError === 'function';
-
     return {
       ...externalBrowserCommander,
-      // Provide fallback for isTimeoutError if not in external package
-      // This will be removed once https://github.com/link-foundation/browser-commander/issues/9 is resolved
-      isTimeoutError: hasIsTimeoutError
-        ? externalBrowserCommander.isTimeoutError
-        : isTimeoutErrorFallback,
       _source: 'external',
-      _externalVersion: '0.2.1', // Track which version we're using
+      _externalVersion: '0.3.0', // Track which version we're using
     };
   }
 

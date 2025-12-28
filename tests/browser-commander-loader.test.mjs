@@ -28,8 +28,7 @@ describe('Browser Commander Loader', () => {
     assert.ok(typeof commander.makeBrowserCommander === 'function', 'Should have makeBrowserCommander');
     assert.ok(typeof commander.launchBrowser === 'function', 'Should have launchBrowser');
     assert.ok(typeof commander.isNavigationError === 'function', 'Should have isNavigationError');
-    // isTimeoutError may be fallback or native
-    assert.ok(typeof commander.isTimeoutError === 'function', 'Should have isTimeoutError (fallback or native)');
+    assert.ok(typeof commander.isTimeoutError === 'function', 'Should have isTimeoutError');
   });
 
   test('getBrowserCommander with useExternal: false returns internal', () => {
@@ -75,11 +74,11 @@ describe('Browser Commander Loader', () => {
     });
   });
 
-  test('isTimeoutError fallback works correctly for external', () => {
+  test('isTimeoutError works correctly for external', () => {
     const external = loadBrowserCommander(true);
     const { isTimeoutError } = external;
 
-    // Test timeout error detection
+    // Test timeout error detection (using native implementation from v0.3.0+)
     const timeoutError = new Error('Waiting for selector failed');
     timeoutError.name = 'TimeoutError';
     assert.equal(isTimeoutError(timeoutError), true, 'Should detect TimeoutError');
@@ -112,6 +111,28 @@ describe('Browser Commander Loader - Internal vs External Parity', () => {
         `isNavigationError should match for: ${error?.message || 'null'}`);
       assert.equal(internalResult, expected,
         `isNavigationError should return ${expected} for: ${error?.message || 'null'}`);
+    });
+  });
+
+  test('Internal isTimeoutError matches external behavior', () => {
+    const internal = loadBrowserCommander(false);
+    const external = loadBrowserCommander(true);
+
+    const testCases = [
+      { error: (() => { const e = new Error('Timeout waiting for selector'); e.name = 'TimeoutError'; return e; })(), expected: true },
+      { error: new Error('Waiting for selector failed: timeout'), expected: true },
+      { error: new Error('Timeout exceeded'), expected: true },
+      { error: new Error('Regular error'), expected: false },
+      { error: null, expected: false },
+    ];
+
+    testCases.forEach(({ error, expected }) => {
+      const internalResult = internal.isTimeoutError(error);
+      const externalResult = external.isTimeoutError(error);
+      assert.equal(internalResult, externalResult,
+        `isTimeoutError should match for: ${error?.message || 'null'}`);
+      assert.equal(internalResult, expected,
+        `isTimeoutError should return ${expected} for: ${error?.message || 'null'}`);
     });
   });
 
