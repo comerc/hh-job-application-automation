@@ -8,11 +8,18 @@
  * 1. Parses CLI arguments
  * 2. Initializes browser and commander
  * 3. Creates and starts the orchestrator
+ *
+ * Supports --use-external-browser-commander flag to switch between
+ * internal ./src/browser-commander and external browser-commander npm package.
+ * See: https://github.com/konard/hh-job-application-automation/issues/144
  */
 
 import path from 'path';
 import { createQADatabase } from './qa-database.mjs';
-import { launchBrowser, makeBrowserCommander, isNavigationError, isTimeoutError } from './browser-commander/index.js';
+// Import error checkers from internal implementation for the catch block
+// These are also loaded dynamically in the main IIFE based on the flag
+import { isNavigationError, isTimeoutError } from './browser-commander/index.js';
+import { loadBrowserCommander } from './browser-commander-loader.mjs';
 import { handleVacancyResponsePage } from './vacancy-response.mjs';
 import { enableDebugLevel } from './logging.mjs';
 import { createConfig, getUserDataDir } from './config.mjs';
@@ -72,6 +79,17 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   // Enable debug logging if verbose mode is on
   if (argv.verbose) {
     enableDebugLevel();
+  }
+
+  // Load browser-commander (internal or external based on flag)
+  const browserCommander = loadBrowserCommander(argv.useExternalBrowserCommander);
+  const { launchBrowser, makeBrowserCommander } = browserCommander;
+
+  // Log which implementation is being used
+  if (browserCommander._source === 'external') {
+    console.log(`🔌 Browser commander source: external npm package (v${browserCommander._externalVersion || 'unknown'})`);
+  } else {
+    console.log('🔌 Browser commander source: internal ./src/browser-commander');
   }
 
   // Use message from config (already has default from config module)

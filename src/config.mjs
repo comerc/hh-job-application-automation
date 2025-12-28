@@ -90,6 +90,11 @@ export function createConfig() {
           description: 'Auto-submit vacancy response forms when all questions are answered (default: false for safety)',
           default: getenv('AUTO_SUBMIT_VACANCY_RESPONSE_FORM', false),
         })
+        .option('use-external-browser-commander', {
+          type: 'boolean',
+          description: 'Use external browser-commander package instead of internal ./src/browser-commander (for testing transition)',
+          default: getenv('USE_EXTERNAL_BROWSER_COMMANDER', false),
+        })
         .help(),
   });
 }
