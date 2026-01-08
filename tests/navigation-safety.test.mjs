@@ -3,7 +3,7 @@
  * Tests the withNavigationSafety higher-order function
  */
 import { describe, test, assert } from 'test-anywhere';
-import { isNavigationError, withNavigationSafety } from '../src/browser-commander/core/navigation-safety.js';
+import { isNavigationError, withNavigationSafety } from 'browser-commander';
 
 describe('isNavigationError', () => {
   test('Returns false for null/undefined', () => {

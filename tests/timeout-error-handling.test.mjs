@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { isTimeoutError } from '../src/browser-commander/index.js';
+import { isTimeoutError } from 'browser-commander';
 
 test('isTimeoutError: detects TimeoutError by name', () => {
   const error = new Error('Some timeout message');

@@ -7,7 +7,7 @@
  * Related to: Issue #118
  */
 
-import { isTimeoutError, isNavigationError } from '../src/browser-commander/index.js';
+import { isTimeoutError, isNavigationError } from 'browser-commander';
 
 console.log('=== Timeout Error Recovery Test ===\n');
 

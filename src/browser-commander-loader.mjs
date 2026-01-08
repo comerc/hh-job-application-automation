@@ -1,61 +1,38 @@
 /**
  * Browser Commander Loader
  *
- * This module provides a unified interface for loading browser-commander,
- * supporting both the internal ./browser-commander implementation and the
- * external browser-commander npm package.
- *
- * The choice is determined by the --use-external-browser-commander flag.
- *
- * Issue #144: Smooth transition to external browser-commander package
+ * This module provides a unified interface for loading browser-commander.
+ * Since issue #146, it exclusively uses the external browser-commander npm package.
  *
  * @module browser-commander-loader
  */
-
-// Import from internal implementation
-import * as internalBrowserCommander from './browser-commander/index.js';
 
 // Import from external package
 import * as externalBrowserCommander from 'browser-commander';
 
 /**
- * Get browser-commander exports based on configuration
+ * Get browser-commander exports
  *
- * @param {Object} options - Configuration options
- * @param {boolean} options.useExternal - If true, use external package; otherwise use internal
  * @returns {Object} - The browser-commander exports
  */
-export function getBrowserCommander(options = {}) {
-  const { useExternal = false } = options;
+export function getBrowserCommander() {
+  console.log('📦 Using external browser-commander package (npm)');
 
-  if (useExternal) {
-    console.log('📦 Using external browser-commander package (npm)');
-
-    return {
-      ...externalBrowserCommander,
-      _source: 'external',
-      _externalVersion: '0.3.0', // Track which version we're using
-    };
-  }
-
-  console.log('📦 Using internal browser-commander (./src/browser-commander)');
   return {
-    ...internalBrowserCommander,
-    _source: 'internal',
+    ...externalBrowserCommander,
+    _source: 'external',
   };
 }
 
 /**
- * Load browser-commander dynamically based on runtime configuration.
- * This is the recommended way to import browser-commander when the choice
- * needs to be made at runtime based on CLI arguments.
+ * Load browser-commander.
+ * This is the recommended way to import browser-commander.
  *
- * @param {boolean} useExternal - If true, use external package
  * @returns {Object} - The browser-commander module exports
  */
-export function loadBrowserCommander(useExternal) {
-  return getBrowserCommander({ useExternal });
+export function loadBrowserCommander() {
+  return getBrowserCommander();
 }
 
-// Re-export internal implementation for direct imports (default behavior)
-export * from './browser-commander/index.js';
+// Re-export external implementation for direct imports
+export * from 'browser-commander';
