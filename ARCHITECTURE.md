@@ -23,7 +23,6 @@ src/
 ├── config.mjs                # Configuration using lino-arguments
 ├── logging.mjs               # Logging using log-lazy
 ├── hh-selectors.mjs          # Centralized CSS selectors and URL patterns
-├── browser-commander-loader.mjs  # Loader for browser-commander package
 └── helpers/
     ├── modal-helpers.mjs     # Modal detection and closing helpers
     └── session-tracker.mjs   # Session storage tracking for button clicks
