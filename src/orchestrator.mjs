@@ -8,7 +8,7 @@
  * @see https://github.com/konard/hh-job-application-automation/issues/89
  */
 
-import { isNavigationError } from './browser-commander/index.js';
+import { isNavigationError } from 'browser-commander';
 import {
   handleLimitError,
   findAndProcessVacancyButton,

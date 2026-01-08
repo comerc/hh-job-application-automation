@@ -13,7 +13,7 @@
  * text selectors to valid CSS selectors using page.evaluate().
  */
 
-import { normalizeSelector, findByText } from '../src/browser-commander/elements/selectors.js';
+import { normalizeSelector, findByText } from 'browser-commander';
 
 // Mock a Playwright-like page object
 function createMockPlaywrightPage() {

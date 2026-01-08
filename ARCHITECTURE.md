@@ -6,7 +6,7 @@ This document describes the architecture of the HH.ru job application automation
 
 The system automates job applications on HH.ru (HeadHunter) using browser automation. It consists of two main layers:
 
-1. **browser-commander** - A generic browser automation library supporting Playwright and Puppeteer
+1. **[browser-commander](https://github.com/link-foundation/browser-commander)** - External npm package for generic browser automation supporting Playwright and Puppeteer
 2. **Application Layer** - HH.ru-specific automation logic
 
 ## Directory Structure
@@ -23,11 +23,9 @@ src/
 ├── config.mjs                # Configuration using lino-arguments
 ├── logging.mjs               # Logging using log-lazy
 ├── hh-selectors.mjs          # Centralized CSS selectors and URL patterns
-├── helpers/
-│   ├── modal-helpers.mjs     # Modal detection and closing helpers
-│   └── session-tracker.mjs   # Session storage tracking for button clicks
-└── browser-commander/        # Generic browser automation library
-    └── (see browser-commander/ARCHITECTURE.md)
+└── helpers/
+    ├── modal-helpers.mjs     # Modal detection and closing helpers
+    └── session-tracker.mjs   # Session storage tracking for button clicks
 ```
 
 ## Component Architecture
@@ -111,7 +109,7 @@ src/
 - **Entry Point** (`apply.mjs`): Only CLI parsing and initialization
 - **Coordination** (`orchestrator.mjs`): State management, no business logic
 - **Business Logic**: Distributed across `vacancies.mjs`, `vacancy-response.mjs`
-- **Infrastructure**: `browser-commander`, `logging.mjs`, `config.mjs`
+- **Infrastructure**: `browser-commander` (npm package), `logging.mjs`, `config.mjs`
 
 ### Single Source of Truth
 - **Selectors**: All CSS selectors in `hh-selectors.mjs`
@@ -176,8 +174,8 @@ Q&A pairs stored in Links Notation format (`data/qa.lino`):
 
 ## Related Documentation
 
-- [browser-commander Architecture](./src/browser-commander/ARCHITECTURE.md)
-- [Browser Commander README](./src/browser-commander/README.md)
+- [browser-commander on npm](https://www.npmjs.com/package/browser-commander)
+- [browser-commander on GitHub](https://github.com/link-foundation/browser-commander)
 
 ## Future Improvements
 

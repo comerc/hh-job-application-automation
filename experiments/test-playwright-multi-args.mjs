@@ -13,7 +13,7 @@
  * and then spreads the arguments correctly.
  */
 
-import { PlaywrightAdapter, PuppeteerAdapter } from '../src/browser-commander/core/engine-adapter.js';
+import { PlaywrightAdapter, PuppeteerAdapter } from 'browser-commander';
 
 // Mock a Playwright-like page object
 function createMockPlaywrightPage() {

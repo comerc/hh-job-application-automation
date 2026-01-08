@@ -3,7 +3,7 @@
  * Handles finding and clicking "Откликнуться" buttons in vacancy lists
  */
 
-import { isNavigationError } from './browser-commander/index.js';
+import { isNavigationError } from 'browser-commander';
 import { countUnansweredQuestions } from './qa.mjs';
 import { closeModalIfPresent, checkAndCloseDirectApplicationModal } from './helpers/modal-helpers.mjs';
 import { SELECTORS } from './hh-selectors.mjs';

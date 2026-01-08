@@ -10,7 +10,7 @@
  * @see https://github.com/konard/hh-job-application-automation/issues/89
  */
 
-import { isNavigationError } from './browser-commander/index.js';
+import { isNavigationError } from 'browser-commander';
 import { log } from './logging.mjs';
 import { createApplyButtonTracker } from './helpers/session-tracker.mjs';
 import { URL_PATTERNS } from './hh-selectors.mjs';

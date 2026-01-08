@@ -13,7 +13,7 @@
  * @see https://github.com/konard/hh-job-application-automation/issues/89
  */
 
-import { makeUrlCondition } from './browser-commander/index.js';
+import { makeUrlCondition } from 'browser-commander';
 import { saveQAPairs } from './vacancy-response.mjs';
 import { log } from './logging.mjs';
 import { createApplyButtonTracker } from './helpers/session-tracker.mjs';

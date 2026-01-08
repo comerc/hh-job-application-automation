@@ -16,7 +16,7 @@ import {
 import { findBestMatch } from './qa-database.mjs';
 import { log } from './logging.mjs';
 import { SELECTORS } from './hh-selectors.mjs';
-import { isNavigationError, isTimeoutError } from './browser-commander/index.js';
+import { isNavigationError, isTimeoutError } from 'browser-commander';
 
 /**
  * Setup Q&A auto-fill and auto-save for all textareas and radio buttons on the page

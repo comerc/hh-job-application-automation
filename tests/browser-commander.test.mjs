@@ -18,7 +18,7 @@ import {
   allConditions,
   anyCondition,
   notCondition,
-} from '../src/browser-commander/index.js';
+} from 'browser-commander';
 
 // ==================== MOCK HELPERS ====================
 
