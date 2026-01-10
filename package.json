@@ -14,21 +14,19 @@
     "puppeteer": "bun src/apply.mjs --engine puppeteer",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "check": "bun run lint && bun test && bun src/apply.mjs --help > /dev/null",
-    "postinstall": "patch-package"
+    "check": "bun run lint && bun test && bun src/apply.mjs --help > /dev/null"
   },
   "keywords": [],
   "author": "",
   "license": "UNLICENSE",
   "devDependencies": {
     "eslint": "^9.39.0",
-    "patch-package": "^8.0.1",
     "playwright": "^1.56.1",
     "puppeteer": "^24.27.0",
     "yargs": "^18.0.0"
   },
   "dependencies": {
-    "browser-commander": "^0.3.0",
+    "browser-commander": "^0.5.3",
     "links-notation": "^0.11.2",
     "lino-arguments": "^0.2.1",
     "log-lazy": "^1.0.4",
