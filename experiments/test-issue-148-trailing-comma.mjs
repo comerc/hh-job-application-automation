@@ -6,7 +6,7 @@
  */
 
 import playwright from 'playwright';
-import { createEngineAdapter, evaluate, safeEvaluate } from 'browser-commander';
+import { createEngineAdapter } from 'browser-commander';
 
 async function runTest() {
   console.log('Starting experiment for Issue #148...\n');
@@ -44,7 +44,7 @@ async function runTest() {
         const elements = document.querySelectorAll(baseSelector);
         return elements.length;
       },
-      { baseSelector: testSelector, processedIds: testIds }
+      { baseSelector: testSelector, processedIds: testIds },
     );
     console.log(`✅ Direct evaluate with object arg succeeded: ${result1} elements found\n`);
   } catch (error) {
@@ -65,7 +65,7 @@ async function runTest() {
         const elements = document.querySelectorAll(baseSelector);
         return elements.length;
       },
-      [testSelector, testIds]
+      [testSelector, testIds],
     );
     console.log(`✅ Adapter evaluateOnPage succeeded: ${result2} elements found\n`);
   } catch (error) {
@@ -76,20 +76,16 @@ async function runTest() {
   console.log('=========================================');
 
   try {
-    const result3 = await safeEvaluate({
-      page,
-      engine: 'playwright',
-      fn: (baseSelector, processedIds) => {
+    const result3 = await adapter.evaluateOnPage(
+      (baseSelector, _processedIds) => {
         console.log('[Browser] baseSelector:', baseSelector);
         console.log('[Browser] typeof baseSelector:', typeof baseSelector);
         const elements = document.querySelectorAll(baseSelector);
         return elements.length;
       },
-      args: [testSelector, testIds],
-      defaultValue: null,
-      operationName: 'test selector query',
-    });
-    console.log(`✅ safeEvaluate succeeded: ${result3.value} elements found\n`);
+      [testSelector, testIds],
+    );
+    console.log(`✅ safeEvaluate succeeded: ${result3} elements found\n`);
   } catch (error) {
     console.log(`❌ safeEvaluate failed: ${error.message}\n`);
   }
@@ -109,7 +105,7 @@ async function runTest() {
         const elements = document.querySelectorAll(sel);
         return elements.length;
       },
-      selectorAsArray.toString()
+      selectorAsArray.toString(),
     );
     console.log('✅ Array.toString() selector succeeded (single element)\n');
   } catch (error) {
@@ -137,12 +133,12 @@ async function runTest() {
         const elements = document.querySelectorAll(arg);
         return elements.length;
       },
-      nestedArgs  // This is [[selector, ids]] - notice it's double-nested
+      nestedArgs,  // This is [[selector, ids]] - notice it's double-nested
     );
     console.log(`✅ Nested args succeeded: ${result5} elements found\n`);
   } catch (error) {
     console.log(`❌ Nested args failed: ${error.message}`);
-    console.log(`   This error pattern matches Issue #148!\n`);
+    console.log('   This error pattern matches Issue #148!\n');
   }
 
   console.log('Test 6: Simulate exact error scenario');
@@ -159,7 +155,7 @@ async function runTest() {
         const elements = document.querySelectorAll(sel);
         return elements.length;
       },
-      brokenSelector
+      brokenSelector,
     );
     console.log('✅ Surprisingly, comma-ending selector worked?\n');
   } catch (error) {
@@ -174,8 +170,8 @@ async function runTest() {
   // Array with two elements where second is empty array gives "element,"
   console.log(`[testSelector, []].toString() = "${[testSelector, []].toString()}"`);
   // That's it! If args [selector, []] is passed as a single arg and gets .toString()
-  console.log(`\n⭐ FOUND IT: [selector, []].toString() produces "selector,"`);
-  console.log(`   This happens if the args array is coerced to string!`);
+  console.log('\n⭐ FOUND IT: [selector, []].toString() produces "selector,"');
+  console.log('   This happens if the args array is coerced to string!');
 
   await browser.close();
   console.log('\n✅ Experiment completed');

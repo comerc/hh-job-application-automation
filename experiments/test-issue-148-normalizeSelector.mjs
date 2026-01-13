@@ -65,7 +65,7 @@ async function runTest() {
     const normalized3 = await normalizeSelector({
       page,
       engine: 'playwright',
-      selector: ['[data-qa="test"]', []]  // This would be wrong
+      selector: ['[data-qa="test"]', []],  // This would be wrong
     });
     console.log(`normalizeSelector result: ${JSON.stringify(normalized3)}`);
   } catch (e) {
@@ -88,7 +88,7 @@ async function runTest() {
   console.log(`findByText result: "${selector4}"`);
 
   // Simulate navigation by changing page content
-  await page.setContent(`<html><body><p>Page changed!</p></body></html>`);
+  await page.setContent('<html><body><p>Page changed!</p></body></html>');
 
   try {
     const normalized4 = await normalizeSelector({ page, engine: 'playwright', selector: selector4 });

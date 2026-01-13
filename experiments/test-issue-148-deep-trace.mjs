@@ -51,14 +51,14 @@ async function runTest() {
   console.log('\n1b. What if the fn expects two args but only gets one?');
   try {
     // This simulates what could happen if args.length is wrong
-    const result = await page.evaluate((baseSelector, ids) => {
+    const result = await page.evaluate((baseSelector, _ids) => {
       console.log('baseSelector:', baseSelector);
-      console.log('ids:', ids);
+      console.log('_ids:', _ids);
       return {
         baseSelector: baseSelector,
         baseType: typeof baseSelector,
         isArray: Array.isArray(baseSelector),
-        ids: ids
+        ids: _ids,
       };
     }, [normalizedSelector, processedIds]); // Single array arg!
     console.log(`Result: ${JSON.stringify(result)}`);
@@ -69,7 +69,7 @@ async function runTest() {
 
   console.log('\n1c. What happens when that array is passed to querySelectorAll?');
   try {
-    const result = await page.evaluate((baseSelector, ids) => {
+    const result = await page.evaluate((baseSelector, _ids) => {
       // baseSelector is now an array, not a string!
       // When we call querySelectorAll, it will convert to string
       console.log('baseSelector:', baseSelector);
@@ -86,14 +86,14 @@ async function runTest() {
   console.log('\n\nTest 2: Simulating PlaywrightAdapter.evaluateOnPage');
   console.log('=======================================');
 
-  const fn = (baseSelector, alreadyProcessedIds) => {
+  const fn = (baseSelector, _alreadyProcessedIds) => {
     const allButtons = document.querySelectorAll(baseSelector);
     return { count: allButtons.length };
   };
   const args = [normalizedSelector, processedIds];
 
   console.log(`args.length: ${args.length}`);
-  console.log(`Expecting to use multi-arg branch (args.length > 1)`);
+  console.log('Expecting to use multi-arg branch (args.length > 1)');
 
   // Multi-arg branch code from browser-commander
   console.log('\n2a. Multi-arg branch (correct implementation from v0.5.3):');
@@ -104,7 +104,7 @@ async function runTest() {
         const reconstructedFn = new Function(`return (${fnStr})`)();
         return reconstructedFn(...argsArray);
       },
-      { fnStr: fnString, argsArray: args }
+      { fnStr: fnString, argsArray: args },
     );
     console.log(`✅ Success: ${JSON.stringify(result)}`);
   } catch (error) {
@@ -145,7 +145,7 @@ async function runTest() {
           const reconstructedFn = new Function(`return (${fnStr})`)();
           return reconstructedFn(...argsArray);
         },
-        { fnStr: fnString, argsArray: args }
+        { fnStr: fnString, argsArray: args },
       );
     }
   }

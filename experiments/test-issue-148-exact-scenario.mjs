@@ -38,7 +38,7 @@ async function runTest() {
   const baseButtonSelector = await findByText({
     engine,
     text: 'Откликнуться',
-    selector: 'a'
+    selector: 'a',
   });
 
   console.log(`baseButtonSelector: ${baseButtonSelector}`);
@@ -50,7 +50,7 @@ async function runTest() {
   const normalizedSelector = await normalizeSelector({
     page,
     engine,
-    selector: baseButtonSelector
+    selector: baseButtonSelector,
   });
 
   console.log(`normalizedSelector: ${normalizedSelector}`);
@@ -75,12 +75,12 @@ async function runTest() {
         return {
           totalButtons: allButtons.length,
           baseSelector: baseSelector,
-          typeof: typeof baseSelector
+          typeof: typeof baseSelector,
         };
       },
       args: [normalizedSelector, processedIds],
       defaultValue: null,
-      operationName: 'find unprocessed vacancy button'
+      operationName: 'find unprocessed vacancy button',
     });
 
     console.log(`✅ Success! Result: ${JSON.stringify(result.value)}`);
@@ -104,12 +104,12 @@ async function runTest() {
         const allButtons = document.querySelectorAll(baseSelector);
         return {
           totalButtons: allButtons.length,
-          processedCount: alreadyProcessedIds.length
+          processedCount: alreadyProcessedIds.length,
         };
       },
       args: [normalizedSelector, processedIdsWithValues],
       defaultValue: null,
-      operationName: 'find unprocessed vacancy button with filled ids'
+      operationName: 'find unprocessed vacancy button with filled ids',
     });
 
     console.log(`✅ Success! Result: ${JSON.stringify(result.value)}`);
@@ -130,7 +130,7 @@ async function runTest() {
       (sel, ids) => {
         return { sel, ids: ids.length };
       },
-      [normalizedSelector, processedIds]
+      [normalizedSelector, processedIds],
     );
     console.log(`✅ Correct call succeeded: ${JSON.stringify(result)}`);
   } catch (error) {
@@ -144,7 +144,7 @@ async function runTest() {
       (sel, ids) => {
         return { sel, ids };
       },
-      [[normalizedSelector, processedIds]]  // BUG: extra wrapping
+      [[normalizedSelector, processedIds]],  // BUG: extra wrapping
     );
     console.log(`✅ Buggy call succeeded: ${JSON.stringify(result)}`);
     console.log('   Notice: sel is now an array, not a string!');
@@ -157,14 +157,14 @@ async function runTest() {
   console.log('\nBuggy call with querySelectorAll:');
   try {
     const result = await adapter.evaluateOnPage(
-      (sel, ids) => {
+      (sel, _ids) => {
         // sel is now an array because of the extra wrapping
         // When passed to querySelectorAll, array.toString() converts it
         console.log('In browser - sel:', sel, 'type:', typeof sel, 'isArray:', Array.isArray(sel));
         const elements = document.querySelectorAll(sel);
         return elements.length;
       },
-      [[normalizedSelector, processedIds]]  // BUG: extra wrapping
+      [[normalizedSelector, processedIds]],  // BUG: extra wrapping
     );
     console.log(`✅ Buggy querySelectorAll succeeded: ${result}`);
   } catch (error) {

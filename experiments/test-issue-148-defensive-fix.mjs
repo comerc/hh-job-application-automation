@@ -41,7 +41,7 @@ async function runTest() {
           const reconstructedFn = new Function(`return (${fnStr})`)();
           return reconstructedFn(...argsArray);
         },
-        { fnStr: fnString, argsArray: args }
+        { fnStr: fnString, argsArray: args },
       );
     }
   }
@@ -60,12 +60,12 @@ async function runTest() {
           const reconstructedFn = new Function(`return (${fnStr})`)();
           return reconstructedFn(...argsArray);
         },
-        { fnStr: fnString, argsArray: args }
+        { fnStr: fnString, argsArray: args },
       );
     }
   }
 
-  const testFn = (baseSelector, processedIds) => {
+  const testFn = (baseSelector, _processedIds) => {
     const elements = document.querySelectorAll(baseSelector);
     return { count: elements.length, selectorType: typeof baseSelector };
   };
