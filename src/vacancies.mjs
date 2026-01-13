@@ -379,6 +379,15 @@ async function findVacancyButton({ commander }) {
     return { selector: null, count: 0, status: 'no_buttons_found' };
   }
 
+  // DEFENSIVE: Validate selector is a string to prevent Issue #148
+  // See docs/case-studies/issue-148/case-study.md for details
+  if (typeof normalizedSelector !== 'string') {
+    console.error(`❌ Invalid selector type from normalizeSelector: ${typeof normalizedSelector}`);
+    console.error(`   Value: ${JSON.stringify(normalizedSelector)}`);
+    console.error('   This may indicate a bug in browser-commander or a race condition.');
+    return { selector: null, count: 0, status: 'invalid_selector' };
+  }
+
   // Get the list of already processed vacancy IDs to pass to the browser context
   const processedIds = Array.from(processedVacancyIds);
 
