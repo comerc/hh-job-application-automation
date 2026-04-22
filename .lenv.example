@@ -48,3 +48,7 @@
 # Auto-submit vacancy response forms when all questions are answered
 # Default: false (manual review recommended for safety)
 # AUTO_SUBMIT_VACANCY_RESPONSE_FORM: true
+
+# Skip vacancies that require questionnaire fields beyond the cover letter
+# Default: false
+# IGNORE_VACANCIES_WITH_QUESTIONNAIRE: true

@@ -117,6 +117,16 @@ bun run apply -- --auto-submit-vacancy-response-form --verbose
 
 **Safety Note:** The default behavior (manual review) is recommended to ensure test answers are correct before submission.
 
+### Ignore Questionnaire Vacancies
+
+If you want to skip vacancies that require any additional questionnaire fields beyond the cover letter, use:
+
+```bash
+bun run apply -- --ignore-vacancies-with-questionnaire --verbose
+```
+
+This works for both modal response forms and full `vacancy_response` pages. The vacancy will be skipped as soon as the script detects extra questionnaire fields.
+
 ### Using Playwright (default)
 
 Using bun script (with verbose logging for debugging):

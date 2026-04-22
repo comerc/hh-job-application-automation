@@ -15,7 +15,7 @@ import { makeConfig } from 'lino-arguments';
 /**
  * Default cover letter message
  */
-const DEFAULT_MESSAGE = ``;
+const DEFAULT_MESSAGE = '';
 
 function loadMessageFromFile(filePath) {
   if (!filePath) {
@@ -90,6 +90,11 @@ export function createConfig() {
           type: 'boolean',
           description: 'Auto-submit vacancy response forms when all questions are answered (default: false for safety)',
           default: getenv('AUTO_SUBMIT_VACANCY_RESPONSE_FORM', false),
+        })
+        .option('ignore-vacancies-with-questionnaire', {
+          type: 'boolean',
+          description: 'Skip vacancies that require additional questionnaire fields beyond the cover letter',
+          default: getenv('IGNORE_VACANCIES_WITH_QUESTIONNAIRE', false),
         })
         .help(),
   });

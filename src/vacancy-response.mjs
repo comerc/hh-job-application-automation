@@ -422,6 +422,8 @@ export async function handleVacancyResponsePage({
   readQADatabase,
   addOrUpdateQA,
   autoSubmitEnabled,
+  ignoreVacanciesWithQuestionnaire,
+  returnUrl,
   verbose,
 }) {
   try {
@@ -559,6 +561,16 @@ export async function handleVacancyResponsePage({
     // Check if there are test questions
     const hasTestQuestions = testQuestionStats.totalCount > 0 || textareaCount > 1;
     const hasUnansweredQuestions = testQuestionStats.unansweredCount > 0;
+
+    if (ignoreVacanciesWithQuestionnaire && hasTestQuestions) {
+      console.log('⚠️  Detected questionnaire fields on vacancy_response page');
+      console.log('💡 --ignore-vacancies-with-questionnaire is enabled, skipping this vacancy');
+
+      const destinationUrl = returnUrl || 'https://hh.ru/search/vacancy?from=resumelist';
+      console.log(`Returning to: ${destinationUrl}`);
+      await commander.goto({ url: destinationUrl, waitForStableUrlBefore: false });
+      return;
+    }
 
     log.debug(() => `hasTestQuestions=${hasTestQuestions} (radioCheckbox=${testQuestionStats.totalCount}, textareas=${textareaCount})`);
     log.debug(() => `hasUnansweredQuestions=${hasUnansweredQuestions}`);

@@ -166,6 +166,7 @@ export function createOrchestrator({
   vacancyPagePattern,
   BUTTON_CLICK_INTERVAL,
   handleVacancyResponsePageWrapper,
+  onSearchPageUrlChange = () => {},
 }) {
   // State variables
   // Note: Most state is now managed by pageTriggers in page-triggers.mjs
@@ -182,7 +183,10 @@ export function createOrchestrator({
   const getIsNavigating = () => isNavigating;
   const setIsNavigating = (value) => { isNavigating = value; };
   const getLastSearchPageUrl = () => lastSearchPageUrl;
-  const setLastSearchPageUrl = (value) => { lastSearchPageUrl = value; };
+  const setLastSearchPageUrl = (value) => {
+    lastSearchPageUrl = value;
+    onSearchPageUrlChange(value);
+  };
 
   // Create waitForUrlCondition function
   const waitForUrlCondition = createWaitForUrlCondition({
@@ -337,6 +341,7 @@ export function createOrchestrator({
         const result = await findAndProcessVacancyButton({
           commander,
           MESSAGE,
+          ignoreVacanciesWithQuestionnaire: argv.ignoreVacanciesWithQuestionnaire,
           targetPagePattern,
           vacancyResponsePattern,
           handleVacancyResponsePage: handleVacancyResponsePageWrapper,
@@ -393,7 +398,7 @@ export function createOrchestrator({
 
           console.log(
             `Waiting ${totalWaitMs / 1000} seconds before processing next button ` +
-            `(base ${BUTTON_CLICK_INTERVAL / 1000}s + random ${randomExtraDelaySeconds}s)...`
+            `(base ${BUTTON_CLICK_INTERVAL / 1000}s + random ${randomExtraDelaySeconds}s)...`,
           );
 
           const intervalWait = await commander.wait({
