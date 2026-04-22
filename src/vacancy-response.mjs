@@ -344,6 +344,30 @@ async function findSubmitButton({ commander }) {
 }
 
 /**
+ * Find the special "Откликнуться без теста" button if present
+ * @param {Object} options
+ * @param {Object} options.commander - Browser commander instance
+ * @returns {Promise<string | null>}
+ */
+async function findSubmitWithoutTestButton({ commander }) {
+  const elementTypes = ['button', 'a'];
+
+  for (const elementType of elementTypes) {
+    const selector = await commander.findByText({
+      text: 'Откликнуться без теста',
+      selector: elementType,
+    });
+    const count = await commander.count({ selector });
+    if (count > 0) {
+      console.log(`Found special submit button "Откликнуться без теста" (${elementType})`);
+      return selector;
+    }
+  }
+
+  return null;
+}
+
+/**
  * Get submit button state
  * @param {Object} options
  * @param {Object} options.commander - Browser commander instance
@@ -537,6 +561,19 @@ export async function handleVacancyResponsePage({
       console.log(`Prefilled cover letter message into: ${textareaSelector}`);
     } else {
       console.log('Cover letter already contains text, skipping prefill');
+    }
+
+    const submitWithoutTestSelector = await findSubmitWithoutTestButton({ commander });
+    if (submitWithoutTestSelector) {
+      console.log('Using special "Откликнуться без теста" flow');
+      await commander.clickButton({
+        selector: submitWithoutTestSelector,
+        scrollIntoView: true,
+        smoothScroll: true,
+      });
+      console.log('Clicked "Откликнуться без теста" button');
+      await commander.wait({ ms: 2000, reason: 'submit without test to complete' });
+      return;
     }
 
     // Count textareas
