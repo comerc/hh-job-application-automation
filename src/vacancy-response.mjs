@@ -350,18 +350,11 @@ async function findSubmitButton({ commander }) {
  * @returns {Promise<string | null>}
  */
 async function findSubmitWithoutTestButton({ commander }) {
-  const elementTypes = ['button', 'a'];
-
-  for (const elementType of elementTypes) {
-    const selector = await commander.findByText({
-      text: 'Откликнуться без теста',
-      selector: elementType,
-    });
-    const count = await commander.count({ selector });
-    if (count > 0) {
-      console.log(`Found special submit button "Откликнуться без теста" (${elementType})`);
-      return selector;
-    }
+  const directSelector = SELECTORS.submitButtonWithoutQuestions;
+  const directCount = await commander.count({ selector: directSelector });
+  if (directCount > 0) {
+    console.log('Found special submit button "Откликнуться без теста" by data-qa selector');
+    return directSelector;
   }
 
   return null;
@@ -468,10 +461,12 @@ export async function handleVacancyResponsePage({
       return;
     }
 
+    const submitWithoutTestSelector = await findSubmitWithoutTestButton({ commander });
+
     if (ignoreVacanciesWithQuestionnaire) {
       const questionnaireFields = await extractPageQuestions({ evaluate: commander.evaluate });
 
-      if (questionnaireFields.length > 0) {
+      if (questionnaireFields.length > 0 && !submitWithoutTestSelector) {
         console.log(`⚠️  Detected ${questionnaireFields.length} questionnaire field(s) on vacancy_response page`);
         console.log('💡 --ignore-vacancies-with-questionnaire is enabled, skipping this vacancy');
 
@@ -479,6 +474,11 @@ export async function handleVacancyResponsePage({
         console.log(`Returning to: ${destinationUrl}`);
         await commander.goto({ url: destinationUrl, waitForStableUrlBefore: false });
         return;
+      }
+
+      if (questionnaireFields.length > 0 && submitWithoutTestSelector) {
+        console.log('Detected questionnaire fields, but "Откликнуться без теста" is available');
+        console.log('Using the special no-questions submit path instead of skipping');
       }
     }
 
@@ -563,7 +563,6 @@ export async function handleVacancyResponsePage({
       console.log('Cover letter already contains text, skipping prefill');
     }
 
-    const submitWithoutTestSelector = await findSubmitWithoutTestButton({ commander });
     if (submitWithoutTestSelector) {
       console.log('Using special "Откликнуться без теста" flow');
       await commander.clickButton({
