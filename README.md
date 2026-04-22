@@ -69,11 +69,15 @@ The application supports configuration via `.lenv` files using the [lino-argumen
    # Enable verbose logging by default
    VERBOSE: true
 
-   # Set custom interval between applications
+   # Set base interval between applications
+   # The app also adds a random 1-5 second delay
    JOB_APPLICATION_INTERVAL: 30
 
    # Set your resume URL
    START_URL: https://hh.ru/search/vacancy?resume=YOUR_RESUME_ID&from=resumelist
+
+   # Load a multi-line application message from a UTF-8 text file
+   MESSAGE_FILE: ./message.txt
    ```
 
 3. Run the application (it will automatically load `.lenv`):
@@ -141,6 +145,12 @@ With custom message:
 
 ```bash
 bun run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --message "Your custom application message here" --verbose
+```
+
+With multi-line message from file:
+
+```bash
+bun run apply -- --url "https://hh.ru/search/vacancy?resume=80d55a81ff0171bfa80039ed1f743266675357&from=resumelist" --manual-login --job-application-interval 5 --message-file ./message.txt --verbose
 ```
 
 Direct execution:
