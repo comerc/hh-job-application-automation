@@ -444,6 +444,20 @@ export async function handleVacancyResponsePage({
       return;
     }
 
+    if (ignoreVacanciesWithQuestionnaire) {
+      const questionnaireFields = await extractPageQuestions({ evaluate: commander.evaluate });
+
+      if (questionnaireFields.length > 0) {
+        console.log(`⚠️  Detected ${questionnaireFields.length} questionnaire field(s) on vacancy_response page`);
+        console.log('💡 --ignore-vacancies-with-questionnaire is enabled, skipping this vacancy');
+
+        const destinationUrl = returnUrl || 'https://hh.ru/search/vacancy?from=resumelist';
+        console.log(`Returning to: ${destinationUrl}`);
+        await commander.goto({ url: destinationUrl, waitForStableUrlBefore: false });
+        return;
+      }
+    }
+
     // Log all textareas for debugging
     log.debug(() => 'About to count textareas');
     const initialCount = await commander.count({ selector: 'textarea' });
